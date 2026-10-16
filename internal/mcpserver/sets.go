@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -249,6 +250,9 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		}
 		if len(inputs) > 0 {
 			if _, err := s.st.AddTasks(ctx, st.ID, inputs); err != nil {
+				if delErr := s.st.DeleteSet(ctx, st.ID); delErr != nil {
+					slog.ErrorContext(ctx, "removing set after failed add", "set", st.ID, "err", delErr)
+				}
 				return WriteResult{}, err
 			}
 		}
