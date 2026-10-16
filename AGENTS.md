@@ -26,13 +26,13 @@ nix flake check
 - `internal/mcpserver`: tools; every write goes through `prepare` (NFC + lint) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
-- `internal/session`: `kena_session` cookie, login, Origin/Referer check; shared by `web` and `oauth` (oauth must not import web).
+- `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
 - `internal/web`: templates, htmx, `kena_device` cookie, cards/list modes, login and account pages. Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
 - Answers never reach the browser before an attempt; checking is server-side.
-- State-changing web and authorize POSTs go through `session.SameOrigin`.
+- State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
 - MCP tool errors the model should see are returned as Go errors from handlers (the SDK then omits structuredContent).
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

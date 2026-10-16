@@ -58,7 +58,7 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
-	if err := h.st.MergeAttempts(r.Context(), deviceID(r), u.ProgressID); err != nil {
+	if err := h.st.MergeAttempts(r.Context(), deviceID(r), u.ProgressID); err != nil && !errors.Is(err, store.ErrForbidden) {
 		h.serverError(w, r, err)
 		return
 	}
@@ -186,7 +186,7 @@ func (h *handler) changePassphrase(w http.ResponseWriter, r *http.Request, u sto
 			h.serverError(w, r, err)
 			return
 		}
-		time.Sleep(session.FailDelay)
+		session.Sleep(ctx, session.FailDelay)
 		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: "Current passphrase is wrong."})
 		return
 	}

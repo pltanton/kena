@@ -282,3 +282,82 @@ func TestRevokeUserToken(t *testing.T) {
 		t.Fatalf("token still valid: %v", err)
 	}
 }
+
+func TestSetPasswordDeletesPendingCodes(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	u, _ := s.CreateUser(ctx, "maria", false)
+	other, _ := s.CreateUser(ctx, "nina", false)
+	code := store.AuthCode{ClientID: "kc", RedirectURI: "https://a.example/cb", CodeChallenge: "x", ExpiresAt: time.Now().Add(time.Hour)}
+	code.UserID = u.ID
+	if err := s.SaveCode(ctx, "code-maria", code); err != nil {
+		t.Fatal(err)
+	}
+	code.UserID = other.ID
+	if err := s.SaveCode(ctx, "code-nina", code); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPassword(ctx, u.ID, "olive-tiger-harbor-seven", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ConsumeCode(ctx, "code-maria"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("code survives passphrase change: %v", err)
+	}
+	if _, err := s.ConsumeCode(ctx, "code-nina"); err != nil {
+		t.Errorf("another user's code deleted: %v", err)
+	}
+}
+
+func TestMergeAttemptsRefusesProgressIDSource(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	task := newTaskForAttempts(ctx, t, s, "owner")
+	victim, _ := s.CreateUser(ctx, "victim", false)
+	thief, _ := s.CreateUser(ctx, "thief", false)
+	if err := s.RecordAttempt(ctx, victim.ProgressID, task.ID, []string{"τρέχω"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MergeAttempts(ctx, victim.ProgressID, thief.ProgressID); !errors.Is(err, store.ErrForbidden) {
+		t.Fatalf("merge from a progress id: err = %v", err)
+	}
+	if got, _ := s.LastResults(ctx, victim.ProgressID, task.SetID); len(got) != 1 {
+		t.Fatalf("victim's attempts moved: %v", got)
+	}
+}
+
+func TestPurgeExpired(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	u, _ := s.CreateUser(ctx, "maria", false)
+	live, _ := s.CreateSession(ctx, u.ID, time.Hour)
+	if _, err := s.CreateSession(ctx, u.ID, -time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	code := store.AuthCode{UserID: u.ID, ClientID: "kc", RedirectURI: "https://a.example/cb", CodeChallenge: "x"}
+	code.ExpiresAt = time.Now().Add(-48 * time.Hour)
+	s.SaveCode(ctx, "old", code)
+	code.ExpiresAt = time.Now().Add(-time.Minute)
+	s.SaveCode(ctx, "recent", code)
+	code.ExpiresAt = time.Now().Add(time.Hour)
+	s.SaveCode(ctx, "fresh", code)
+	s.SaveCode(ctx, "used-long-ago", code)
+	if _, err := s.Pool().Exec(ctx, `UPDATE oauth_codes SET used_at = now() - interval '2 days' WHERE code_hash = $1`, store.HashSecret("used-long-ago")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.PurgeExpired(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var sessions, codes int
+	s.Pool().QueryRow(ctx, `SELECT count(*) FROM sessions`).Scan(&sessions)
+	s.Pool().QueryRow(ctx, `SELECT count(*) FROM oauth_codes`).Scan(&codes)
+	if sessions != 1 || codes != 2 {
+		t.Fatalf("after purge: %d sessions, %d codes; want 1, 2", sessions, codes)
+	}
+	if _, err := s.UserBySession(ctx, live); err != nil {
+		t.Fatal("live session purged")
+	}
+	if _, err := s.ConsumeCode(ctx, "fresh"); err != nil {
+		t.Fatal("fresh code purged")
+	}
+}

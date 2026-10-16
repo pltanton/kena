@@ -57,12 +57,21 @@ func Validate(p string) error {
 
 var b64 = base64.RawStdEncoding
 
+// Each hash holds memoryKiB of RAM; the bound keeps a burst of logins from exhausting a small host.
+var slots = make(chan struct{}, 4)
+
+func idKey(p string, salt []byte, t, m uint32, par uint8, n uint32) []byte {
+	slots <- struct{}{}
+	defer func() { <-slots }()
+	return argon2.IDKey([]byte(p), salt, t, m, par, n)
+}
+
 func Hash(p string) (string, error) {
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generating salt: %w", err)
 	}
-	key := argon2.IDKey([]byte(p), salt, timeCost, memoryKiB, threads, keyLen)
+	key := idKey(p, salt, timeCost, memoryKiB, threads, keyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, memoryKiB, timeCost, threads, b64.EncodeToString(salt), b64.EncodeToString(key)), nil
 }
@@ -72,7 +81,7 @@ func Verify(p, encoded string) bool {
 	if err != nil {
 		return false
 	}
-	got := argon2.IDKey([]byte(p), salt, t, m, par, uint32(len(key)))
+	got := idKey(p, salt, t, m, par, uint32(len(key)))
 	return subtle.ConstantTimeCompare(got, key) == 1
 }
 

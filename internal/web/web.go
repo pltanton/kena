@@ -77,17 +77,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 		files.ServeHTTP(w, r)
 	}))
 	mux.HandleFunc("/", h.notFound)
-	return h.withDevice(h.sameOrigin(mux))
-}
-
-func (h *handler) sameOrigin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && !session.SameOrigin(r, h.publicURL) {
-			http.Error(w, "Cross-site request rejected.", http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	return h.withDevice(session.CrossOrigin(publicURL).Handler(mux))
 }
 
 type (
@@ -431,6 +421,8 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 	if r.Method == http.MethodGet && r.URL.Path != "/" && r.URL.Path != "/login" {
 		ld.LoginURL = "/login?" + url.Values{"next": {r.URL.RequestURI()}}.Encode()
 	}
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 	h.render(w, r, status, h.pages[page], "layout", ld)
 }
 

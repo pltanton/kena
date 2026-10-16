@@ -392,6 +392,10 @@ func TestAuthorizeRejectsCrossSitePost(t *testing.T) {
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("same-origin allow: status %d", resp.StatusCode)
 	}
+	resp, _ = e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, e.ts.URL)
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("Origin equal to Host: status %d", resp.StatusCode)
+	}
 }
 
 func TestPasswordChangeRevokesGrant(t *testing.T) {

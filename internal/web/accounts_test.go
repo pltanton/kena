@@ -337,7 +337,7 @@ func TestCSRFRejectsForeignOrigin(t *testing.T) {
 		wantStatus(t, resp, http.StatusForbidden)
 	}
 	req, _ := http.NewRequest(http.MethodPost, e.srv.URL+"/logout", nil)
-	req.Header.Set("Referer", "https://evil.example/page")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	resp, _ = e.do(req)
 	wantStatus(t, resp, http.StatusForbidden)
 	if _, err := e.st.UserBySession(context.Background(), secret); err != nil {
@@ -345,4 +345,66 @@ func TestCSRFRejectsForeignOrigin(t *testing.T) {
 	}
 	resp, _ = e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}}, true)
 	wantStatus(t, resp, http.StatusOK)
+}
+
+func TestOriginMatchingHostPasses(t *testing.T) {
+	e := setup(t)
+	e.user("anna")
+	u, _ := url.Parse(e.srv.URL)
+	host := "localhost:" + u.Port()
+	form := url.Values{"username": {"anna"}, "passphrase": {pass}}
+	req, _ := http.NewRequest(http.MethodPost, e.srv.URL+"/login", strings.NewReader(form.Encode()))
+	req.Host = host
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "http://"+host)
+	resp, body := e.do(req)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("Origin equal to Host rejected: %d %s", resp.StatusCode, body)
+	}
+}
+
+func TestLoginReplacesExistingSession(t *testing.T) {
+	e := setup(t)
+	e.user("anna")
+	e.login("anna")
+	old := e.sessionSecret()
+	e.login("anna")
+	if e.sessionSecret() == old {
+		t.Fatal("session not rotated")
+	}
+	if _, err := e.st.UserBySession(context.Background(), old); err == nil {
+		t.Fatal("old session row survives a new login")
+	}
+}
+
+func TestLoginMergeSkipsProgressIDDevice(t *testing.T) {
+	e := setup(t)
+	victim := e.user("victim")
+	e.user("anna")
+	e.st.RecordAttempt(context.Background(), victim.ProgressID, e.tasks[0].ID, []string{"γράφεις"}, true)
+	u, _ := url.Parse(e.srv.URL)
+	e.client.Jar.SetCookies(u, []*http.Cookie{{Name: "kena_device", Value: victim.ProgressID}})
+	e.login("anna")
+	if got, _ := e.st.LastResults(context.Background(), victim.ProgressID, e.set.ID); len(got) != 1 {
+		t.Fatalf("victim's progress moved: %v", got)
+	}
+}
+
+func TestPagesDenyFraming(t *testing.T) {
+	e := setup(t)
+	e.user("anna")
+	resp, _ := e.get("/login")
+	wantNoFraming(t, resp)
+	e.login("anna")
+	for _, p := range []string{"/account", "/", "/s/" + e.set.Slug} {
+		resp, _ = e.get(p)
+		wantNoFraming(t, resp)
+	}
+}
+
+func wantNoFraming(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp.Header.Get("X-Frame-Options") != "DENY" || resp.Header.Get("Content-Security-Policy") != "frame-ancestors 'none'" {
+		t.Errorf("%s: framing headers %v", resp.Request.URL.Path, resp.Header)
+	}
 }

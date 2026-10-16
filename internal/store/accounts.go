@@ -59,6 +59,9 @@ func (s *Store) SetPassword(ctx context.Context, userID int64, pass, keepSession
 	`, userID); err != nil {
 		return fmt.Errorf("revoking grants: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `DELETE FROM oauth_codes WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("deleting codes: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `
 		DELETE FROM sessions WHERE user_id = $1 AND hash <> $2
 	`, userID, HashSecret(keepSession)); err != nil {
@@ -135,10 +138,30 @@ func (s *Store) MergeAttempts(ctx context.Context, fromDevice, toDevice string) 
 			return err
 		}
 	}
+	var owned bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE progress_id = $1)`, fromDevice).Scan(&owned); err != nil {
+		return fmt.Errorf("checking device: %w", err)
+	}
+	if owned {
+		return fmt.Errorf("device %s is an account's progress id: %w", fromDevice, ErrForbidden)
+	}
 	if _, err := s.pool.Exec(ctx, `
 		UPDATE attempts SET device_id = $2 WHERE device_id = $1
 	`, fromDevice, toDevice); err != nil {
 		return fmt.Errorf("merging attempts: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) PurgeExpired(ctx context.Context) error {
+	if _, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE expires_at <= now()`); err != nil {
+		return fmt.Errorf("purging sessions: %w", err)
+	}
+	if _, err := s.pool.Exec(ctx, `
+		DELETE FROM oauth_codes
+		WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
+	`); err != nil {
+		return fmt.Errorf("purging codes: %w", err)
 	}
 	return nil
 }

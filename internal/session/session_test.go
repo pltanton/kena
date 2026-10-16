@@ -1,45 +1,57 @@
 package session
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
-func TestSameOrigin(t *testing.T) {
-	const public = "https://kena.example.org"
+func TestCrossOrigin(t *testing.T) {
+	cop := CrossOrigin("https://kena.example.org/")
 	cases := []struct {
-		name            string
-		origin, referer string
-		want            bool
+		name, host, origin, fetchSite string
+		want                          bool
 	}{
-		{"none", "", "", true},
-		{"origin match", "https://kena.example.org", "", true},
-		{"origin foreign", "https://evil.example", "https://kena.example.org/login", false},
-		{"origin null", "null", "", false},
-		{"referer match", "", "https://kena.example.org/account", true},
-		{"referer foreign", "", "https://evil.example/kena.example.org", false},
-		{"referer garbage", "", "::", false},
-		{"other port", "https://kena.example.org:8443", "", false},
+		{"no headers", "kena.example.org", "", "", true},
+		{"public origin behind proxy", "127.0.0.1:8080", "https://kena.example.org", "", true},
+		{"origin matches host", "localhost:8080", "http://localhost:8080", "", true},
+		{"foreign origin", "kena.example.org", "https://evil.example", "", false},
+		{"null origin", "kena.example.org", "null", "", false},
+		{"other port", "kena.example.org", "https://kena.example.org:8443", "", false},
+		{"cross-site fetch", "kena.example.org", "https://evil.example", "cross-site", false},
+		{"same-origin fetch", "kena.example.org", "https://kena.example.org", "same-origin", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/login", nil)
+			r.Host = c.host
 			if c.origin != "" {
 				r.Header.Set("Origin", c.origin)
 			}
-			if c.referer != "" {
-				r.Header.Set("Referer", c.referer)
+			if c.fetchSite != "" {
+				r.Header.Set("Sec-Fetch-Site", c.fetchSite)
 			}
-			if got := SameOrigin(r, public); got != c.want {
-				t.Errorf("SameOrigin = %v, want %v", got, c.want)
+			if got := cop.Check(r) == nil; got != c.want {
+				t.Errorf("allowed = %v, want %v", got, c.want)
 			}
 		})
 	}
 	r := httptest.NewRequest(http.MethodPost, "/login", nil)
 	r.Header.Set("Origin", "https://evil.example")
-	if !SameOrigin(r, "") {
-		t.Error("no public URL configured: check should be skipped")
+	if CrossOrigin("").Check(r) == nil {
+		t.Error("no public URL: foreign origin allowed")
+	}
+}
+
+func TestSleepStopsOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	Sleep(ctx, time.Minute)
+	if time.Since(start) > time.Second {
+		t.Fatal("Sleep ignored a cancelled context")
 	}
 }
 

@@ -45,6 +45,7 @@ var templatesFS embed.FS
 var authorizeTmpl = template.Must(template.ParseFS(templatesFS, "templates/authorize.html"))
 
 type Server struct {
+	csrf      *http.CrossOriginProtection
 	Store     *store.Store
 	PublicURL string
 	HTTP      *http.Client
@@ -75,6 +76,7 @@ func (s *Server) ResourceMetadataURL() string {
 }
 
 func (s *Server) Register(mux *http.ServeMux) {
+	s.csrf = session.CrossOrigin(s.PublicURL)
 	prm := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{
 		Resource:               s.ResourceURL(),
 		AuthorizationServers:   []string{s.PublicURL},
@@ -248,7 +250,7 @@ func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuth
 }
 
 func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost && !session.SameOrigin(r, s.PublicURL) {
+	if err := s.csrf.Check(r); err != nil {
 		renderAuthorize(w, http.StatusForbidden, authorizePage{Fatal: "Cross-site request rejected."})
 		return
 	}

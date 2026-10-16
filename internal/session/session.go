@@ -71,11 +71,16 @@ func Login(w http.ResponseWriter, r *http.Request, st *store.Store, username, pa
 	ctx := r.Context()
 	u, err := st.CheckPassword(ctx, username, pass)
 	if errors.Is(err, store.ErrNotFound) {
-		sleep(ctx, FailDelay)
+		Sleep(ctx, FailDelay)
 		return store.User{}, err
 	}
 	if err != nil {
 		return store.User{}, err
+	}
+	if old := Secret(r); old != "" {
+		if err := st.DeleteSession(ctx, old); err != nil {
+			return store.User{}, err
+		}
 	}
 	secret, err := st.CreateSession(ctx, u.ID, TTL)
 	if err != nil {
@@ -85,7 +90,7 @@ func Login(w http.ResponseWriter, r *http.Request, st *store.Store, username, pa
 	return u, nil
 }
 
-func sleep(ctx context.Context, d time.Duration) {
+func Sleep(ctx context.Context, d time.Duration) {
 	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
@@ -94,24 +99,15 @@ func sleep(ctx context.Context, d time.Duration) {
 	}
 }
 
-func SameOrigin(r *http.Request, publicURL string) bool {
-	if publicURL == "" {
-		return true
+func CrossOrigin(publicURL string) *http.CrossOriginProtection {
+	cop := http.NewCrossOriginProtection()
+	if u, err := url.Parse(publicURL); err == nil && u.Scheme != "" && u.Host != "" {
+		if err := cop.AddTrustedOrigin(u.Scheme + "://" + u.Host); err != nil {
+			panic(err)
+		}
 	}
-	pub, err := url.Parse(publicURL)
-	if err != nil {
-		return false
-	}
-	src := r.Header.Get("Origin")
-	if src == "" {
-		src = r.Header.Get("Referer")
-	}
-	if src == "" {
-		return true
-	}
-	u, err := url.Parse(src)
-	if err != nil {
-		return false
-	}
-	return u.Host == pub.Host
+	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Cross-site request rejected.", http.StatusForbidden)
+	}))
+	return cop
 }

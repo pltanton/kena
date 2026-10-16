@@ -91,6 +91,9 @@ func runServe(args []string) error {
 	}
 
 	st := store.New(pool)
+	if err := st.PurgeExpired(ctx); err != nil {
+		return fmt.Errorf("purging expired sessions: %w", err)
+	}
 	srv := &http.Server{
 		Addr:              cfg.Listen,
 		Handler:           app.New(cfg, st),
