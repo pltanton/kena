@@ -285,6 +285,18 @@ func TestListModeAndModeCookie(t *testing.T) {
 	}
 }
 
+func TestKeyboardKeeperOnlyInCards(t *testing.T) {
+	e := setup(t)
+	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	if !strings.Contains(body, `id="kbd-keeper"`) || !strings.Contains(body, "htmx:beforeRequest") {
+		t.Fatalf("cards mode lacks keyboard keeper:\n%s", body)
+	}
+	_, body = e.get("/s/" + e.set.Slug + "?mode=list")
+	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "<script>") {
+		t.Fatal("list mode renders keyboard keeper")
+	}
+}
+
 func TestCheckListModeAndItem(t *testing.T) {
 	e := setup(t)
 	e.get("/")

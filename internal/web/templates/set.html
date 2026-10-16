@@ -12,6 +12,22 @@
 {{if eq .Params.Mode "cards"}}<div id="card">
 {{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
 </div>
+<input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+<script>
+(function () {
+  {{/* iOS opens the keyboard only on a focus made during a user gesture, so focus stays here while the next card loads. */}}
+  var keeper = document.getElementById("kbd-keeper");
+  var card = document.getElementById("card");
+  document.body.addEventListener("htmx:beforeRequest", function (e) {
+    if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
+  });
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (e.detail.target !== card) return;
+    var el = card.querySelector('input[name="a"]') || card.querySelector("button[autofocus]") || card.querySelector(".done a");
+    if (el) el.focus({preventScroll: true});
+  });
+})();
+</script>
 {{- else if .Items}}<ol class="items">
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
