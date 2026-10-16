@@ -47,7 +47,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html"))
-	for _, page := range []string{"index", "set", "404", "login", "account"} {
+	for _, page := range []string{"index", "set", "404", "login", "account", "mistakes"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -68,6 +68,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("GET /account", h.requireUser(h.account))
+	mux.HandleFunc("GET /mistakes", h.requireUser(h.mistakes))
 	mux.HandleFunc("POST /account/passphrase", h.requireUser(h.changePassphrase))
 	mux.HandleFunc("POST /account/tokens", h.requireUser(h.createToken))
 	mux.HandleFunc("POST /account/tokens/{id}/revoke", h.requireUser(h.revokeToken))
@@ -366,6 +367,7 @@ type doneView struct {
 	Progress    store.Progress
 	AgainURL    string
 	MistakesURL string
+	LoggedIn    bool
 }
 
 func newCard(t store.Task, i, n int, p params) *cardView {
@@ -387,8 +389,10 @@ func progressOf(tasks []store.Task, last map[int64]bool) store.Progress {
 	return pr
 }
 
-func newDone(slug string, empty bool, pr store.Progress) *doneView {
+func newDone(r *http.Request, slug string, empty bool, pr store.Progress) *doneView {
+	_, loggedIn := currentUser(r)
 	return &doneView{
+		LoggedIn:    loggedIn,
 		Empty:       empty,
 		Progress:    pr,
 		AgainURL:    "/s/" + url.PathEscape(slug),
@@ -573,7 +577,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case len(todo) == 0:
-		data.Done = newDone(set.Slug, true, pr)
+		data.Done = newDone(r, set.Slug, true, pr)
 	case p.Mode == "cards":
 		rest := todo
 		if a := q.Get("after"); a != "" {
@@ -592,7 +596,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 			rest = filtered(order[start:], p.Filter, last)
 		}
 		if len(rest) == 0 {
-			data.Done = newDone(set.Slug, false, pr)
+			data.Done = newDone(r, set.Slug, false, pr)
 			break
 		}
 		idx := 1
@@ -640,7 +644,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 	}
 	rest := filtered(order[start:], p.Filter, last)
 	if len(rest) == 0 {
-		h.fragment(w, r, "done", newDone(set.Slug, false, progressOf(tasks, last)))
+		h.fragment(w, r, "done", newDone(r, set.Slug, false, progressOf(tasks, last)))
 		return
 	}
 

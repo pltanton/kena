@@ -81,6 +81,13 @@ header.site {
   text-align: right;
 }
 
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 16px;
+}
+
 .brand {
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -460,6 +467,35 @@ button.secondary,
 
 .items .item button {
   margin-top: 0.5rem;
+}
+
+.ask button {
+  width: auto;
+  margin-top: 0;
+}
+
+.group h2 a {
+  color: inherit;
+}
+
+.items .item.mistake .sentence {
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
+.item.mistake .meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.kind {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bad-bg);
+  color: var(--bad);
 }
 
 .done h2 {

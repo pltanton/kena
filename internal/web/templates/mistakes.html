@@ -1,0 +1,36 @@
+{{define "title"}}Mistakes · kena{{end}}
+{{define "main"}}<h1>Mistakes</h1>
+<div class="card ask">
+<p><strong>Ask your agent:</strong></p>
+<code class="copy" id="ask-prompt">{{.Prompt}}</code>
+<button type="button" class="secondary small" id="ask-copy" hidden>Copy</button>
+<p class="muted">It reads these mistakes, explains your weak spots and builds a practice set. No agent connected yet? See <a href="/account">Account</a>.</p>
+</div>
+{{- range .Sets}}
+<section class="group">
+<h2><a href="{{.URL}}">{{.Title}}</a></h2>
+<ul class="items">
+{{- range .Tasks}}
+<li class="item mistake">
+<p class="sentence" lang="el">{{template "sentence" .Task}}</p>
+<p class="meta">{{range .Kinds}}<span class="kind">{{.}}</span> {{end}}{{.WrongCount}} wrong{{if .Fixed}} · <span class="ok">fixed ✓</span>{{end}}</p>
+</li>
+{{- end}}
+</ul>
+</section>
+{{- else}}
+<p class="empty">No mistakes in the last {{.Days}} days.</p>
+{{- end}}
+<script>
+(function () {
+  var button = document.getElementById("ask-copy");
+  if (!navigator.clipboard) return;
+  button.hidden = false;
+  button.addEventListener("click", function () {
+    navigator.clipboard.writeText(document.getElementById("ask-prompt").textContent).then(function () {
+      button.textContent = "Copied";
+    });
+  });
+})();
+</script>
+{{end}}

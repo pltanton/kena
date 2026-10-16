@@ -4,6 +4,9 @@
 <nav class="actions">
 <a class="button" href="{{.AgainURL}}">Again</a>
 <a class="button secondary" href="{{.MistakesURL}}">Mistakes only</a>
+{{- if .LoggedIn}}
+<a class="button secondary" href="/mistakes">Review mistakes</a>
+{{- end}}
 <a class="button secondary" href="/">All sets</a>
 </nav>
 </div>{{end}}

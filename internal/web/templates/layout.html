@@ -8,7 +8,7 @@
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
-<header class="site"><a href="/" class="brand">kena</a>{{if .User}}<a href="/account" class="who">{{.User.Username}} · Account</a>{{else}}<a href="{{.LoginURL}}" class="who">Log in</a>{{end}}</header>
+<header class="site"><a href="/" class="brand">kena</a>{{if .User}}<nav class="nav"><a href="/mistakes" class="who">Mistakes</a><a href="/account" class="who">{{.User.Username}} · Account</a></nav>{{else}}<a href="{{.LoginURL}}" class="who">Log in</a>{{end}}</header>
 <main>
 {{template "main" .Data}}
 </main>
