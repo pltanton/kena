@@ -142,10 +142,14 @@ const setFromJoin = `
 	LEFT JOIN (SELECT set_id, count(*) AS task_count FROM tasks GROUP BY set_id) t ON t.set_id = s.id
 `
 
+func (st *Set) dest() []any {
+	return []any{&st.ID, &st.OwnerID, &st.OwnerName, &st.Slug, &st.Title, &st.Topic, &st.Level,
+		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Shared, &st.CreatedAt, &st.UpdatedAt}
+}
+
 func scanSet(row pgx.Row) (Set, error) {
 	var st Set
-	err := row.Scan(&st.ID, &st.OwnerID, &st.OwnerName, &st.Slug, &st.Title, &st.Topic, &st.Level,
-		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Shared, &st.CreatedAt, &st.UpdatedAt)
+	err := row.Scan(st.dest()...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Set{}, ErrNotFound
