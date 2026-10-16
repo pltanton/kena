@@ -9,11 +9,14 @@ them through kena's MCP server. The MCP server also hands the agent an authoring
 guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate.
 
 - Web: `/` lists sets, `/s/<slug>` practises one. Cards mode (one task per
-  screen, auto-advance) or List mode. Filters: all, unsolved, mistakes. No
-  login; progress is tied to an anonymous device cookie.
-- MCP: `/mcp` (Streamable HTTP). Personal bearer tokens or OAuth (for
-  claude.ai and ChatGPT connectors). You can only edit your own sets; admins can
-  edit everything and manage users and tokens.
+  screen, auto-advance) or List mode. Filters: all, unsolved, mistakes.
+  Practising needs no login: progress is tied to an anonymous device cookie.
+  Logging in (username + passphrase) keeps progress in the account, so every
+  device sees the same; what you solved before logging in moves to the account.
+- Account page (`/account`): change passphrase, personal tokens, connected apps.
+- MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
+  press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
+  You can only edit your own sets; admins can edit everything and manage users.
 
 ## Run locally
 
@@ -22,7 +25,7 @@ Needs Go and a Postgres.
 ```
 export KENA_DATABASE_URL="postgres://localhost/kena"
 export KENA_PUBLIC_URL="http://127.0.0.1:8080"
-go run ./cmd/kena token create --user anton --admin   # prints a token once
+go run ./cmd/kena user create anton --admin   # prints a passphrase
 go run ./cmd/kena serve
 ```
 
@@ -32,7 +35,7 @@ go run ./cmd/kena serve
 | `KENA_PUBLIC_URL`   | required (serve) | external base URL; OAuth metadata and set links use it |
 | `KENA_LISTEN`       | `127.0.0.1:8080` |                                                        |
 
-Migrations run on `serve`, `migrate` and `token create`.
+Migrations run on `serve`, `migrate`, `user` and `token create`.
 
 ## NixOS
 
@@ -51,24 +54,39 @@ services.caddy.virtualHosts."kena.example.org".extraConfig = ''
 '';
 ```
 
-The module creates a local Postgres database and a `kena` system user. Tokens:
+The module creates a local Postgres database and a `kena` system user, and
+puts a `kena-admin` wrapper on the PATH that runs the CLI as that user:
 
 ```
-sudo kena-admin token create --user anton --admin
+sudo kena-admin user create anton --admin   # prints anton's passphrase
+sudo kena-admin user create maria           # prints maria's passphrase
+sudo kena-admin user passwd maria           # new passphrase; logs maria out everywhere
 ```
 
-## Connecting agents
+## Accounts and connecting agents
 
-Any token can be issued later from an admin agent with `admin_issue_token`.
+1. An admin creates the account: `sudo kena-admin user create maria`, or asks
+   an admin agent to call `admin_create_user`. Both return a generated
+   passphrase like `olive-tiger-harbor-seven`.
+2. The admin sends maria the username and passphrase.
+3. Maria logs in on the site (header → Log in). She can change the passphrase
+   on her Account page.
 
-- **Claude Code:**
-  `claude mcp add --transport http kena https://kena.example.org/mcp --header "Authorization: Bearer kena_…"`
-- **Hermes / other agents:** Streamable HTTP endpoint `https://kena.example.org/mcp`,
-  header `Authorization: Bearer kena_…`.
-- **claude.ai:** Settings → Connectors → Add custom connector → URL
-  `https://kena.example.org/mcp`. On the kena page that opens, paste your token.
+Then, to let an agent write sets for her:
+
+- **Claude app (claude.ai):** Settings → Connectors → Add custom connector →
+  URL `https://kena.example.org/mcp`. On the kena page that opens, log in (if
+  not already) and press Allow.
 - **ChatGPT:** Settings → Apps → developer mode → create app with the same URL,
-  authentication OAuth. Paste your token on the kena page.
+  authentication OAuth. Log in / Allow on the kena page.
+- **Claude Code:** Account → New token, then
+  `claude mcp add --transport http kena https://kena.example.org/mcp --header "Authorization: Bearer kena_…"`
+  (the Account page shows this command with the token filled in).
+- **Hermes / other agents:** Account → New token; Streamable HTTP endpoint
+  `https://kena.example.org/mcp`, header `Authorization: Bearer kena_…`.
+
+Admins can still issue tokens for someone with `admin_issue_token` or
+`sudo kena-admin token create --user maria --label laptop`.
 
 Example prompt with a photo attached:
 
@@ -80,12 +98,14 @@ returns the set URL.
 
 ## Revoking access
 
-Ask an admin agent for `admin_list_users` to find the token id, then
-`admin_revoke_token`. This also disconnects any OAuth connector (claude.ai,
-ChatGPT) that was authorised through that token: its access and refresh
-tokens stop working immediately, so the app loses access even if it never
-sees the revoked personal token again.
+- Users revoke their own tokens and disconnect apps on the Account page.
+  Changing the passphrase logs out other devices and disconnects all apps.
+- Forgotten passphrase: `sudo kena-admin user passwd maria` or
+  `admin_reset_password`. This also logs maria out everywhere and disconnects
+  her apps; her personal tokens keep working.
+- Admins revoke a token with `admin_revoke_token` (ids from `admin_list_users`).
 
 ## Development
 
-See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`.
+See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`,
+accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`.
