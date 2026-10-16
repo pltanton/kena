@@ -8,6 +8,12 @@
 <span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
 <span class="seg">{{with .Shuffle}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
 </nav>
+{{- if .Owner}}
+<form class="seg share" method="post" action="/s/{{.Set.Slug}}/share">
+<button type="submit" name="shared" value="1"{{if .Set.Shared}} aria-pressed="true"{{end}}>Shared</button>
+<button type="submit" name="shared" value="0"{{if not .Set.Shared}} aria-pressed="true"{{end}}>Private</button>
+</form>
+{{- end}}
 </header>
 {{if eq .Params.Mode "cards"}}<div id="card">
 {{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}

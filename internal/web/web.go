@@ -62,6 +62,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
+	mux.HandleFunc("POST /s/{slug}/share", h.requireUser(h.share))
 	mux.HandleFunc("POST /t/{id}/check", h.check)
 	mux.HandleFunc("GET /t/{id}/item", h.item)
 	mux.HandleFunc("GET /login", h.loginPage)
@@ -157,6 +158,22 @@ func progressID(r *http.Request) string {
 func currentUser(r *http.Request) (store.User, bool) {
 	u, ok := r.Context().Value(userKey{}).(store.User)
 	return u, ok
+}
+
+func viewerID(r *http.Request) int64 {
+	u, _ := currentUser(r)
+	return u.ID
+}
+
+func (h *handler) visibleSet(r *http.Request, idOrSlug string) (store.Set, error) {
+	set, err := h.st.GetSet(r.Context(), idOrSlug)
+	if err != nil {
+		return set, err
+	}
+	if !store.CanView(viewerID(r), set) {
+		return store.Set{}, store.ErrNotFound
+	}
+	return set, nil
 }
 
 type params struct {
@@ -470,6 +487,11 @@ type setRow struct {
 	Progress store.Progress
 }
 
+type indexView struct {
+	Authors []link
+	Groups  []ownerGroup
+}
+
 type ownerGroup struct {
 	Owner string
 	Sets  []setRow
@@ -477,10 +499,21 @@ type ownerGroup struct {
 
 func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	sets, err := h.st.ListSets(ctx, store.ListFilter{All: true})
+	u, loggedIn := currentUser(r)
+	sets, err := h.st.ListSets(ctx, store.ListFilter{ViewerID: u.ID})
 	if err != nil {
 		h.fail(w, r, err)
 		return
+	}
+	author := r.URL.Query().Get("author")
+	v := indexView{Authors: []link{{"All", "/", author == ""}}}
+	if loggedIn {
+		v.Authors = append(v.Authors, link{"Mine", "/?author=me", author == "me"})
+	}
+	for i, s := range sets {
+		if i == 0 || sets[i-1].OwnerName != s.OwnerName {
+			v.Authors = append(v.Authors, link{s.OwnerName, "/?" + url.Values{"author": {s.OwnerName}}.Encode(), author == s.OwnerName})
+		}
 	}
 	progress, err := h.st.ProgressBySet(ctx, progressID(r))
 	if err != nil {
@@ -489,6 +522,15 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 	}
 	var groups []ownerGroup
 	for _, s := range sets {
+		switch {
+		case author == "":
+		case author == "me":
+			if !loggedIn || s.OwnerID != u.ID {
+				continue
+			}
+		case author != s.OwnerName:
+			continue
+		}
 		if len(groups) == 0 || groups[len(groups)-1].Owner != s.OwnerName {
 			groups = append(groups, ownerGroup{Owner: s.OwnerName})
 		}
@@ -499,7 +541,8 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 		g := &groups[len(groups)-1]
 		g.Sets = append(g.Sets, setRow{Set: s, Progress: pr})
 	}
-	h.page(w, r, http.StatusOK, "index", groups)
+	v.Groups = groups
+	h.page(w, r, http.StatusOK, "index", v)
 }
 
 type link struct {
@@ -510,6 +553,7 @@ type link struct {
 
 type setPage struct {
 	Set      store.Set
+	Owner    bool
 	Progress store.Progress
 	Params   params
 	Modes    []link
@@ -531,7 +575,7 @@ func (h *handler) loadSet(r *http.Request, slug string) (setData, error) {
 	ctx := r.Context()
 	var d setData
 	var err error
-	if d.set, err = h.st.GetSet(ctx, slug); err != nil {
+	if d.set, err = h.visibleSet(r, slug); err != nil {
 		return d, err
 	}
 	if d.tasks, err = h.st.ListTasks(ctx, d.set.ID); err != nil {
@@ -595,7 +639,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	todo := filtered(order, p.Filter, last)
 	pr := progressOf(tasks, last)
 
-	data := setPage{Set: set, Progress: pr, Params: p}
+	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p}
 	for _, m := range []string{"cards", "list"} {
 		lp := p
 		lp.Mode = m
@@ -740,6 +784,11 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	set, err := h.visibleSet(r, strconv.FormatInt(task.SetID, 10))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
 	answers := r.PostForm["a"]
 	if len(answers) != len(task.Blanks) {
 		h.fail(w, r, fmt.Errorf("got %d answers for %d blanks: %w", len(answers), len(task.Blanks), store.ErrInvalid))
@@ -753,11 +802,6 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		p.Streak = 0
 	}
 	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	set, err := h.st.GetSet(ctx, strconv.FormatInt(task.SetID, 10))
-	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
@@ -809,5 +853,38 @@ func (h *handler) item(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	if _, err := h.visibleSet(r, strconv.FormatInt(task.SetID, 10)); err != nil {
+		h.fail(w, r, err)
+		return
+	}
 	h.fragment(w, r, "list_item", itemView{Task: newTaskView(task, false, nil), Params: p})
+}
+
+func (h *handler) share(w http.ResponseWriter, r *http.Request, u store.User) {
+	set, err := h.st.GetSet(r.Context(), r.PathValue("slug"))
+	if err == nil && set.OwnerID != u.ID {
+		err = store.ErrNotFound
+	}
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+		return
+	}
+	var shared bool
+	switch v := r.PostForm.Get("shared"); v {
+	case "1":
+		shared = true
+	case "0":
+	default:
+		h.fail(w, r, fmt.Errorf("shared %q: %w", v, store.ErrInvalid))
+		return
+	}
+	if _, err := h.st.UpdateSet(r.Context(), set.ID, store.SetPatch{Shared: &shared}); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/s/"+url.PathEscape(set.Slug), http.StatusSeeOther)
 }
