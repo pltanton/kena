@@ -122,6 +122,7 @@ func TestEditorErrorsWriteNothing(t *testing.T) {
 	}{
 		{"parse errors", "Renamed", "Εσύ {γράφεις πολύ.\n\nΑυτός {} γρήγορα.\n", []string{"line 1: unclosed {", "line 3: blank has no answer"}},
 		{"lint errors", "Renamed", "Εσύ {γράφεις} πολύ.\n\nΑυτός {τρεχεις} {ἔτρεξε}.\n", []string{"line 3: blank 2, answer 1: polytonic character"}},
+		{"errors sorted by line", "Renamed", "Α {ἔ}.\n\nΒ {β.\n", []string{"line 1: blank 1, answer 1: polytonic", "line 3: unclosed {"}},
 		{"duplicate is only a warning but title missing", " ", "Εσύ {γράφεις} πολύ.\n", []string{"Title is required."}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -129,10 +130,13 @@ func TestEditorErrorsWriteNothing(t *testing.T) {
 			form.Set("title", c.title)
 			resp, body := maria.post(path, form, e.srv.URL)
 			wantStatus(t, resp, http.StatusUnprocessableEntity)
+			pos := -1
 			for _, w := range c.want {
-				if !strings.Contains(body, html.EscapeString(w)) {
-					t.Errorf("missing %q in\n%s", w, body)
+				i := strings.Index(body, html.EscapeString(w))
+				if i < 0 || i < pos {
+					t.Errorf("missing or out of order %q in\n%s", w, body)
 				}
+				pos = i
 			}
 			if !strings.Contains(body, "Nothing was saved") || !strings.Contains(body, html.EscapeString(c.source)) {
 				t.Errorf("form not re-rendered with the source:\n%s", body)

@@ -1,11 +1,13 @@
 package web
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -44,19 +46,41 @@ func describeField(field string) string {
 	return fmt.Sprintf("blank %d, answer %d: ", n(m[1]), n(m[2]))
 }
 
+type lineMsg struct {
+	line int
+	msg  string
+}
+
+func byLine(ms []lineMsg) []string {
+	slices.SortStableFunc(ms, func(a, b lineMsg) int { return cmp.Compare(a.line, b.line) })
+	out := make([]string, len(ms))
+	for i, m := range ms {
+		out[i] = m.msg
+	}
+	return out
+}
+
 func checkSource(src string) (inputs []greek.TaskInput, errs, warnings []string) {
 	items, perrs := deckfmt.Parse(src)
+	var es, ws []lineMsg
 	for _, e := range perrs {
-		errs = append(errs, e.Error())
+		es = append(es, lineMsg{e.Line, e.Error()})
 	}
 	inputs, issues := greek.Prepare(deckfmt.Tasks(items), nil)
 	for _, iss := range issues {
-		msg := fmt.Sprintf("line %d: %s%s", items[iss.Task].Line, describeField(iss.Field), iss.Message)
+		line := items[iss.Task].Line
+		m := lineMsg{line, fmt.Sprintf("line %d: %s%s", line, describeField(iss.Field), iss.Message)}
 		if iss.Severity == greek.Error {
-			errs = append(errs, msg)
+			es = append(es, m)
 		} else {
-			warnings = append(warnings, msg)
+			ws = append(ws, m)
 		}
+	}
+	if len(es) > 0 {
+		errs = byLine(es)
+	}
+	if len(ws) > 0 {
+		warnings = byLine(ws)
 	}
 	return inputs, errs, warnings
 }

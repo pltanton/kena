@@ -2,7 +2,7 @@
 {{define "main"}}<header class="set-head">
 <h1>{{.Set.Title}}</h1>
 {{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
-<p class="meta">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</p>
+<p class="meta">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}{{if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">Edit deck</a>{{end}}</p>
 <nav class="controls">
 <span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
 <span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
@@ -19,14 +19,11 @@
 </form>
 {{- end}}
 {{- if .Owner}}
-<div class="owner-bar">
 <form class="seg visibility" method="post" action="/s/{{.Set.Slug}}/visibility" aria-label="Who can see this deck">
 {{- range .Visibility}}
 <button type="submit" name="visibility" value="{{.Value}}" aria-pressed="{{.Current}}"><span class="icon" aria-hidden="true">{{.Icon}}</span>{{.Label}}</button>
 {{- end}}
 </form>
-<a class="button secondary small" href="/s/{{.Set.Slug}}/edit">Edit</a>
-</div>
 {{- end}}
 {{- if .Saved}}
 <div class="notice" role="status"><p>Saved.</p>

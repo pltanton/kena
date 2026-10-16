@@ -569,18 +569,6 @@ button.danger:hover {
   margin: 0 8px 0.5rem 0;
 }
 
-.owner-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 0.5rem;
-}
-
-.owner-bar .button {
-  margin-top: 0;
-}
-
 .seg.visibility button {
   gap: 6px;
   padding: 0 12px;
