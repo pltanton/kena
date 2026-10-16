@@ -1,10 +1,11 @@
 {{define "card_result"}}{{template "bar" .Bar}}
 <div class="card result {{if .Correct}}ok{{else}}bad{{end}}">
-<p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 {{- if .Correct}}
-<div hx-get="{{.NextURL}}" hx-trigger="load delay:600ms" hx-target="#card" hx-swap="innerHTML"></div>
-{{- else}}
-{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
-<button type="button" hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML" autofocus>Next</button>
+<p class="verdict"><span class="tick" aria-label="Correct">✓</span>{{if ge .Streak 2}} <span class="streak">🔥 {{.Streak}} in a row</span>{{end}}</p>
 {{- end}}
+<p class="sentence" lang="el">{{template "sentence" .Task}}</p>
+{{- if not .Correct}}
+{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
+{{- end}}
+<button type="button" data-next hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML">Next</button>
 </div>{{end}}

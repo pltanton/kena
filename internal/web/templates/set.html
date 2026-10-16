@@ -23,8 +23,15 @@
   });
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]') || card.querySelector("button[autofocus]") || card.querySelector(".done a");
+    var el = card.querySelector('input[name="a"]') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.repeat) return;
+    var next = card.querySelector("button[data-next]");
+    if (!next) return;
+    e.preventDefault();
+    next.click();
   });
 })();
 </script>

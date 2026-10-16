@@ -288,6 +288,24 @@ button.secondary,
   width: 100%;
 }
 
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.verdict .tick {
+  color: var(--ok);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.verdict .streak {
+  font-size: 0.95rem;
+}
+
 .sentence {
   font-size: 1.35rem;
   line-height: 2.1;

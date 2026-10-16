@@ -203,22 +203,57 @@ func TestCheckCorrectAndWrongCards(t *testing.T) {
 
 	resp, body := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}, "i": {"1"}, "n": {"3"}}, true)
 	wantStatus(t, resp, http.StatusOK)
-	if !strings.Contains(body, `ok`) || !strings.Contains(body, "load delay:600ms") {
-		t.Fatalf("correct result:\n%s", body)
+	for _, want := range []string{"result ok", "✓", "Next", fmt.Sprintf("after=%d", e.tasks[0].ID), "streak=1"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("correct result missing %q:\n%s", want, body)
+		}
 	}
-	if !strings.Contains(body, fmt.Sprintf("after=%d", e.tasks[0].ID)) {
-		t.Fatalf("next url missing:\n%s", body)
+	if strings.Contains(body, "load delay") || strings.Contains(body, "in a row") {
+		t.Fatalf("correct result auto-advances or shows a streak of 1:\n%s", body)
 	}
 
-	resp, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"cards"}}, true)
+	_, body = e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}, "mode": {"cards"}, "streak": {"1"}}, true)
+	if !strings.Contains(body, "🔥 2 in a row") || !strings.Contains(body, "streak=2") {
+		t.Fatalf("streak not counted:\n%s", body)
+	}
+
+	resp, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"cards"}, "streak": {"3"}}, true)
 	wantStatus(t, resp, http.StatusOK)
 	for _, want := range []string{"τρέχει", "τρεχει", "Next", "third person singular", "bad"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("wrong result missing %q:\n%s", want, body)
 		}
 	}
-	if strings.Contains(body, "load delay") {
-		t.Fatal("wrong result auto-advances")
+	if strings.Contains(body, "load delay") || strings.Contains(body, "streak=") || strings.Contains(body, "in a row") {
+		t.Fatalf("wrong result auto-advances or keeps the streak:\n%s", body)
+	}
+}
+
+func TestStreakCarriedThroughNextAndRedirect(t *testing.T) {
+	e := setup(t)
+	_, body := e.get(fmt.Sprintf("/s/%s/next?after=%d&streak=4", e.set.Slug, e.tasks[0].ID))
+	if !strings.Contains(body, `name="streak" value="4"`) {
+		t.Fatalf("next card lacks streak field:\n%s", body)
+	}
+	_, body = e.get("/s/" + e.set.Slug + "?streak=4")
+	if !strings.Contains(body, `name="streak" value="4"`) {
+		t.Fatalf("set page lacks streak field:\n%s", body)
+	}
+	if strings.Contains(body, "?filter=unsolved&amp;streak") || strings.Contains(body, "streak=4&amp;") {
+		t.Fatalf("streak leaks into navigation links:\n%s", body)
+	}
+	resp, _ := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}, "streak": {"4"}}, false)
+	wantStatus(t, resp, http.StatusSeeOther)
+	if loc := resp.Header.Get("Location"); !strings.Contains(loc, "streak=5") {
+		t.Fatalf("redirect %q lacks streak", loc)
+	}
+}
+
+func TestCardsEnterAdvances(t *testing.T) {
+	e := setup(t)
+	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	if !strings.Contains(body, `"keydown"`) || !strings.Contains(body, "e.repeat") {
+		t.Fatalf("cards page lacks the Enter handler:\n%s", body)
 	}
 }
 

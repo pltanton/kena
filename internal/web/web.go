@@ -162,6 +162,7 @@ type params struct {
 	Shuffle bool
 	Seed    uint64
 	I, N    int
+	Streak  int
 }
 
 var errMissingSeed = errors.New("shuffle without seed")
@@ -185,7 +186,7 @@ func parseParams(v url.Values, defaultMode string) (params, error) {
 	for _, f := range []struct {
 		name string
 		dst  *int
-	}{{"i", &p.I}, {"n", &p.N}} {
+	}{{"i", &p.I}, {"n", &p.N}, {"streak", &p.Streak}} {
 		if s := v.Get(f.name); s != "" {
 			n, err := strconv.Atoi(s)
 			if err != nil || n < 0 {
@@ -240,6 +241,9 @@ func setURL(slug string, p params) string {
 func setURLAfter(slug string, p params, after int64) string {
 	v := p.query()
 	v.Set("after", strconv.FormatInt(after, 10))
+	if p.Streak > 0 {
+		v.Set("streak", strconv.Itoa(p.Streak))
+	}
 	return "/s/" + url.PathEscape(slug) + "?" + v.Encode()
 }
 
@@ -249,6 +253,9 @@ func nextURL(slug string, after int64, p params) string {
 	v.Set("after", strconv.FormatInt(after, 10))
 	if p.N > 0 {
 		v.Set("n", strconv.Itoa(p.N))
+	}
+	if p.Streak > 0 {
+		v.Set("streak", strconv.Itoa(p.Streak))
 	}
 	return "/s/" + url.PathEscape(slug) + "/next?" + v.Encode()
 }
@@ -349,6 +356,7 @@ type cardResultView struct {
 	Task        taskView
 	Bar         progressBar
 	Correct     bool
+	Streak      int
 	Explanation string
 	NextURL     string
 }
@@ -698,6 +706,11 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results, correct := greek.Check(task.Blanks, answers)
+	if correct {
+		p.Streak++
+	} else {
+		p.Streak = 0
+	}
 	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
 		h.fail(w, r, err)
 		return
@@ -733,6 +746,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		Task:        view,
 		Bar:         progressBar{p.I, p.N},
 		Correct:     correct,
+		Streak:      p.Streak,
 		Explanation: task.Explanation,
 		NextURL:     nextURL(set.Slug, task.ID, p),
 	})

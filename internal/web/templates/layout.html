@@ -47,6 +47,9 @@
 {{- if .N}}
 <input type="hidden" name="i" value="{{.I}}">
 <input type="hidden" name="n" value="{{.N}}">
+{{- end}}
+{{- if .Streak}}
+<input type="hidden" name="streak" value="{{.Streak}}">
 {{- end}}{{end}}
 
 {{define "bar"}}{{if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
