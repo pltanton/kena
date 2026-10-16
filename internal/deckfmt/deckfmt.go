@@ -76,7 +76,7 @@ func Parse(src string) ([]Item, []LineError) {
 	)
 	flush := func() {
 		if open && len(explain) > 0 {
-			items[len(items)-1].Task.Explanation = strings.Join(explain, " ")
+			items[len(items)-1].Task.Explanation = strings.Join(explain, "\n")
 		}
 		open, broken, explain = false, false, nil
 	}

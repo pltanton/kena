@@ -449,7 +449,10 @@ func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task
 }
 
 func (s *Store) DeleteTask(ctx context.Context, taskID int64) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, taskID)
+	tag, err := s.pool.Exec(ctx, `
+		WITH d AS (DELETE FROM tasks WHERE id = $1 RETURNING set_id)
+		UPDATE sets SET updated_at = now() WHERE id IN (SELECT set_id FROM d)
+	`, taskID)
 	if err != nil {
 		return fmt.Errorf("deleting task: %w", err)
 	}

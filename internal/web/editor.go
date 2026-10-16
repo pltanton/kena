@@ -2,6 +2,7 @@ package web
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,13 +11,19 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pltanton/kena/internal/deckfmt"
 	"github.com/pltanton/kena/internal/greek"
 	"github.com/pltanton/kena/internal/store"
 )
 
-const maxEditorBody = 1 << 20
+const (
+	maxEditorBody   = 1 << 20
+	maxDeckTasks    = 500
+	maxShownErrors  = 50
+	conflictMessage = "This deck changed since you opened it — copy your text, reload and apply again."
+)
 
 type editView struct {
 	New          bool
@@ -30,6 +37,8 @@ type editView struct {
 	Visibility   []visibilityOption
 	Source       string
 	Errors       []string
+	Lossy        string
+	Version      string
 }
 
 var fieldRe = regexp.MustCompile(`^blanks\[(\d+)\](?:\.answers\[(\d+)\])?$`)
@@ -66,6 +75,10 @@ func checkSource(src string) (inputs []greek.TaskInput, errs, warnings []string)
 	for _, e := range perrs {
 		es = append(es, lineMsg{e.Line, e.Error()})
 	}
+	if len(items) > maxDeckTasks {
+		line := items[maxDeckTasks].Line
+		es = append(es, lineMsg{line, fmt.Sprintf("line %d: a deck holds at most %d tasks", line, maxDeckTasks)})
+	}
 	inputs, issues := greek.Prepare(deckfmt.Tasks(items), nil)
 	for _, iss := range issues {
 		line := items[iss.Task].Line
@@ -93,6 +106,42 @@ func taskInputs(tasks []store.Task) []greek.TaskInput {
 	return out
 }
 
+func lossyLines(inputs []greek.TaskInput) []int {
+	var lines []int
+	line := 1
+	for _, in := range inputs {
+		src := deckfmt.Format([]greek.TaskInput{in})
+		items, errs := deckfmt.Parse(src)
+		var back []greek.TaskInput
+		if len(errs) == 0 && len(items) == 1 {
+			back, _ = greek.Prepare(deckfmt.Tasks(items), nil)
+		}
+		if len(back) != 1 || !sameInput(back[0], in) {
+			lines = append(lines, line)
+		}
+		line += strings.Count(src, "\n") + 1
+	}
+	return lines
+}
+
+func sameInput(a, b greek.TaskInput) bool {
+	return a.Text == b.Text && a.Explanation == b.Explanation &&
+		slices.EqualFunc(a.Blanks, b.Blanks, func(x, y greek.Blank) bool {
+			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers)
+		})
+}
+
+func linesList(lines []int) string {
+	parts := make([]string, len(lines))
+	for i, l := range lines {
+		parts[i] = strconv.Itoa(l)
+	}
+	if len(lines) == 1 {
+		return "line " + parts[0]
+	}
+	return "lines " + strings.Join(parts, ", ")
+}
+
 func deckWarnings(tasks []store.Task) []string {
 	_, _, warnings := checkSource(deckfmt.Format(taskInputs(tasks)))
 	return warnings
@@ -101,6 +150,11 @@ func deckWarnings(tasks []store.Task) []string {
 type deckForm struct {
 	title, topic, level, instructions, sourceRef, source string
 	visibility                                           store.Visibility
+	version                                              string
+}
+
+func versionOf(set store.Set) string {
+	return strconv.FormatInt(set.UpdatedAt.UnixNano(), 10)
 }
 
 func parseDeckForm(w http.ResponseWriter, r *http.Request) (deckForm, error) {
@@ -117,13 +171,14 @@ func parseDeckForm(w http.ResponseWriter, r *http.Request) (deckForm, error) {
 	return deckForm{
 		title: clean("title"), topic: clean("topic"), level: clean("level"),
 		instructions: clean("instructions"), sourceRef: clean("source_ref"),
-		source: f.Get("source"), visibility: vis,
+		source: f.Get("source"), visibility: vis, version: f.Get("version"),
 	}, nil
 }
 
 func (f deckForm) view(v editView) editView {
 	v.Title, v.Topic, v.Level, v.Instructions, v.SourceRef, v.Source = f.title, f.topic, f.level, f.instructions, f.sourceRef, f.source
 	v.Visibility = visibilityChoices(f.visibility)
+	v.Version = f.version
 	return v
 }
 
@@ -131,6 +186,9 @@ func (f deckForm) check() ([]greek.TaskInput, []string) {
 	inputs, errs, _ := checkSource(f.source)
 	if f.title == "" {
 		errs = append([]string{"Title is required."}, errs...)
+	}
+	if n := len(errs) - maxShownErrors; n > 0 {
+		errs = append(errs[:maxShownErrors], fmt.Sprintf("…and %d more", n))
 	}
 	return inputs, errs
 }
@@ -153,7 +211,10 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 	v := editView{
 		Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug,
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
-		Source: deckfmt.Format(taskInputs(tasks)),
+		Source: deckfmt.Format(taskInputs(tasks)), Version: versionOf(set),
+	}
+	if lines := lossyLines(taskInputs(tasks)); len(lines) > 0 {
+		v.Lossy = linesList(lines)
 	}
 	v.Visibility = visibilityChoices(set.Visibility)
 	h.page(w, r, http.StatusOK, "edit", v)
@@ -170,15 +231,28 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		h.fail(w, r, err)
 		return
 	}
+	nanos, err := strconv.ParseInt(f.version, 10, 64)
+	if err != nil {
+		h.fail(w, r, fmt.Errorf("version %q: %w", f.version, store.ErrInvalid))
+		return
+	}
+	rerender := func(status int, errs []string) {
+		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs})
+		h.page(w, r, status, "edit", v)
+	}
 	inputs, errs := f.check()
 	if len(errs) > 0 {
-		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs})
-		h.page(w, r, http.StatusUnprocessableEntity, "edit", v)
+		rerender(http.StatusUnprocessableEntity, errs)
 		return
 	}
 	patch := store.SetPatch{Title: &f.title, Topic: &f.topic, Level: &f.level, Instructions: &f.instructions,
 		SourceRef: &f.sourceRef, Visibility: &f.visibility}
-	if _, err := h.st.SaveDeck(r.Context(), set.ID, patch, inputs); err != nil {
+	_, err = h.st.SaveDeck(r.Context(), set.ID, time.Unix(0, nanos), patch, inputs)
+	if errors.Is(err, store.ErrConflict) {
+		rerender(http.StatusConflict, []string{conflictMessage})
+		return
+	}
+	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
@@ -207,8 +281,8 @@ func (h *handler) createDeck(w http.ResponseWriter, r *http.Request, u store.Use
 		h.fail(w, r, err)
 		return
 	}
-	if _, err := h.st.SaveDeck(ctx, set.ID, store.SetPatch{}, inputs); err != nil {
-		h.fail(w, r, errors.Join(err, h.st.DeleteSet(ctx, set.ID)))
+	if _, err := h.st.SaveDeck(ctx, set.ID, time.Time{}, store.SetPatch{}, inputs); err != nil {
+		h.fail(w, r, errors.Join(err, h.st.DeleteSet(context.WithoutCancel(ctx), set.ID)))
 		return
 	}
 	http.Redirect(w, r, savedURL(set.Slug), http.StatusSeeOther)

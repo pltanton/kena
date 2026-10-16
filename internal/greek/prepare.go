@@ -19,8 +19,19 @@ func normalizeTask(t TaskInput) TaskInput {
 	return TaskInput{
 		Text:        strings.TrimSpace(NFC(t.Text)),
 		Blanks:      blanks,
-		Explanation: strings.TrimSpace(NFC(t.Explanation)),
+		Explanation: normalizeExplanation(t.Explanation),
 	}
+}
+
+func normalizeExplanation(s string) string {
+	s = strings.ReplaceAll(NFC(s), "\r\n", "\n")
+	var lines []string
+	for _, line := range strings.Split(strings.ReplaceAll(s, "\r", "\n"), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func Prepare(tasks []TaskInput, existingTexts []string) ([]TaskInput, []TaskIssue) {

@@ -127,7 +127,7 @@ func (s *server) addMistakeTools(srv *mcp.Server) {
 			}
 			u = fresh
 		}
-		rep, err := s.st.MistakesReport(ctx, u.ProgressID, setID, time.Now().AddDate(0, 0, -days))
+		rep, err := s.st.MistakesReport(ctx, u.ID, u.ProgressID, setID, time.Now().AddDate(0, 0, -days))
 		if err != nil {
 			return MistakesReport{}, err
 		}
