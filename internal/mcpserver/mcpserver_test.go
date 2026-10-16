@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -204,7 +205,7 @@ func TestToolsAndInstructions(t *testing.T) {
 		}
 	}
 	want := []string{
-		"add_tasks", "admin_create_user", "admin_issue_token", "admin_list_users", "admin_revoke_token",
+		"add_tasks", "admin_create_user", "admin_issue_token", "admin_list_users", "admin_reset_password", "admin_revoke_token",
 		"create_set", "delete_set", "delete_task", "get_authoring_guide", "get_set", "list_sets",
 		"update_set", "update_task", "validate_tasks",
 	}
@@ -427,14 +428,53 @@ func TestAdminTokens(t *testing.T) {
 
 func TestAdminCreateUser(t *testing.T) {
 	e := newEnv(t)
+	ctx := context.Background()
 	root := e.connect(t, "root")
-	u := ok[UserInfo](t, root, "admin_create_user", map[string]any{"username": "carol"})
-	if u.Username != "carol" || u.IsAdmin {
+	u := ok[CreatedUser](t, root, "admin_create_user", map[string]any{"username": "carol"})
+	if u.Username != "carol" || u.IsAdmin || strings.Count(u.Passphrase, "-") < 3 {
 		t.Fatalf("admin_create_user = %+v", u)
+	}
+	got, err := e.st.CheckPassword(ctx, "carol", u.Passphrase)
+	if err != nil || got.ID != u.ID {
+		t.Fatalf("returned passphrase does not log in: %v", err)
 	}
 	fails(t, root, "admin_create_user", map[string]any{"username": "carol"}, "already exists")
 	fails(t, root, "admin_create_user", map[string]any{"username": "Bad Name"}, "invalid username")
 	fails(t, e.connect(t, "alice"), "admin_create_user", map[string]any{"username": "dave"}, "admin only")
+}
+
+func TestAdminResetPassword(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	root := e.connect(t, "root")
+	created := ok[CreatedUser](t, root, "admin_create_user", map[string]any{"username": "carol"})
+	sess, err := e.st.CreateSession(ctx, created.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	access, _, _, err := e.st.CreateGrant(ctx, created.ID, "kc_x", "res", 0, time.Hour, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reset := ok[ResetPassword](t, root, "admin_reset_password", map[string]any{"username": "carol"})
+	if reset.Username != "carol" || reset.Passphrase == "" || reset.Passphrase == created.Passphrase {
+		t.Fatalf("admin_reset_password = %+v", reset)
+	}
+	if _, err := e.st.CheckPassword(ctx, "carol", reset.Passphrase); err != nil {
+		t.Fatalf("new passphrase does not log in: %v", err)
+	}
+	if _, err := e.st.CheckPassword(ctx, "carol", created.Passphrase); err == nil {
+		t.Fatal("old passphrase still logs in")
+	}
+	if _, err := e.st.UserBySession(ctx, sess); err == nil {
+		t.Error("session survives reset")
+	}
+	if _, _, err := e.st.GrantByAccess(ctx, access); err == nil {
+		t.Error("OAuth grant survives reset")
+	}
+	fails(t, root, "admin_reset_password", map[string]any{"username": "nobody"}, "not found")
+	fails(t, e.connect(t, "alice"), "admin_reset_password", map[string]any{"username": "bob"}, "admin only")
 }
 
 func TestListSetsOwnerFilter(t *testing.T) {

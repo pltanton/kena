@@ -7,12 +7,17 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/pltanton/kena/internal/passphrase"
 	"github.com/pltanton/kena/internal/store"
 )
 
 type CreateUserIn struct {
 	Username string `json:"username" jsonschema:"2-32 chars: lowercase latin letters, digits, _ or -, starting with a letter or digit"`
 	IsAdmin  bool   `json:"is_admin,omitempty" jsonschema:"grant admin rights"`
+}
+
+type ResetPasswordIn struct {
+	Username string `json:"username" jsonschema:"existing username"`
 }
 
 type IssueTokenIn struct {
@@ -41,6 +46,23 @@ type UserInfo struct {
 	Created  string      `json:"created"`
 	Tokens   []TokenInfo `json:"tokens,omitempty"`
 }
+
+type CreatedUser struct {
+	ID         int64  `json:"id"`
+	Username   string `json:"username"`
+	IsAdmin    bool   `json:"is_admin"`
+	Created    string `json:"created"`
+	Passphrase string `json:"passphrase"`
+	Note       string `json:"note"`
+}
+
+type ResetPassword struct {
+	Username   string `json:"username"`
+	Passphrase string `json:"passphrase"`
+	Note       string `json:"note"`
+}
+
+const passphraseNote = "shown once; send the username and passphrase to the user, who logs in on the kena site"
 
 type UserList struct {
 	Users []UserInfo `json:"users"`
@@ -71,6 +93,17 @@ func userInfo(u store.User) UserInfo {
 	return UserInfo{ID: u.ID, Username: u.Username, IsAdmin: u.IsAdmin, Created: stamp(u.CreatedAt)}
 }
 
+func (s *server) setNewPassphrase(ctx context.Context, userID int64) (string, error) {
+	pass, err := passphrase.Generate()
+	if err != nil {
+		return "", err
+	}
+	if err := s.st.SetPassword(ctx, userID, pass, ""); err != nil {
+		return "", err
+	}
+	return pass, nil
+}
+
 func adminOnly[In, Out any](fn func(context.Context, store.User, In) (Out, error)) mcp.ToolHandlerFor[In, Out] {
 	return handle(func(ctx context.Context, u store.User, in In) (Out, error) {
 		if !u.IsAdmin {
@@ -84,24 +117,47 @@ func adminOnly[In, Out any](fn func(context.Context, store.User, In) (Out, error
 func (s *server) addAdminTools(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "admin_create_user",
-		Description: "Admin only. Create a user account. Then give them access with admin_issue_token.",
+		Description: "Admin only. Create a user account with a generated passphrase. The passphrase appears only in this result; send the username and passphrase to the user. They log in on the kena website, connect the Claude app or ChatGPT by logging in on the kena page those apps open, and create personal tokens for Claude Code and other agents on their Account page.",
 		Annotations: additive("Create user"),
-	}, adminOnly(func(ctx context.Context, _ store.User, in CreateUserIn) (UserInfo, error) {
+	}, adminOnly(func(ctx context.Context, _ store.User, in CreateUserIn) (CreatedUser, error) {
 		u, err := s.st.CreateUser(ctx, in.Username, in.IsAdmin)
 		switch {
 		case errors.Is(err, store.ErrConflict):
-			return UserInfo{}, fail("user %q already exists", in.Username)
+			return CreatedUser{}, fail("user %q already exists; use admin_reset_password for a new passphrase", in.Username)
 		case errors.Is(err, store.ErrInvalid):
-			return UserInfo{}, fail("invalid username %q: use 2-32 lowercase latin letters, digits, _ or -, starting with a letter or digit", in.Username)
+			return CreatedUser{}, fail("invalid username %q: use 2-32 lowercase latin letters, digits, _ or -, starting with a letter or digit", in.Username)
 		case err != nil:
-			return UserInfo{}, err
+			return CreatedUser{}, err
 		}
-		return userInfo(u), nil
+		pass, err := s.setNewPassphrase(ctx, u.ID)
+		if err != nil {
+			return CreatedUser{}, err
+		}
+		return CreatedUser{ID: u.ID, Username: u.Username, IsAdmin: u.IsAdmin, Created: stamp(u.CreatedAt), Passphrase: pass, Note: passphraseNote}, nil
+	}))
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "admin_reset_password",
+		Description: "Admin only. Give a user a new generated passphrase, e.g. when they forgot theirs. Logs the user out everywhere and disconnects their OAuth apps (Claude app, ChatGPT); personal tokens keep working. The passphrase appears only in this result.",
+		Annotations: destructive("Reset passphrase", false),
+	}, adminOnly(func(ctx context.Context, _ store.User, in ResetPasswordIn) (ResetPassword, error) {
+		u, err := s.st.UserByName(ctx, in.Username)
+		if errors.Is(err, store.ErrNotFound) {
+			return ResetPassword{}, fail("user %q not found; see admin_list_users", in.Username)
+		}
+		if err != nil {
+			return ResetPassword{}, err
+		}
+		pass, err := s.setNewPassphrase(ctx, u.ID)
+		if err != nil {
+			return ResetPassword{}, err
+		}
+		return ResetPassword{Username: u.Username, Passphrase: pass, Note: passphraseNote}, nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "admin_issue_token",
-		Description: "Admin only. Issue a personal bearer token for a user (for MCP clients without OAuth). The secret appears only in this result and cannot be retrieved later; pass it to the user right away.",
+		Description: "Admin only. Issue a personal bearer token for a user (for MCP clients without OAuth, e.g. Claude Code, Hermes). Users can also create their own on their Account page. The secret appears only in this result and cannot be retrieved later; pass it to the user right away.",
 		Annotations: additive("Issue token"),
 	}, adminOnly(func(ctx context.Context, _ store.User, in IssueTokenIn) (IssuedToken, error) {
 		u, err := s.st.UserByName(ctx, in.Username)
