@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect to kena</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem;line-height:1.5}
+input[type=password]{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem}
+button{margin-top:1rem;padding:.5rem 1.25rem;font-size:1rem}
+.error{color:#b00020}
+</style>
+</head>
+<body>
+<main class="oauth-authorize">
+{{if .Fatal}}
+<h1>Authorization error</h1>
+<p class="error">{{.Fatal}}</p>
+{{else}}
+<h1>Connect an app to kena</h1>
+{{if .ClientName}}<p><strong>{{.ClientName}}</strong> (name provided by the app)</p>{{end}}
+{{if .ClientHost}}<p>App published by <strong>{{.ClientHost}}</strong></p>{{end}}
+<p>You will be sent back to <strong>{{.RedirectHost}}</strong></p>
+<p>Paste your kena token to let this app create and edit your task sets.</p>
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+<form method="post" action="/oauth/authorize">
+{{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
+{{end}}<label for="token">kena token</label>
+<input type="password" id="token" name="token" autocomplete="off" required autofocus>
+<button type="submit">Connect</button>
+</form>
+{{end}}
+</main>
+</body>
+</html>
