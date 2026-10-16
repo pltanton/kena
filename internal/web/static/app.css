@@ -245,10 +245,17 @@ p {
 }
 
 .error,
-.notice {
+.notice,
+.warning {
   border-radius: 2px 8px 8px 2px;
   padding: 10px 14px;
   border-left: 3px solid currentColor;
+}
+
+.warning {
+  color: var(--text);
+  background: var(--gold-soft);
+  border-left-color: var(--gold);
 }
 
 .error {

@@ -30,6 +30,7 @@ type editView struct {
 	Visibility   []visibilityOption
 	Source       string
 	Errors       []string
+	Lossy        string
 }
 
 var fieldRe = regexp.MustCompile(`^blanks\[(\d+)\](?:\.answers\[(\d+)\])?$`)
@@ -93,6 +94,42 @@ func taskInputs(tasks []store.Task) []greek.TaskInput {
 	return out
 }
 
+func lossyLines(inputs []greek.TaskInput) []int {
+	var lines []int
+	line := 1
+	for _, in := range inputs {
+		src := deckfmt.Format([]greek.TaskInput{in})
+		items, errs := deckfmt.Parse(src)
+		var back []greek.TaskInput
+		if len(errs) == 0 && len(items) == 1 {
+			back, _ = greek.Prepare(deckfmt.Tasks(items), nil)
+		}
+		if len(back) != 1 || !sameInput(back[0], in) {
+			lines = append(lines, line)
+		}
+		line += strings.Count(src, "\n") + 1
+	}
+	return lines
+}
+
+func sameInput(a, b greek.TaskInput) bool {
+	return a.Text == b.Text && a.Explanation == b.Explanation &&
+		slices.EqualFunc(a.Blanks, b.Blanks, func(x, y greek.Blank) bool {
+			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers)
+		})
+}
+
+func linesList(lines []int) string {
+	parts := make([]string, len(lines))
+	for i, l := range lines {
+		parts[i] = strconv.Itoa(l)
+	}
+	if len(lines) == 1 {
+		return "line " + parts[0]
+	}
+	return "lines " + strings.Join(parts, ", ")
+}
+
 func deckWarnings(tasks []store.Task) []string {
 	_, _, warnings := checkSource(deckfmt.Format(taskInputs(tasks)))
 	return warnings
@@ -154,6 +191,9 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 		Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug,
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
 		Source: deckfmt.Format(taskInputs(tasks)),
+	}
+	if lines := lossyLines(taskInputs(tasks)); len(lines) > 0 {
+		v.Lossy = linesList(lines)
 	}
 	v.Visibility = visibilityChoices(set.Visibility)
 	h.page(w, r, http.StatusOK, "edit", v)
