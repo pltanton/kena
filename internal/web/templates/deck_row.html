@@ -1,0 +1,5 @@
+{{define "deck_row"}}<a class="set-row" href="/s/{{.Set.Slug}}">
+<span class="title">{{.Set.Title}}{{if .Starred}} <span class="star-mark" title="Starred">★</span>{{end}}{{if .Private}} <span class="badge private">private</span>{{end}}</span>
+<span class="meta">{{if .Author}}{{.Set.OwnerName}}{{if or .Set.Topic .Set.Level}} · {{end}}{{end}}{{.Set.Topic}}{{if and .Set.Topic .Set.Level}} · {{end}}{{.Set.Level}}</span>
+<span class="score">{{.Progress.Solved}}/{{.Progress.Total}}{{with .Progress.Mistakes}} <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</span>
+</a>{{end}}

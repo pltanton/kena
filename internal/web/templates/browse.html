@@ -1,0 +1,26 @@
+{{define "title"}}Browse · kena{{end}}
+{{define "main"}}<h1>Shared decks</h1>
+{{- if not .LoggedIn}}
+<p class="muted"><a href="{{.LoginURL}}">Log in</a> to star decks and keep them on your home page.</p>
+{{- end}}
+{{- with .Rows}}
+<ul class="sets">
+{{- range .}}
+<li class="deck">{{template "deck_row" .Row}}
+{{- if $.LoggedIn}}
+<form class="star" method="post" action="/s/{{.Row.Set.Slug}}/star">
+<input type="hidden" name="next" value="/browse">
+{{- if .Starred}}
+<button type="submit" name="star" value="0" aria-pressed="true" aria-label="Unstar {{.Row.Set.Title}}" title="Unstar">★</button>
+{{- else}}
+<button type="submit" name="star" value="1" aria-pressed="false" aria-label="Star {{.Row.Set.Title}}" title="Star">☆</button>
+{{- end}}
+</form>
+{{- end}}
+</li>
+{{- end}}
+</ul>
+{{- else}}
+<p class="empty">No shared decks from other authors yet.</p>
+{{- end}}
+{{end}}

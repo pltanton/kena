@@ -144,7 +144,7 @@ func TestLoggedInProgressSharedAcrossDevices(t *testing.T) {
 	resp, _ := phone.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
 	wantStatus(t, resp, http.StatusOK)
 
-	_, body := laptop.get("/")
+	_, body := laptop.get("/browse")
 	if !strings.Contains(body, "1/3") {
 		t.Fatalf("laptop does not see the phone's progress:\n%s", body)
 	}
@@ -162,13 +162,13 @@ func TestLoginMergesAnonymousProgress(t *testing.T) {
 	e.check(e.tasks[1].ID, url.Values{"a": {"λάθος"}, "mode": {"cards"}}, true)
 
 	e.login("anna")
-	_, body := e.get("/")
+	_, body := e.get("/browse")
 	if !strings.Contains(body, "1/3") || !strings.Contains(body, "1 mistake") {
 		t.Fatalf("progress lost on login:\n%s", body)
 	}
 	other := e.clone()
 	other.login("anna")
-	_, body = other.get("/")
+	_, body = other.get("/browse")
 	if !strings.Contains(body, "1/3") {
 		t.Fatalf("merged progress not on the account:\n%s", body)
 	}

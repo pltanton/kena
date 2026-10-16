@@ -8,6 +8,16 @@
 <span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
 <span class="seg">{{with .Shuffle}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
 </nav>
+{{- if .CanStar}}
+<form class="seg star-toggle" method="post" action="/s/{{.Set.Slug}}/star">
+<input type="hidden" name="next" value="{{.Here}}">
+{{- if .Starred}}
+<button type="submit" name="star" value="0" aria-pressed="true">★ Starred</button>
+{{- else}}
+<button type="submit" name="star" value="1">☆ Star</button>
+{{- end}}
+</form>
+{{- end}}
 {{- if .Owner}}
 <form class="seg share" method="post" action="/s/{{.Set.Slug}}/share">
 <button type="submit" name="shared" value="1"{{if .Set.Shared}} aria-pressed="true"{{end}}>Shared</button>

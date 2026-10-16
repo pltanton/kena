@@ -46,8 +46,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
-		"templates/list_item.html", "templates/done.html"))
-	for _, page := range []string{"index", "set", "404", "login", "account", "mistakes"} {
+		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -63,6 +63,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
 	mux.HandleFunc("POST /s/{slug}/share", h.requireUser(h.share))
+	mux.HandleFunc("POST /s/{slug}/star", h.requireUser(h.star))
+	mux.HandleFunc("GET /browse", h.browse)
 	mux.HandleFunc("POST /t/{id}/check", h.check)
 	mux.HandleFunc("GET /t/{id}/item", h.item)
 	mux.HandleFunc("GET /login", h.loginPage)
@@ -482,67 +484,103 @@ func (h *handler) notFound(w http.ResponseWriter, r *http.Request) {
 	h.page(w, r, http.StatusNotFound, "404", nil)
 }
 
-type setRow struct {
+type deckRow struct {
 	Set      store.Set
 	Progress store.Progress
+	Private  bool
+	Starred  bool
+	Author   bool
 }
 
-type indexView struct {
-	Authors []link
-	Groups  []ownerGroup
+func newDeckRow(s store.Set, progress map[int64]store.Progress) deckRow {
+	pr, ok := progress[s.ID]
+	if !ok {
+		pr.Total = s.TaskCount
+	}
+	return deckRow{Set: s, Progress: pr}
 }
 
 type ownerGroup struct {
 	Owner string
-	Sets  []setRow
+	Sets  []deckRow
+}
+
+type indexView struct {
+	LoggedIn bool
+	Mine     []deckRow
+	Groups   []ownerGroup
 }
 
 func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	u, loggedIn := currentUser(r)
-	sets, err := h.st.ListSets(ctx, store.ListFilter{ViewerID: u.ID})
+	progress, err := h.st.ProgressBySet(ctx, progressID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	author := r.URL.Query().Get("author")
-	v := indexView{Authors: []link{{"All", "/", author == ""}}}
-	if loggedIn {
-		v.Authors = append(v.Authors, link{"Mine", "/?author=me", author == "me"})
-	}
-	for i, s := range sets {
-		if i == 0 || sets[i-1].OwnerName != s.OwnerName {
-			v.Authors = append(v.Authors, link{s.OwnerName, "/?" + url.Values{"author": {s.OwnerName}}.Encode(), author == s.OwnerName})
+	var v indexView
+	if u, ok := currentUser(r); ok {
+		decks, err := h.st.MyDecks(ctx, u.ID)
+		if err != nil {
+			h.fail(w, r, err)
+			return
 		}
+		v.LoggedIn = true
+		for _, d := range decks {
+			row := newDeckRow(d.Set, progress)
+			row.Private = d.OwnerID == u.ID && !d.Shared
+			row.Starred = d.Starred
+			v.Mine = append(v.Mine, row)
+		}
+		h.page(w, r, http.StatusOK, "index", v)
+		return
+	}
+	sets, err := h.st.ListSets(ctx, store.ListFilter{})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	for _, s := range sets {
+		if len(v.Groups) == 0 || v.Groups[len(v.Groups)-1].Owner != s.OwnerName {
+			v.Groups = append(v.Groups, ownerGroup{Owner: s.OwnerName})
+		}
+		g := &v.Groups[len(v.Groups)-1]
+		g.Sets = append(g.Sets, newDeckRow(s, progress))
+	}
+	h.page(w, r, http.StatusOK, "index", v)
+}
+
+type browseRow struct {
+	Row     deckRow
+	Starred bool
+}
+
+type browseView struct {
+	LoggedIn bool
+	LoginURL string
+	Rows     []browseRow
+}
+
+func (h *handler) browse(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u, loggedIn := currentUser(r)
+	decks, err := h.st.BrowseDecks(ctx, u.ID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
 	}
 	progress, err := h.st.ProgressBySet(ctx, progressID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	var groups []ownerGroup
-	for _, s := range sets {
-		switch {
-		case author == "":
-		case author == "me":
-			if !loggedIn || s.OwnerID != u.ID {
-				continue
-			}
-		case author != s.OwnerName:
-			continue
-		}
-		if len(groups) == 0 || groups[len(groups)-1].Owner != s.OwnerName {
-			groups = append(groups, ownerGroup{Owner: s.OwnerName})
-		}
-		pr, ok := progress[s.ID]
-		if !ok {
-			pr.Total = s.TaskCount
-		}
-		g := &groups[len(groups)-1]
-		g.Sets = append(g.Sets, setRow{Set: s, Progress: pr})
+	v := browseView{LoggedIn: loggedIn, LoginURL: "/login?" + url.Values{"next": {"/browse"}}.Encode()}
+	for _, d := range decks {
+		row := newDeckRow(d.Set, progress)
+		row.Author = true
+		v.Rows = append(v.Rows, browseRow{Row: row, Starred: d.Starred})
 	}
-	v.Groups = groups
-	h.page(w, r, http.StatusOK, "index", v)
+	h.page(w, r, http.StatusOK, "browse", v)
 }
 
 type link struct {
@@ -554,6 +592,9 @@ type link struct {
 type setPage struct {
 	Set      store.Set
 	Owner    bool
+	CanStar  bool
+	Starred  bool
+	Here     string
 	Progress store.Progress
 	Params   params
 	Modes    []link
@@ -639,7 +680,14 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	todo := filtered(order, p.Filter, last)
 	pr := progressOf(tasks, last)
 
-	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p}
+	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p, Here: r.URL.RequestURI()}
+	if u, ok := currentUser(r); ok && !data.Owner {
+		data.CanStar = true
+		if data.Starred, err = h.st.IsStarred(r.Context(), u.ID, set.ID); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+	}
 	for _, m := range []string{"cards", "list"} {
 		lp := p
 		lp.Mode = m
@@ -887,4 +935,41 @@ func (h *handler) share(w http.ResponseWriter, r *http.Request, u store.User) {
 		return
 	}
 	http.Redirect(w, r, "/s/"+url.PathEscape(set.Slug), http.StatusSeeOther)
+}
+
+func (h *handler) star(w http.ResponseWriter, r *http.Request, u store.User) {
+	set, err := h.visibleSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+		return
+	}
+	switch v := r.PostForm.Get("star"); v {
+	case "1":
+		err = h.st.Star(r.Context(), u.ID, set.ID)
+	case "0":
+		err = h.st.Unstar(r.Context(), u.ID, set.ID)
+	default:
+		err = fmt.Errorf("star %q: %w", v, store.ErrInvalid)
+	}
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, starReturn(r, set), http.StatusSeeOther)
+}
+
+func starReturn(r *http.Request, set store.Set) string {
+	if next := r.PostForm.Get("next"); next != "" && safeNext(next) == next {
+		return next
+	}
+	if ref, err := url.Parse(r.Referer()); err == nil && ref.Host == r.Host && ref.Path != "" {
+		if loc := ref.RequestURI(); safeNext(loc) == loc {
+			return loc
+		}
+	}
+	return "/s/" + url.PathEscape(set.Slug)
 }

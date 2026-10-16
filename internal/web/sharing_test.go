@@ -37,8 +37,10 @@ func (e *env) privateSet() (store.Set, store.Task) {
 
 func (e *env) wantHidden(set store.Set, task store.Task) {
 	e.t.Helper()
-	if _, body := e.get("/"); strings.Contains(body, set.Title) {
-		e.t.Errorf("home lists the private set")
+	for _, p := range []string{"/", "/browse"} {
+		if _, body := e.get(p); strings.Contains(body, set.Title) {
+			e.t.Errorf("%s lists the private set", p)
+		}
 	}
 	for _, p := range []string{"/s/" + set.Slug, fmt.Sprintf("/s/%s/next?after=0", set.Slug), fmt.Sprintf("/t/%d/item", task.ID)} {
 		if resp, _ := e.get(p); resp.StatusCode != http.StatusNotFound {
@@ -116,37 +118,4 @@ func TestShareToggle(t *testing.T) {
 
 	maria.post(path, url.Values{"shared": {"0"}}, e.srv.URL)
 	anon.wantHidden(set, task)
-}
-
-func TestAuthorChips(t *testing.T) {
-	e := setup(t)
-	set, _ := e.privateSet()
-	ctx := context.Background()
-	bob := e.user("bob")
-	if _, err := e.st.CreateSet(ctx, bob.ID, store.SetInput{Title: "Bob shared", Shared: true}); err != nil {
-		t.Fatal(err)
-	}
-
-	_, body := e.get("/")
-	for _, want := range []string{`href="/?author=maria"`, `href="/?author=bob"`, "Bob shared", e.set.Title} {
-		if !strings.Contains(body, want) {
-			t.Errorf("anonymous home missing %q", want)
-		}
-	}
-	if strings.Contains(body, "author=me") {
-		t.Error("anonymous home has a Mine chip")
-	}
-	_, body = e.get("/?author=bob")
-	if !strings.Contains(body, "Bob shared") || strings.Contains(body, e.set.Title) || !strings.Contains(body, `aria-current`) {
-		t.Errorf("author=bob:\n%s", body)
-	}
-	if resp, body := e.get("/?author=nobody"); resp.StatusCode != http.StatusOK || strings.Contains(body, "Bob shared") {
-		t.Errorf("author=nobody: %d", resp.StatusCode)
-	}
-
-	e.login("maria")
-	_, body = e.get("/?author=me")
-	if !strings.Contains(body, set.Title) || !strings.Contains(body, e.set.Title) || strings.Contains(body, "Bob shared") {
-		t.Errorf("author=me:\n%s", body)
-	}
 }

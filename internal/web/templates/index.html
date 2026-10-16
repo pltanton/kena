@@ -1,21 +1,26 @@
-{{define "main"}}<h1>Sets</h1>
-<nav class="chips" aria-label="Authors">{{range .Authors}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</nav>
+{{define "main"}}{{if .LoggedIn}}<h1>My decks</h1>
+{{- with .Mine}}
+<ul class="sets">
+{{- range .}}
+<li>{{template "deck_row" .}}</li>
+{{- end}}
+</ul>
+{{- else}}
+<p class="empty">No decks yet — <a href="/browse">Browse shared decks</a></p>
+{{- end}}
+{{- else}}<h1>Shared decks</h1>
+<p class="muted"><a href="/login">Log in</a> to keep your own list of decks.</p>
 {{- range .Groups}}
 <section class="group">
 <h2>{{.Owner}}</h2>
 <ul class="sets">
 {{- range .Sets}}
-<li>
-<a class="set-row" href="/s/{{.Set.Slug}}">
-<span class="title">{{.Set.Title}}{{if not .Set.Shared}} <span class="badge private">private</span>{{end}}</span>
-<span class="meta">{{.Set.Topic}}{{if and .Set.Topic .Set.Level}} · {{end}}{{.Set.Level}}</span>
-<span class="score">{{.Progress.Solved}}/{{.Progress.Total}}{{with .Progress.Mistakes}} <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</span>
-</a>
-</li>
+<li>{{template "deck_row" .}}</li>
 {{- end}}
 </ul>
 </section>
 {{- else}}
-<p class="empty">No sets yet. Sets are created by their authors through the MCP connector.</p>
+<p class="empty">No shared decks yet. Decks are created by their authors through the MCP connector.</p>
+{{- end}}
 {{- end}}
 {{end}}
