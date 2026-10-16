@@ -249,3 +249,44 @@ func TestLintTaskFieldNaming(t *testing.T) {
 		t.Errorf("expected polytonic error field blanks[1].answers[0], got %+v", issues)
 	}
 }
+
+func TestLintTaskFormatCharacters(t *testing.T) {
+	ok := func() TaskInput {
+		return TaskInput{Text: "Εσύ ___ πολύ.", Blanks: []Blank{{Answers: []string{"γράφεις"}, Hint: "γράφω"}}, Explanation: "line one\nline two"}
+	}
+	if issues := LintTask(ok()); len(issues) != 0 {
+		t.Fatalf("clean task: %+v", issues)
+	}
+	for _, c := range []struct {
+		name, field, msg string
+		mod              func(*TaskInput)
+	}{
+		{"brace in text", "text", `"{"`, func(t *TaskInput) { t.Text = "Εσύ {___} πολύ." }},
+		{"closing brace in text", "text", `"}"`, func(t *TaskInput) { t.Text = "Εσύ ___ πολύ}." }},
+		{"bar in text", "text", `"|"`, func(t *TaskInput) { t.Text = "Εσύ ___ | πολύ." }},
+		{"newline in text", "text", "line break", func(t *TaskInput) { t.Text = "Εσύ ___\nπολύ." }},
+		{"slash in answer", "blanks[0].answers[0]", `"/"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "γράφεις/γράφει" }},
+		{"brace in answer", "blanks[0].answers[0]", `"{"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "{γράφεις" }},
+		{"bar in answer", "blanks[0].answers[0]", `"|"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "γράφεις|" }},
+		{"brace in hint", "blanks[0].hint", `"}"`, func(t *TaskInput) { t.Blanks[0].Hint = "γράφω}" }},
+		{"bar in hint", "blanks[0].hint", `"|"`, func(t *TaskInput) { t.Blanks[0].Hint = "γράφω | αόρ." }},
+		{"NUL in text", "text", "control character", func(t *TaskInput) { t.Text = "Εσύ ___ \x00πολύ." }},
+		{"tab in answer", "blanks[0].answers[0]", "control character", func(t *TaskInput) { t.Blanks[0].Answers[0] = "γρά\tφεις" }},
+		{"control in hint", "blanks[0].hint", "control character", func(t *TaskInput) { t.Blanks[0].Hint = "γράφω\x1b" }},
+		{"control in explanation", "explanation", "control character", func(t *TaskInput) { t.Explanation = "why\x07" }},
+		{"newline in hint", "blanks[0].hint", "control character", func(t *TaskInput) { t.Blanks[0].Hint = "γράφω\nx" }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			in := ok()
+			c.mod(&in)
+			if issues := LintTask(in); !hasIssue(issues, Error, c.field, c.msg) {
+				t.Fatalf("want error on %s containing %q, got %+v", c.field, c.msg, issues)
+			}
+		})
+	}
+	in := ok()
+	in.Blanks[0].Hint = "γράφω / γράψω"
+	if issues := LintTask(in); len(issues) != 0 {
+		t.Fatalf("slash in hint is fine: %+v", issues)
+	}
+}

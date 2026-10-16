@@ -38,6 +38,9 @@ func LintTask(t TaskInput) []Issue {
 			fmt.Sprintf("found %d %q placeholders but %d blanks", n, Marker, len(t.Blanks))})
 	}
 
+	issues = append(issues, charIssues("text", t.Text, "{}|", false)...)
+	issues = append(issues, charIssues("explanation", t.Explanation, "", true)...)
+
 	textNoMarker := strings.ReplaceAll(t.Text, Marker, " ")
 	issues = append(issues, scriptIssues("text", textNoMarker)...)
 
@@ -47,6 +50,7 @@ func LintTask(t TaskInput) []Issue {
 
 	for i, b := range t.Blanks {
 		blankField := fmt.Sprintf("blanks[%d]", i)
+		issues = append(issues, charIssues(blankField+".hint", b.Hint, "{}|", false)...)
 		if len(b.Answers) == 0 {
 			issues = append(issues, Issue{Error, blankField, "blank has no accepted answers"})
 			continue
@@ -60,6 +64,7 @@ func LintTask(t TaskInput) []Issue {
 			if strings.Contains(a, Marker) {
 				issues = append(issues, Issue{Error, answerField, fmt.Sprintf("answer %q must not contain %s", a, Marker)})
 			}
+			issues = append(issues, charIssues(answerField, a, "/{}|", false)...)
 			issues = append(issues, scriptIssues(answerField, a)...)
 			issues = append(issues, accentWarnings(answerField, a)...)
 		}
@@ -188,4 +193,28 @@ func vowelGroupCount(word string) int {
 	}
 
 	return count
+}
+
+func charIssues(field, s, forbidden string, newlineOK bool) []Issue {
+	var issues []Issue
+	seen := map[rune]bool{}
+	for _, r := range s {
+		if seen[r] {
+			continue
+		}
+		switch {
+		case strings.ContainsRune(forbidden, r):
+			issues = append(issues, Issue{Error, field, fmt.Sprintf("%q is not allowed here; the editor uses it for blanks", string(r))})
+		case r == '\n' && newlineOK:
+			continue
+		case r == '\n' && field == "text":
+			issues = append(issues, Issue{Error, field, "line break is not allowed; keep the sentence on one line"})
+		case unicode.IsControl(r):
+			issues = append(issues, Issue{Error, field, fmt.Sprintf("control character %U is not allowed", r)})
+		default:
+			continue
+		}
+		seen[r] = true
+	}
+	return issues
 }
