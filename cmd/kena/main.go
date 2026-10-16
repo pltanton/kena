@@ -5,16 +5,19 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/pltanton/kena/internal/app"
 	"github.com/pltanton/kena/internal/config"
 	"github.com/pltanton/kena/internal/db"
+	"github.com/pltanton/kena/internal/passphrase"
 	"github.com/pltanton/kena/internal/store"
 )
 
@@ -36,6 +39,8 @@ func main() {
 		err = runMigrate(os.Args[2:])
 	case "token":
 		err = runToken(os.Args[2:])
+	case "user":
+		err = runUser(os.Args[2:], os.Stdout)
 	case "version":
 		fmt.Println(version)
 	default:
@@ -54,6 +59,8 @@ func usage() {
 commands:
   serve                                     run the web and MCP server
   migrate                                   apply database migrations
+  user create NAME [--admin]                create a user and print their passphrase
+  user passwd NAME                          print a new passphrase for a user; logs them out everywhere
   token create --user NAME [--admin] [--label L]   issue a personal access token
   version                                   print the build version`)
 }
@@ -157,23 +164,13 @@ func runToken(args []string) error {
 		return errors.New("--user is required")
 	}
 
-	databaseURL := os.Getenv("KENA_DATABASE_URL")
-	if databaseURL == "" {
-		return errors.New("KENA_DATABASE_URL is required")
-	}
-
 	ctx := context.Background()
-	pool, err := db.Open(ctx, databaseURL)
+	st, closeDB, err := openStore(ctx)
 	if err != nil {
-		return fmt.Errorf("opening database: %w", err)
+		return err
 	}
-	defer pool.Close()
+	defer closeDB()
 
-	if err := db.Migrate(ctx, pool); err != nil {
-		return fmt.Errorf("migrating database: %w", err)
-	}
-
-	st := store.New(pool)
 	u, err := st.EnsureUser(ctx, *user, *admin)
 	if err != nil {
 		return fmt.Errorf("ensuring user: %w", err)
@@ -185,4 +182,77 @@ func runToken(args []string) error {
 
 	fmt.Println(token)
 	return nil
+}
+
+func openStore(ctx context.Context) (*store.Store, func(), error) {
+	databaseURL := os.Getenv("KENA_DATABASE_URL")
+	if databaseURL == "" {
+		return nil, nil, errors.New("KENA_DATABASE_URL is required")
+	}
+	pool, err := db.Open(ctx, databaseURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("opening database: %w", err)
+	}
+	if err := db.Migrate(ctx, pool); err != nil {
+		pool.Close()
+		return nil, nil, fmt.Errorf("migrating database: %w", err)
+	}
+	return store.New(pool), pool.Close, nil
+}
+
+const userUsage = "usage: kena user create NAME [--admin] | kena user passwd NAME"
+
+func runUser(args []string, out io.Writer) error {
+	if len(args) == 0 || (args[0] != "create" && args[0] != "passwd") {
+		return errors.New(userUsage)
+	}
+	cmd := args[0]
+	var name string
+	admin := false
+	for _, a := range args[1:] {
+		switch {
+		case (a == "--admin" || a == "-admin") && cmd == "create":
+			admin = true
+		case strings.HasPrefix(a, "-") || name != "":
+			return errors.New(userUsage)
+		default:
+			name = a
+		}
+	}
+	if name == "" {
+		return errors.New(userUsage)
+	}
+
+	ctx := context.Background()
+	st, closeDB, err := openStore(ctx)
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+
+	var u store.User
+	if cmd == "create" {
+		u, err = st.CreateUser(ctx, name, admin)
+		if errors.Is(err, store.ErrConflict) {
+			return fmt.Errorf("user %q already exists; use kena user passwd %s", name, name)
+		}
+	} else {
+		u, err = st.UserByName(ctx, name)
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("user %q not found", name)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	pass, err := passphrase.Generate()
+	if err != nil {
+		return err
+	}
+	if err := st.SetPassword(ctx, u.ID, pass, ""); err != nil {
+		return fmt.Errorf("setting passphrase: %w", err)
+	}
+	_, err = fmt.Fprintln(out, pass)
+	return err
 }
