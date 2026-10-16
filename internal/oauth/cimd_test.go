@@ -49,3 +49,16 @@ func TestDefaultClientRefusesLoopback(t *testing.T) {
 		t.Fatalf("err = %v, want errBlockedAddress", err)
 	}
 }
+
+func TestCIMDCheckRedirect(t *testing.T) {
+	via := []*http.Request{httptest.NewRequest("GET", "https://a.example/client.json", nil)}
+	if err := cimdCheckRedirect(httptest.NewRequest("GET", "http://a.example/x", nil), via); err == nil {
+		t.Error("redirect to http allowed")
+	}
+	if err := cimdCheckRedirect(httptest.NewRequest("GET", "https://b.example/x", nil), via); err != nil {
+		t.Errorf("redirect to https refused: %v", err)
+	}
+	if err := cimdCheckRedirect(httptest.NewRequest("GET", "https://b.example/x", nil), append(via, via[0], via[0])); err == nil {
+		t.Error("fourth redirect allowed")
+	}
+}

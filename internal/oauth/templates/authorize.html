@@ -18,7 +18,10 @@ button{margin-top:1rem;padding:.5rem 1.25rem;font-size:1rem}
 <h1>Authorization error</h1>
 <p class="error">{{.Fatal}}</p>
 {{else}}
-<h1>Connect {{.ClientName}}</h1>
+<h1>Connect an app to kena</h1>
+{{if .ClientName}}<p><strong>{{.ClientName}}</strong> (name provided by the app)</p>{{end}}
+{{if .ClientHost}}<p>App published by <strong>{{.ClientHost}}</strong></p>{{end}}
+<p>You will be sent back to <strong>{{.RedirectHost}}</strong></p>
 <p>Paste your kena token to let this app create and edit your task sets.</p>
 {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
 <form method="post" action="/oauth/authorize">

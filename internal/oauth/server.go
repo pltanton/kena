@@ -8,12 +8,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
@@ -25,6 +28,14 @@ const (
 	accessTTL  = time.Hour
 	refreshTTL = 90 * 24 * time.Hour
 	codeTTL    = 10 * time.Minute
+
+	maxRedirectURIs    = 10
+	maxClientNameRunes = 100
+)
+
+var (
+	challengeRe = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
+	verifierRe  = regexp.MustCompile(`^[A-Za-z0-9._~-]{43,128}$`)
 )
 
 //go:embed templates/authorize.html
@@ -159,20 +170,23 @@ func matchRedirect(registered []string, got string) bool {
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	var req struct {
-		RedirectURIs            []string `json:"redirect_uris"`
-		ClientName              string   `json:"client_name"`
-		TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
+		RedirectURIs []string `json:"redirect_uris"`
+		ClientName   string   `json:"client_name"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
 		oauthError(w, http.StatusBadRequest, "invalid_client_metadata", "request body must be a JSON object")
+		return
+	}
+	if len(req.RedirectURIs) > maxRedirectURIs {
+		oauthError(w, http.StatusBadRequest, "invalid_redirect_uri", fmt.Sprintf("at most %d redirect_uris are allowed", maxRedirectURIs))
 		return
 	}
 	if err := validateRedirectURIs(req.RedirectURIs); err != nil {
 		oauthError(w, http.StatusBadRequest, "invalid_redirect_uri", err.Error())
 		return
 	}
-	if req.TokenEndpointAuthMethod != "" && req.TokenEndpointAuthMethod != "none" {
-		oauthError(w, http.StatusBadRequest, "invalid_client_metadata", "only public clients (token_endpoint_auth_method none) are supported")
+	if utf8.RuneCountInString(req.ClientName) > maxClientNameRunes {
+		oauthError(w, http.StatusBadRequest, "invalid_client_metadata", fmt.Sprintf("client_name must be at most %d characters", maxClientNameRunes))
 		return
 	}
 	id, err := store.NewSecret("kc_")
@@ -203,10 +217,12 @@ var authorizeParams = []string{"response_type", "client_id", "redirect_uri", "co
 type param struct{ Name, Value string }
 
 type authorizePage struct {
-	Fatal      string
-	ClientName string
-	Error      string
-	Params     []param
+	Fatal        string
+	ClientName   string
+	ClientHost   string
+	RedirectHost string
+	Error        string
+	Params       []param
 }
 
 func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuthClient, error) {
@@ -230,12 +246,12 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	client, err := s.lookupClient(r.Context(), clientID)
 	if errors.Is(err, errUnknownClient) {
+		slog.Warn("oauth: authorize unknown client", "client_id", clientID, "err", err)
 		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "Unknown client."})
 		return
 	}
 	if err != nil {
-		slog.Error("oauth: authorize client lookup", "err", err)
-		renderAuthorize(w, http.StatusInternalServerError, authorizePage{Fatal: "Internal error, try again later."})
+		s.authorizeServerError(w, "client lookup", err)
 		return
 	}
 	if redirectURI == "" || !matchRedirect(client.RedirectURIs, redirectURI) {
@@ -244,11 +260,14 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
-	case get("response_type") != "code":
-		s.redirectError(w, r, redirectURI, "invalid_request", "response_type must be code")
+	case get("response_type") == "":
+		s.redirectError(w, r, redirectURI, "invalid_request", "response_type is required")
 		return
-	case get("code_challenge") == "":
-		s.redirectError(w, r, redirectURI, "invalid_request", "code_challenge is required")
+	case get("response_type") != "code":
+		s.redirectError(w, r, redirectURI, "unsupported_response_type", "response_type must be code")
+		return
+	case !challengeRe.MatchString(get("code_challenge")):
+		s.redirectError(w, r, redirectURI, "invalid_request", "code_challenge must be 43 base64url characters")
 		return
 	case get("code_challenge_method") != "S256":
 		s.redirectError(w, r, redirectURI, "invalid_request", "code_challenge_method must be S256")
@@ -259,9 +278,10 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := authorizePage{ClientName: client.ClientName}
-	if page.ClientName == "" {
-		page.ClientName = client.ClientID
+	if strings.HasPrefix(client.ClientID, "https://") {
+		page.ClientHost = hostOf(client.ClientID)
 	}
+	page.RedirectHost = hostOf(redirectURI)
 	for _, name := range authorizeParams {
 		if v := get(name); v != "" {
 			page.Params = append(page.Params, param{name, v})
@@ -280,33 +300,46 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		slog.Error("oauth: authorize token lookup", "err", err)
-		renderAuthorize(w, http.StatusInternalServerError, authorizePage{Fatal: "Internal error, try again later."})
+		s.authorizeServerError(w, "token lookup", err)
 		return
 	}
 
 	code, err := store.NewSecret("kena_ac_")
-	if err == nil {
-		resource := get("resource")
-		if resource == "" {
-			resource = s.ResourceURL()
-		}
-		err = s.Store.SaveCode(r.Context(), code, store.AuthCode{
-			ClientID:      client.ClientID,
-			UserID:        user.ID,
-			RedirectURI:   redirectURI,
-			CodeChallenge: get("code_challenge"),
-			Resource:      resource,
-			Scope:         scope,
-			ExpiresAt:     s.now().Add(codeTTL),
-		})
-	}
 	if err != nil {
-		slog.Error("oauth: authorize issue code", "err", err)
-		renderAuthorize(w, http.StatusInternalServerError, authorizePage{Fatal: "Internal error, try again later."})
+		s.authorizeServerError(w, "generate code", err)
+		return
+	}
+	resource := get("resource")
+	if resource == "" {
+		resource = s.ResourceURL()
+	}
+	err = s.Store.SaveCode(r.Context(), code, store.AuthCode{
+		ClientID:      client.ClientID,
+		UserID:        user.ID,
+		RedirectURI:   redirectURI,
+		CodeChallenge: get("code_challenge"),
+		Resource:      resource,
+		Scope:         scope,
+		ExpiresAt:     s.now().Add(codeTTL),
+	})
+	if err != nil {
+		s.authorizeServerError(w, "save code", err)
 		return
 	}
 	s.redirectWith(w, r, redirectURI, url.Values{"code": {code}})
+}
+
+func (s *Server) authorizeServerError(w http.ResponseWriter, op string, err error) {
+	slog.Error("oauth: authorize", "op", op, "err", err)
+	renderAuthorize(w, http.StatusInternalServerError, authorizePage{Fatal: "Internal error, try again later."})
+}
+
+func hostOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	return u.Host
 }
 
 func (s *Server) redirectError(w http.ResponseWriter, r *http.Request, redirectURI, code, desc string) {
@@ -369,6 +402,10 @@ func (s *Server) exchangeCode(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_request", "code, client_id, redirect_uri and code_verifier are required")
 		return
 	}
+	if !verifierRe.MatchString(verifier) {
+		oauthError(w, http.StatusBadRequest, "invalid_request", "code_verifier must be 43-128 characters of [A-Za-z0-9-._~]")
+		return
+	}
 	ac, err := s.Store.ConsumeCode(r.Context(), code)
 	if errors.Is(err, store.ErrNotFound) {
 		oauthError(w, http.StatusBadRequest, "invalid_grant", "authorization code is invalid, expired or already used")
@@ -389,7 +426,7 @@ func (s *Server) exchangeCode(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_grant", "code_verifier does not match code_challenge")
 		return
 	case f.Get("resource") != "" && f.Get("resource") != ac.Resource:
-		oauthError(w, http.StatusBadRequest, "invalid_grant", "resource does not match the authorization request")
+		oauthError(w, http.StatusBadRequest, "invalid_target", "resource does not match the authorization request")
 		return
 	}
 	access, refresh, _, err := s.Store.CreateGrant(r.Context(), ac.UserID, ac.ClientID, ac.Resource, accessTTL, refreshTTL)

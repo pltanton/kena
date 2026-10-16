@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -83,7 +84,11 @@ func TestRegister(t *testing.T) {
 		{"loopback", map[string]any{"redirect_uris": []string{"http://127.0.0.1:9999/cb"}}, 201, ""},
 		{"plain http", map[string]any{"redirect_uris": []string{"http://evil.com/cb"}}, 400, "invalid_redirect_uri"},
 		{"empty", map[string]any{"redirect_uris": []string{}}, 400, "invalid_redirect_uri"},
-		{"auth method", map[string]any{"redirect_uris": []string{"https://a.example/cb"}, "token_endpoint_auth_method": "client_secret_basic"}, 400, "invalid_client_metadata"},
+		{"auth method ignored", map[string]any{"redirect_uris": []string{"https://a.example/cb"}, "token_endpoint_auth_method": "client_secret_basic"}, 201, ""},
+		{"long name", map[string]any{"redirect_uris": []string{"https://a.example/cb"}, "client_name": strings.Repeat("я", 101)}, 400, "invalid_client_metadata"},
+		{"max name", map[string]any{"redirect_uris": []string{"https://a.example/cb"}, "client_name": strings.Repeat("я", 100)}, 201, ""},
+		{"too many uris", map[string]any{"redirect_uris": manyURIs(11)}, 400, "invalid_redirect_uri"},
+		{"max uris", map[string]any{"redirect_uris": manyURIs(10)}, 201, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -109,6 +114,14 @@ func TestRegister(t *testing.T) {
 			}
 		})
 	}
+}
+
+func manyURIs(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("https://a.example/cb%d", i)
+	}
+	return out
 }
 
 func TestRegisterPreflight(t *testing.T) {
@@ -297,7 +310,10 @@ func TestAuthorizeRedirectErrors(t *testing.T) {
 		{"resource", func(v url.Values) { v.Set("resource", "https://other.example/mcp") }, "invalid_target"},
 		{"method", func(v url.Values) { v.Set("code_challenge_method", "plain") }, "invalid_request"},
 		{"challenge", func(v url.Values) { v.Del("code_challenge") }, "invalid_request"},
-		{"response_type", func(v url.Values) { v.Set("response_type", "token") }, "invalid_request"},
+		{"response_type", func(v url.Values) { v.Set("response_type", "token") }, "unsupported_response_type"},
+		{"no response_type", func(v url.Values) { v.Del("response_type") }, "invalid_request"},
+		{"short challenge", func(v url.Values) { v.Set("code_challenge", "abc") }, "invalid_request"},
+		{"bad challenge chars", func(v url.Values) { v.Set("code_challenge", strings.Repeat("+", 43)) }, "invalid_request"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -333,7 +349,8 @@ func TestCIMD(t *testing.T) {
 	e.srv.HTTP = tls.Client()
 
 	resp, body := e.get(t, "/oauth/authorize", authParams(tls.URL+"/client.json", redirect, "v"))
-	if resp.StatusCode != 200 || !strings.Contains(body, "ChatGPT") {
+	tlsHost, _ := url.Parse(tls.URL)
+	if resp.StatusCode != 200 || !strings.Contains(body, "ChatGPT") || !strings.Contains(body, tlsHost.Host) {
 		t.Fatalf("cimd: status %d body %s", resp.StatusCode, body)
 	}
 	resp, _ = e.get(t, "/oauth/authorize", authParams(tls.URL+"/liar.json", redirect, "v"))
@@ -364,4 +381,68 @@ func TestMatchRedirect(t *testing.T) {
 			t.Errorf("matchRedirect(%q, %q) = %v", c.reg, c.got, got)
 		}
 	}
+}
+
+func TestAuthorizePageShowsDestination(t *testing.T) {
+	e := newEnv(t)
+	resp, body := e.postJSON(t, "/oauth/register", map[string]any{
+		"redirect_uris": []string{"https://callback.example.net/cb"},
+		"client_name":   "<script>x</script>",
+	})
+	if resp.StatusCode != 201 {
+		t.Fatalf("register: %d", resp.StatusCode)
+	}
+	_, page := e.get(t, "/oauth/authorize", authParams(body["client_id"].(string), "https://callback.example.net/cb", "v"))
+	if !strings.Contains(page, "<strong>callback.example.net</strong>") {
+		t.Errorf("redirect host missing: %s", page)
+	}
+	if strings.Contains(page, "<script>x</script>") || !strings.Contains(page, "&lt;script&gt;x&lt;/script&gt;") {
+		t.Errorf("client name not escaped: %s", page)
+	}
+	if !strings.Contains(page, "name provided by the app") {
+		t.Errorf("client name not labelled: %s", page)
+	}
+}
+
+func exchangeForm(code, clientID, redirect, verifier string) url.Values {
+	return url.Values{
+		"grant_type": {"authorization_code"}, "code": {code}, "client_id": {clientID},
+		"redirect_uri": {redirect}, "code_verifier": {verifier},
+	}
+}
+
+func expectTokenError(t *testing.T, e *env, form url.Values, want string) {
+	t.Helper()
+	resp, body := e.postForm(t, "/oauth/token", form)
+	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != want {
+		t.Errorf("want %s: status %d body %s", want, resp.StatusCode, body)
+	}
+}
+
+func TestTokenReviewCases(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://a.example/cb"
+	clientA := e.register(t, redirect)
+	clientB := e.register(t, redirect)
+	verifier := "verifier-0123456789-0123456789-0123456789-abcdef"
+
+	q := authorize(t, e, clientA, redirect, verifier)
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientB, redirect, verifier), "invalid_grant")
+
+	q = authorize(t, e, clientA, redirect, verifier)
+	f := exchangeForm(q.Get("code"), clientA, redirect, verifier)
+	f.Set("resource", "https://other.example/mcp")
+	expectTokenError(t, e, f, "invalid_target")
+
+	q = authorize(t, e, clientA, redirect, verifier)
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientA, redirect, "short"), "invalid_request")
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientA, redirect, strings.Repeat("a", 129)), "invalid_request")
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientA, redirect, strings.Repeat("a", 42)+"!"), "invalid_request")
+
+	resp, body := e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientA, redirect, verifier))
+	if resp.StatusCode != 200 {
+		t.Fatalf("exchange: %d %s", resp.StatusCode, body)
+	}
+	refresh := decodeJSON(t, body)["refresh_token"].(string)
+	expectTokenError(t, e, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientB}}, "invalid_grant")
 }

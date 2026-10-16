@@ -93,15 +93,17 @@ var defaultCIMDClient = &http.Client{
 		TLSHandshakeTimeout: 5 * time.Second,
 		ForceAttemptHTTP2:   true,
 	},
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 3 {
-			return errors.New("too many redirects")
-		}
-		if req.URL.Scheme != "https" {
-			return errors.New("redirect to non-https URL")
-		}
-		return nil
-	},
+	CheckRedirect: cimdCheckRedirect,
+}
+
+func cimdCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 3 {
+		return errors.New("too many redirects")
+	}
+	if req.URL.Scheme != "https" {
+		return errors.New("redirect to non-https URL")
+	}
+	return nil
 }
 
 func (s *Server) httpClient() *http.Client {
