@@ -204,6 +204,12 @@ func setURL(slug string, p params) string {
 	return u
 }
 
+func setURLAfter(slug string, p params, after int64) string {
+	v := p.query()
+	v.Set("after", strconv.FormatInt(after, 10))
+	return "/s/" + url.PathEscape(slug) + "?" + v.Encode()
+}
+
 func nextURL(slug string, after int64, p params) string {
 	v := p.query()
 	v.Del("mode")
@@ -522,7 +528,34 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	case len(todo) == 0:
 		data.Done = newDone(set.Slug, true, pr)
 	case p.Mode == "cards":
-		data.Card = newCard(todo[0], 1, len(todo), p)
+		rest := todo
+		if a := q.Get("after"); a != "" {
+			after, err := strconv.ParseInt(a, 10, 64)
+			if err != nil {
+				h.fail(w, r, fmt.Errorf("after %q: %w", a, store.ErrInvalid))
+				return
+			}
+			start := 0
+			for i, t := range order {
+				if t.ID == after {
+					start = i + 1
+					break
+				}
+			}
+			rest = filtered(order[start:], p.Filter, last)
+		}
+		if len(rest) == 0 {
+			data.Done = newDone(set.Slug, false, pr)
+			break
+		}
+		idx := 1
+		for k, t := range todo {
+			if t.ID == rest[0].ID {
+				idx = k + 1
+				break
+			}
+		}
+		data.Card = newCard(rest[0], idx, len(todo), p)
 	default:
 		for _, t := range todo {
 			data.Items = append(data.Items, itemView{Task: newTaskView(t, false, nil), Params: p})
@@ -592,6 +625,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 	if err := r.ParseForm(); err != nil {
 		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
 		return
@@ -624,7 +658,11 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Header.Get("HX-Request") == "" {
-		http.Redirect(w, r, setURL(set.Slug, p), http.StatusSeeOther)
+		loc := setURL(set.Slug, p)
+		if p.Mode == "cards" {
+			loc = setURLAfter(set.Slug, p, task.ID)
+		}
+		http.Redirect(w, r, loc, http.StatusSeeOther)
 		return
 	}
 

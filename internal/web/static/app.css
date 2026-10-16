@@ -425,3 +425,23 @@ button.secondary,
     transition: none;
   }
 }
+
+#flash {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--bad-bg);
+  color: var(--bad);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  z-index: 100;
+}
+
+#flash[hidden] {
+  display: none;
+}

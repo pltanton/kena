@@ -8,7 +8,6 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -292,7 +291,7 @@ func TestKeyboardKeeperOnlyInCards(t *testing.T) {
 		t.Fatalf("cards mode lacks keyboard keeper:\n%s", body)
 	}
 	_, body = e.get("/s/" + e.set.Slug + "?mode=list")
-	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "<script>") {
+	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "htmx:beforeRequest") {
 		t.Fatal("list mode renders keyboard keeper")
 	}
 }
@@ -364,6 +363,13 @@ func TestErrors(t *testing.T) {
 	wantStatus(t, resp, http.StatusBadRequest)
 }
 
+func TestCheckRejectsOversizedBody(t *testing.T) {
+	e := setup(t)
+	huge := url.Values{"a": {strings.Repeat("x", 20<<10)}, "mode": {"cards"}}
+	resp, _ := e.check(e.tasks[0].ID, huge, true)
+	wantStatus(t, resp, http.StatusBadRequest)
+}
+
 func TestCheckWithoutHtmxRedirects(t *testing.T) {
 	e := setup(t)
 	resp, _ := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}, "filter": {"unsolved"}}, false)
@@ -371,6 +377,36 @@ func TestCheckWithoutHtmxRedirects(t *testing.T) {
 	loc := resp.Header.Get("Location")
 	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"?") || !strings.Contains(loc, "filter=unsolved") || !strings.Contains(loc, "mode=list") {
 		t.Fatalf("redirect location %q", loc)
+	}
+}
+
+func TestCheckWithoutHtmxCardsAdvancesInsteadOfLooping(t *testing.T) {
+	e := setup(t)
+	resp, _ := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, false)
+	wantStatus(t, resp, http.StatusSeeOther)
+	loc := resp.Header.Get("Location")
+	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"?") || !strings.Contains(loc, fmt.Sprintf("after=%d", e.tasks[0].ID)) {
+		t.Fatalf("redirect location %q", loc)
+	}
+
+	resp, body := e.get(loc)
+	wantStatus(t, resp, http.StatusOK)
+	if !strings.Contains(body, "Αυτός") {
+		t.Fatalf("expected the second task after redirect:\n%s", body)
+	}
+	if strings.Contains(body, "Εσύ ___") {
+		t.Fatal("redirect looped back to the first task")
+	}
+}
+
+func TestLayoutHandlesHtmxErrors(t *testing.T) {
+	e := setup(t)
+	_, body := e.get("/")
+	if !strings.Contains(body, "htmx:responseError") || !strings.Contains(body, "htmx:sendError") {
+		t.Fatalf("layout missing htmx error handlers:\n%s", body)
+	}
+	if !strings.Contains(body, `id="flash"`) {
+		t.Fatalf("layout missing flash element:\n%s", body)
 	}
 }
 
@@ -383,33 +419,4 @@ func TestStatic(t *testing.T) {
 			t.Fatalf("%s: cache-control %q, %d bytes", p, resp.Header.Get("Cache-Control"), len(body))
 		}
 	}
-}
-
-func TestDumpPages(t *testing.T) {
-	dir := os.Getenv("KENA_WEB_DUMP")
-	if dir == "" {
-		t.Skip("set KENA_WEB_DUMP to write rendered pages")
-	}
-	e := setup(t)
-	e.get("/")
-	e.check(e.tasks[0].ID, url.Values{"a": {"λάθος"}}, true)
-	pages := map[string]string{
-		"index.html": "/",
-		"cards.html": "/s/" + e.set.Slug + "?mode=cards",
-		"list.html":  "/s/" + e.set.Slug + "?mode=list",
-		"done.html":  fmt.Sprintf("/s/%s/next?after=%d", e.set.Slug, e.tasks[2].ID),
-	}
-	write := func(name, body string) {
-		if err := os.WriteFile(dir+"/"+name, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for name, path := range pages {
-		_, body := e.get(path)
-		write(name, body)
-	}
-	_, body := e.check(e.tasks[1].ID, url.Values{"a": {"τρέχω"}, "i": {"2"}, "n": {"3"}}, true)
-	write("card_wrong.html", body)
-	_, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρέχω"}, "mode": {"list"}}, true)
-	write("item_wrong.html", body)
 }

@@ -12,6 +12,26 @@
 <main>
 {{template "main" .}}
 </main>
+<div id="flash" role="alert" hidden></div>
+<script>
+(function () {
+  var flash = document.getElementById("flash");
+  var hide = null;
+  function show(msg) {
+    flash.textContent = msg;
+    flash.hidden = false;
+    clearTimeout(hide);
+    hide = setTimeout(function () { flash.hidden = true; }, 6000);
+  }
+  document.body.addEventListener("htmx:responseError", function () {
+    show("Something went wrong — reload the page.");
+  });
+  document.body.addEventListener("htmx:sendError", function () {
+    show("Network error — check your connection.");
+  });
+  flash.addEventListener("click", function () { flash.hidden = true; });
+})();
+</script>
 </body>
 </html>
 {{end}}
