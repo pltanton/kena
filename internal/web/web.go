@@ -47,7 +47,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -63,6 +63,12 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
+	mux.HandleFunc("GET /s/{slug}/edit", h.requireUser(h.editPage))
+	mux.HandleFunc("POST /s/{slug}/edit", h.requireUser(h.saveDeck))
+	mux.HandleFunc("GET /s/{slug}/delete", h.requireUser(h.deletePage))
+	mux.HandleFunc("POST /s/{slug}/delete", h.requireUser(h.deleteDeck))
+	mux.HandleFunc("GET /new", h.requireUser(h.newPage))
+	mux.HandleFunc("POST /new", h.requireUser(h.createDeck))
 	mux.HandleFunc("POST /s/{slug}/star", h.requireUser(h.star))
 	mux.HandleFunc("GET /browse", h.browse)
 	mux.HandleFunc("POST /t/{id}/check", h.check)
@@ -604,13 +610,14 @@ type visibilityOption struct {
 	Value   store.Visibility
 	Icon    string
 	Label   string
+	Hint    string
 	Current bool
 }
 
 var visibilityOptions = []visibilityOption{
-	{Value: store.Private, Icon: "🔒", Label: "Private"},
-	{Value: store.Friends, Icon: "👥", Label: "Friends"},
-	{Value: store.Public, Icon: "🌍", Label: "Public"},
+	{Value: store.Private, Icon: "🔒", Label: "Private", Hint: "only you"},
+	{Value: store.Friends, Icon: "👥", Label: "Friends", Hint: "anyone logged in"},
+	{Value: store.Public, Icon: "🌍", Label: "Public", Hint: "everyone, also without login"},
 }
 
 func visibilityChoices(current store.Visibility) []visibilityOption {
@@ -625,6 +632,8 @@ type setPage struct {
 	Set        store.Set
 	Owner      bool
 	Visibility []visibilityOption
+	Saved      bool
+	Warnings   []string
 	CanStar    bool
 	Starred    bool
 	Here       string
@@ -716,6 +725,10 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p, Here: r.URL.RequestURI()}
 	if data.Owner {
 		data.Visibility = visibilityChoices(set.Visibility)
+		if q.Get("saved") == "1" {
+			data.Saved = true
+			data.Warnings = deckWarnings(tasks)
+		}
 	}
 	if u, ok := currentUser(r); ok && !data.Owner {
 		data.CanStar = true

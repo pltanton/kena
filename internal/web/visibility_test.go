@@ -52,14 +52,15 @@ func (e *env) as(name string, admin bool) *env {
 	if name == "" {
 		return c
 	}
-	if _, err := e.st.UserByName(context.Background(), name); err != nil {
-		u, err := e.st.CreateUser(context.Background(), name, admin)
-		if err != nil {
+	ctx := context.Background()
+	u, err := e.st.UserByName(ctx, name)
+	if err != nil {
+		if u, err = e.st.CreateUser(ctx, name, admin); err != nil {
 			e.t.Fatal(err)
 		}
-		if err := e.st.SetPassword(context.Background(), u.ID, pass, ""); err != nil {
-			e.t.Fatal(err)
-		}
+	}
+	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
+		e.t.Fatal(err)
 	}
 	c.login(name)
 	return c

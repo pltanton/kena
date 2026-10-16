@@ -302,7 +302,8 @@ form {
   margin-top: 0;
 }
 
-button.small {
+button.small,
+.button.small {
   min-height: 44px;
   padding: 0 14px;
   font-size: 0.95rem;
@@ -397,6 +398,27 @@ button.secondary,
 button.secondary:hover,
 .button.secondary:hover {
   background: var(--sunken);
+}
+
+button.danger {
+  color: var(--bg);
+  background: var(--bad);
+}
+
+button.danger:hover {
+  background: var(--bad);
+  filter: brightness(0.92);
+}
+
+.danger-zone {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.danger-zone a {
+  color: var(--bad);
 }
 
 .card {
@@ -898,4 +920,127 @@ button.secondary:hover,
 
 #flash[hidden] {
   display: none;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-head .button {
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.issues {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.issues li + li {
+  margin-top: 0.15rem;
+}
+
+.set-head .notice {
+  margin: 0.5rem 0;
+}
+
+.set-head .notice p {
+  margin: 0;
+}
+
+.set-head .notice .issues {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.editor .fields {
+  padding-top: 6px;
+}
+
+.editor .fields label:first-child {
+  margin-top: 0.5rem;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 7rem;
+  gap: 0 12px;
+}
+
+.editor > label {
+  margin-top: 1.5rem;
+}
+
+.cheat {
+  margin: 0 0 0.6rem;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 0.925rem;
+}
+
+.cheat summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.cheat[open] {
+  padding-bottom: 10px;
+}
+
+.cheat pre {
+  margin: 0.5rem 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cheat ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.cheat code {
+  font-family: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+textarea.deck-source {
+  display: block;
+  min-height: 50vh;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--surface);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-actions > * {
+  flex: 1 1 10rem;
+}
+
+.confirm .button,
+.confirm button {
+  width: 100%;
+}
+
+.confirm .button {
+  margin-top: 8px;
 }

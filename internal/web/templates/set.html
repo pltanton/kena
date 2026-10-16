@@ -28,6 +28,18 @@
 <a class="button secondary small" href="/s/{{.Set.Slug}}/edit">Edit</a>
 </div>
 {{- end}}
+{{- if .Saved}}
+<div class="notice" role="status"><p>Saved.</p>
+{{- with .Warnings}}
+<p>Warnings, worth a look in the <a href="/s/{{$.Set.Slug}}/edit">editor</a>:</p>
+<ul class="issues">
+{{- range .}}
+<li>{{.}}</li>
+{{- end}}
+</ul>
+{{- end}}
+</div>
+{{- end}}
 </header>
 {{if eq .Params.Mode "cards"}}<div id="card">
 {{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}

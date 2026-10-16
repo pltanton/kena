@@ -1,0 +1,58 @@
+{{define "title"}}{{if .New}}New deck{{else}}Edit {{.Title}}{{end}} · kena{{end}}
+{{define "main"}}<h1>{{if .New}}New deck{{else}}Edit deck{{end}}</h1>
+{{- with .Errors}}
+<div class="error" role="alert">
+<p><strong>Nothing was saved.</strong> Fix {{if eq (len .) 1}}this{{else}}these{{end}} and save again:</p>
+<ul class="issues">
+{{- range .}}
+<li>{{.}}</li>
+{{- end}}
+</ul>
+</div>
+{{- end}}
+<form class="editor" method="post" action="{{.Action}}">
+<div class="card fields">
+<label for="title">Title</label>
+<input id="title" name="title" value="{{.Title}}" required maxlength="200" placeholder="Αόριστος ρημάτων / Simple past">
+<div class="pair">
+<div><label for="topic">Topic</label>
+<input id="topic" name="topic" value="{{.Topic}}" maxlength="100" placeholder="aorist"></div>
+<div><label for="level">Level</label>
+<input id="level" name="level" value="{{.Level}}" maxlength="10" placeholder="B1"></div>
+</div>
+<label for="instructions">Instructions</label>
+<input id="instructions" name="instructions" value="{{.Instructions}}" lang="el" maxlength="300" placeholder="Συμπληρώστε με τον αόριστο.">
+<label for="source_ref">Source</label>
+<input id="source_ref" name="source_ref" value="{{.SourceRef}}" maxlength="200" placeholder="Book, unit 5, ex. 3">
+<label for="visibility">Who can see it</label>
+<select id="visibility" name="visibility">
+{{- range .Visibility}}
+<option value="{{.Value}}"{{if .Current}} selected{{end}}>{{.Icon}} {{.Label}} — {{.Hint}}</option>
+{{- end}}
+</select>
+</div>
+<label for="source">Tasks</label>
+<details class="cheat">
+<summary>Format</summary>
+<p>One task per paragraph, an empty line between tasks. Write each blank in braces.</p>
+<pre lang="el">Εσύ {γράφεις | γράφω} πολύ.
+> Explanation, shown after a wrong answer.
+
+Θα {πάω / θα πάω} αύριο στη θάλασσα.</pre>
+<ul>
+<li><code>{answer}</code>: a blank; <code>{a / b}</code>: two accepted answers.</li>
+<li><code>| hint</code> after the answers: shown next to the blank.</li>
+<li>Lines starting with <code>&gt;</code>: the explanation.</li>
+<li>Braces and <code>|</code> can't be used as plain text in a sentence.</li>
+</ul>
+</details>
+<textarea id="source" name="source" class="deck-source" lang="el" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="Εσύ {γράφεις | γράφω} πολύ.">{{.Source}}</textarea>
+<div class="form-actions">
+<button type="submit">{{if .New}}Create deck{{else}}Save{{end}}</button>
+<a class="button secondary" href="{{if .New}}/{{else}}/s/{{.Slug}}{{end}}">Cancel</a>
+</div>
+</form>
+{{- if not .New}}
+<p class="danger-zone"><a href="/s/{{.Slug}}/delete">Delete this deck…</a></p>
+{{- end}}
+{{end}}
