@@ -4,7 +4,8 @@ Greek gap-fill trainer: htmx web UI + MCP authoring server + minimal OAuth
 server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-16-kena-design.md`, accounts:
 `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes report:
-`docs/superpowers/specs/2026-10-17-mistakes-report-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
+`docs/superpowers/specs/2026-10-17-ui-sharing-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -36,5 +37,6 @@ nix flake check
 - `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
 - MCP tool errors the model should see are returned as Go errors from handlers (the SDK then omits structuredContent).
+- Private sets (`shared` false) are visible only to the owner: web 404 for everyone else, MCP not found except for admins.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

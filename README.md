@@ -8,8 +8,10 @@ of a textbook exercise, it writes new tasks on the same grammar point and upload
 them through kena's MCP server. The MCP server also hands the agent an authoring
 guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate.
 
-- Web: `/` lists sets, `/s/<slug>` practises one. Cards mode (one task per
-  screen, auto-advance) or List mode. Filters: all, unsolved, mistakes.
+- Web: `/` lists sets (filter by author), `/s/<slug>` practises one. Cards
+  mode (one task per screen, Enter for the next one, a streak counter, resumes
+  at the first unsolved task) or List mode (shows your latest result per
+  task). Filters: all, unsolved, mistakes.
   Practising needs no login: progress is tied to an anonymous device cookie.
   Logging in (username + passphrase) keeps progress in the account, so every
   device sees the same; what you solved before logging in moves to the account.
@@ -17,6 +19,10 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
 - MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
   press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
   You can only edit your own sets; admins can edit everything and manage users.
+- Sharing: a new set is private, only its author sees it. The author shares it
+  with everyone from the set page (Shared / Private) or by asking the agent
+  (`update_set` with `shared`); the agent asks after creating a set. Sets that
+  existed before sharing was added are shared.
 
 ## Run locally
 
@@ -124,4 +130,5 @@ forms, explains the main patterns and offers a "Practice: …" set of new tasks.
 
 See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`,
 accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes:
-`docs/superpowers/specs/2026-10-17-mistakes-report-design.md`.
+`docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
+`docs/superpowers/specs/2026-10-17-ui-sharing-design.md`.

@@ -58,11 +58,14 @@ singular, adjectives in masculine nominative singular.
   "level": "B1",
   "instructions": "Συμπληρώστε με τον αόριστο του ρήματος.",
   "source_ref": "<Book title>, unit 5, ex. 3",
+  "shared": false,
   "tasks": []
 }
 ```
 
-`source_ref`, `slug` and `tasks` are optional. `add_tasks` takes
+`source_ref`, `slug`, `shared` and `tasks` are optional. `shared` defaults to
+false: the set is private and only its owner sees it on the site. With `true`
+every learner sees it in the list. Change it later with `update_set`. `add_tasks` takes
 `{"set": "<id or slug>", "tasks": [...]}`. At most 50 tasks per
 `create_set` or `add_tasks` call; `validate_tasks` takes `{"tasks": [...]}`
 and saves nothing.

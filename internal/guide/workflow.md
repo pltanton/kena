@@ -89,7 +89,7 @@ can say why the item is right (for example a monosyllabic answer has no tonos).
 ## 7. Upload
 
 - First batch: `create_set` with the set metadata and `tasks`. Keep the returned
-  id and slug.
+  id and slug. The set starts private (`shared` false): only the user sees it.
 - Every later batch: `add_tasks(set, tasks)`.
 - At most 50 tasks per `create_set` or `add_tasks` call. Two checked batches of 20
   may go in one call; more may not.
@@ -102,6 +102,9 @@ can say why the item is right (for example a monosyllabic answer has no tonos).
 Tell the user: the set URL from the `create_set` result, the title, the number of
 tasks, what the set covers (classes, slots), and any assumptions you made.
 
+Then ask whether to share the set with the other learners on the site. If yes,
+call `update_set(set, shared=true)`; `shared=false` makes it private again.
+
 ## Set metadata conventions
 
 | field          | convention                                                  | example                                   |
@@ -112,6 +115,7 @@ tasks, what the set covers (classes, slots), and any assumptions you made.
 | `instructions` | one Greek line, imperative, ends with a full stop           | `Συμπληρώστε με τον αόριστο του ρήματος.` |
 | `source_ref`   | optional; "Book, unit, exercise", never book text           | `<Book title>, unit 5, ex. 3`             |
 | `slug`         | optional; omit it and the server derives one from the title |                                           |
+| `shared`       | optional; false (private) until the user agrees to share    | `true`                                    |
 
 More instruction lines:
 
@@ -128,4 +132,5 @@ More instruction lines:
    avoid duplicate sentences), then `validate_tasks` and `add_tasks`.
 4. Metadata: `update_set(set, ...)`.
 
-You can change only sets you own (admins can change any).
+You can change only sets you own (admins can change any). Other users' private
+sets are invisible to you.
