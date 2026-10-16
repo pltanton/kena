@@ -8,7 +8,7 @@ of a textbook exercise, it writes new tasks on the same grammar point and upload
 them through kena's MCP server. The MCP server also hands the agent an authoring
 guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate.
 
-- Web: `/` lists sets (filter by author), `/s/<slug>` practises one. Cards
+- Web: `/` lists your decks, `/s/<slug>` practises one. Cards
   mode (one task per screen, Enter for the next one, a streak counter, resumes
   at the first unsolved task) or List mode (shows your latest result per
   task). Filters: all, unsolved, mistakes.
@@ -23,6 +23,11 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   with everyone from the set page (Shared / Private) or by asking the agent
   (`update_set` with `shared`); the agent asks after creating a set. Sets that
   existed before sharing was added are shared.
+- Browse and star: logged in, the home page shows only your own decks and the
+  ones you starred. Header → Browse lists everyone else's shared decks; ☆ adds
+  one to your home page, ★ removes it (also on the set page). A starred deck
+  that its author makes private disappears from your list. Anonymous visitors
+  see all shared decks on the home page.
 
 ## Run locally
 
@@ -131,4 +136,5 @@ forms, explains the main patterns and offers a "Practice: …" set of new tasks.
 See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`,
 accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes:
 `docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
-`docs/superpowers/specs/2026-10-17-ui-sharing-design.md`.
+`docs/superpowers/specs/2026-10-17-ui-sharing-design.md`, stars:
+`docs/superpowers/specs/2026-10-17-stars-design.md`.

@@ -40,6 +40,7 @@ typed inputs and rendered given/expected answers (results, list, /mistakes).
 - Home: shared sets + the logged-in user's own (own private ones get a
   "private" badge). Author chips: All · Mine (logged in) · each visible author;
   `?author=me` or `?author=<username>`; an unknown author shows an empty list.
+  Superseded by the stars spec (`2026-10-17-stars-design.md`): chips removed.
 - Set page, owner only: Shared / Private toggle, `POST /s/{slug}/share`
   (`shared=1|0`, CrossOrigin-protected, 303 back to the set). Non-owner → 404.
 - MCP: `list_sets` returns shared sets + the caller's own (admins: all sets);
