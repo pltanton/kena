@@ -6,10 +6,9 @@
 <title>Connect to kena</title>
 <link rel="stylesheet" href="/static/app.css">
 <style>
-body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem;line-height:1.5}
-input[type=password]{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem}
-button{margin-top:1rem;padding:.5rem 1.25rem;font-size:1rem}
-.error{color:#b00020}
+main.oauth-authorize{max-width:28rem;margin:2rem auto}
+.choices{display:flex;gap:8px;flex-wrap:wrap}
+.choices button{flex:1}
 </style>
 </head>
 <body>
@@ -22,14 +21,28 @@ button{margin-top:1rem;padding:.5rem 1.25rem;font-size:1rem}
 {{if .ClientName}}<p><strong>{{.ClientName}}</strong> (name provided by the app)</p>{{end}}
 {{if .ClientHost}}<p>App published by <strong>{{.ClientHost}}</strong></p>{{end}}
 <p>You will be sent back to <strong>{{.RedirectHost}}</strong></p>
-<p>Paste your kena token to let this app create and edit your task sets.</p>
-{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+{{if .User}}
+<p>Allow {{if .ClientName}}<strong>{{.ClientName}}</strong>{{else}}this app{{end}} to create and edit <strong>{{.User}}</strong>'s sets?</p>
 <form method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
-{{end}}<label for="token">kena token</label>
-<input type="password" id="token" name="token" autocomplete="off" required autofocus>
-<button type="submit">Connect</button>
+{{end}}<div class="choices">
+<button type="submit" name="action" value="allow" autofocus>Allow</button>
+<button type="submit" name="action" value="cancel" class="secondary">Cancel</button>
+</div>
 </form>
+{{else}}
+<p>Log in to kena to let this app create and edit your task sets.</p>
+<form class="card stack" method="post" action="/oauth/authorize">
+{{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
+{{end}}<input type="hidden" name="action" value="login">
+<label for="username">Username</label>
+<input id="username" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if not .Username}} autofocus{{end}}>
+<label for="passphrase">Passphrase</label>
+<input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}>
+<button type="submit">Log in</button>
+</form>
+{{end}}
 {{end}}
 </main>
 </body>

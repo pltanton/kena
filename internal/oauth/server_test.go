@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/pltanton/kena/internal/session"
 )
 
 func TestASMetadata(t *testing.T) {
@@ -142,8 +144,8 @@ func TestRegisterPreflight(t *testing.T) {
 func authorize(t *testing.T, e *env, clientID, redirect, verifier string) url.Values {
 	t.Helper()
 	form := authParams(clientID, redirect, verifier)
-	form.Set("token", e.token)
-	resp, body := e.postForm(t, "/oauth/authorize", form)
+	form.Set("action", "allow")
+	resp, body := e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, "")
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("authorize POST: status %d body %s", resp.StatusCode, body)
 	}
@@ -163,20 +165,22 @@ func TestFullFlow(t *testing.T) {
 	params := authParams(clientID, redirect, verifier)
 
 	resp, body := e.get(t, "/oauth/authorize", params)
-	if resp.StatusCode != 200 || !strings.Contains(body, `name="token"`) || !strings.Contains(body, "Test App") {
+	if resp.StatusCode != 200 || !strings.Contains(body, `name="passphrase"`) || !strings.Contains(body, "Test App") {
 		t.Fatalf("authorize GET: status %d body %s", resp.StatusCode, body)
 	}
 
 	bad := authParams(clientID, redirect, verifier)
-	bad.Set("token", "kena_wrong")
+	bad.Set("action", "login")
+	bad.Set("username", "anton")
+	bad.Set("passphrase", "wrong-passphrase")
 	resp, body = e.postForm(t, "/oauth/authorize", bad)
-	if resp.StatusCode != 200 || !strings.Contains(body, "not recognised") {
-		t.Fatalf("wrong token: status %d body %s", resp.StatusCode, body)
+	if resp.StatusCode != 200 || !strings.Contains(body, "Wrong username or passphrase") || resp.Header.Get("Location") != "" {
+		t.Fatalf("wrong passphrase: status %d body %s", resp.StatusCode, body)
 	}
 
 	form := authParams(clientID, redirect, verifier)
-	form.Set("token", e.token)
-	resp, _ = e.postForm(t, "/oauth/authorize", form)
+	form.Set("action", "allow")
+	resp, _ = e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, "")
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("authorize POST: status %d", resp.StatusCode)
 	}
@@ -246,7 +250,151 @@ func TestFullFlow(t *testing.T) {
 	}
 }
 
-func TestRevokingTokenRevokesOAuthGrant(t *testing.T) {
+func TestAuthorizeNotLoggedInShowsLoginForm(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://claude.ai/api/mcp/auth_callback"
+	clientID := e.register(t, redirect)
+	resp, body := e.get(t, "/oauth/authorize", authParams(clientID, redirect, "v"))
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	for _, want := range []string{`name="username"`, `name="passphrase"`, `value="login"`, "Test App", "<strong>claude.ai</strong>", `name="code_challenge"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("login form missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `value="allow"`) || strings.Contains(body, `name="token"`) {
+		t.Errorf("allow or token field shown before login:\n%s", body)
+	}
+	if resp.Header.Get("X-Frame-Options") != "DENY" || !strings.Contains(resp.Header.Get("Content-Security-Policy"), "frame-ancestors 'none'") || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("headers %v", resp.Header)
+	}
+
+	form := authParams(clientID, redirect, "v")
+	form.Set("action", "allow")
+	resp, body = e.postForm(t, "/oauth/authorize", form)
+	if resp.StatusCode != 200 || resp.Header.Get("Location") != "" || !strings.Contains(body, `name="passphrase"`) {
+		t.Errorf("allow without a session: status %d location %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+}
+
+func TestAuthorizeLoggedInShowsAllow(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://claude.ai/api/mcp/auth_callback"
+	clientID := e.register(t, redirect)
+	resp, body := e.request(t, http.MethodGet, "/oauth/authorize", authParams(clientID, redirect, "v"), e.session, "")
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	for _, want := range []string{`value="allow"`, `value="cancel"`, "anton", "Test App", "<strong>claude.ai</strong>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("allow page missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `name="passphrase"`) {
+		t.Errorf("login form shown although logged in")
+	}
+
+	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+	q := authorize(t, e, clientID, redirect, verifier)
+	if q.Get("state") != "st-123" || q.Get("iss") != testPublicURL {
+		t.Fatalf("redirect query %v", q)
+	}
+	resp, body = e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
+	if resp.StatusCode != 200 {
+		t.Fatalf("token: %d %s", resp.StatusCode, body)
+	}
+	ti, err := e.srv.Verify(context.Background(), decodeJSON(t, body)["access_token"].(string), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := UserFrom(ti); u.ID != e.user.ID {
+		t.Fatalf("user %+v", u)
+	}
+}
+
+func TestAuthorizeLoginThenAllow(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	redirect := "https://chatgpt.com/connector_platform_oauth_redirect"
+	clientID := e.register(t, redirect)
+	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+
+	form := authParams(clientID, redirect, verifier)
+	form.Set("action", "login")
+	form.Set("username", "anton")
+	form.Set("passphrase", testPass)
+	resp, body := e.postForm(t, "/oauth/authorize", form)
+	if resp.StatusCode != 200 || resp.Header.Get("Location") != "" {
+		t.Fatalf("login: status %d location %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if !strings.Contains(body, `value="allow"`) || !strings.Contains(body, "anton") {
+		t.Fatalf("login did not lead to the allow step:\n%s", body)
+	}
+	var sess string
+	for _, c := range resp.Cookies() {
+		if c.Name == session.CookieName {
+			sess = c.Value
+		}
+	}
+	if u, err := e.srv.Store.UserBySession(ctx, sess); err != nil || u.ID != e.user.ID {
+		t.Fatalf("login set no usable session cookie: %v", err)
+	}
+
+	allow := authParams(clientID, redirect, verifier)
+	allow.Set("action", "allow")
+	resp, _ = e.request(t, http.MethodPost, "/oauth/authorize", allow, sess, "")
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("allow: status %d", resp.StatusCode)
+	}
+	loc, _ := url.Parse(resp.Header.Get("Location"))
+	q := loc.Query()
+	if !strings.HasPrefix(loc.String(), redirect+"?") || q.Get("code") == "" || q.Get("state") != "st-123" || q.Get("iss") != testPublicURL {
+		t.Fatalf("redirect %s", loc)
+	}
+	resp, body = e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
+	if resp.StatusCode != 200 {
+		t.Fatalf("token: %d %s", resp.StatusCode, body)
+	}
+	if _, err := e.srv.Verify(ctx, decodeJSON(t, body)["access_token"].(string), nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAuthorizeCancel(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://a.example/cb"
+	clientID := e.register(t, redirect)
+	form := authParams(clientID, redirect, "v")
+	form.Set("action", "cancel")
+	resp, _ := e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, "")
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	loc, _ := url.Parse(resp.Header.Get("Location"))
+	q := loc.Query()
+	if q.Get("error") != "access_denied" || q.Get("code") != "" || q.Get("state") != "st-123" || q.Get("iss") != testPublicURL {
+		t.Fatalf("redirect %s", loc)
+	}
+}
+
+func TestAuthorizeRejectsCrossSitePost(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://a.example/cb"
+	clientID := e.register(t, redirect)
+	form := authParams(clientID, redirect, "v")
+	form.Set("action", "allow")
+	resp, _ := e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, "https://evil.example")
+	if resp.StatusCode != http.StatusForbidden || resp.Header.Get("Location") != "" {
+		t.Fatalf("status %d location %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	resp, _ = e.request(t, http.MethodPost, "/oauth/authorize", form, e.session, testPublicURL)
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("same-origin allow: status %d", resp.StatusCode)
+	}
+}
+
+func TestPasswordChangeRevokesGrant(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	redirect := "https://claude.ai/api/mcp/auth_callback"
@@ -261,26 +409,16 @@ func TestRevokingTokenRevokesOAuthGrant(t *testing.T) {
 	tok := decodeJSON(t, body)
 	access, refresh := tok["access_token"].(string), tok["refresh_token"].(string)
 
-	if _, err := e.srv.Verify(ctx, access, nil); err != nil {
-		t.Fatalf("Verify(access) before revoke: %v", err)
+	if err := e.srv.Store.SetPassword(ctx, e.user.ID, "brand-new-passphrase", ""); err != nil {
+		t.Fatal(err)
 	}
-
-	toks, err := e.srv.Store.ListTokens(ctx, e.user.ID)
-	if err != nil {
-		t.Fatalf("ListTokens: %v", err)
-	}
-	if err := e.srv.Store.RevokeToken(ctx, toks[0].ID); err != nil {
-		t.Fatalf("RevokeToken: %v", err)
-	}
-
 	if _, err := e.srv.Verify(ctx, access, nil); err == nil {
-		t.Error("access token still verifies after revoking the personal token used to connect it")
+		t.Error("access token still verifies after the passphrase changed")
 	}
-
 	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}}
 	resp, body = e.postForm(t, "/oauth/token", refreshForm)
 	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("refresh after token revoke: status %d body %s", resp.StatusCode, body)
+		t.Errorf("refresh after passphrase change: status %d body %s", resp.StatusCode, body)
 	}
 }
 

@@ -11,19 +11,24 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pltanton/kena/internal/db/dbtest"
+	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
 
 const testPublicURL = "https://kena.example.org"
 
+const testPass = "olive-tiger-harbor-seven"
+
 type env struct {
-	srv    *Server
-	ts     *httptest.Server
-	client *http.Client
-	user   store.User
-	token  string
+	srv     *Server
+	ts      *httptest.Server
+	client  *http.Client
+	user    store.User
+	token   string
+	session string
 }
 
 func newEnv(t *testing.T) *env {
@@ -38,13 +43,20 @@ func newEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := st.SetPassword(ctx, u.ID, testPass, ""); err != nil {
+		t.Fatal(err)
+	}
+	sess, err := st.CreateSession(ctx, u.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
 	srv := &Server{Store: st, PublicURL: testPublicURL}
 	mux := http.NewServeMux()
 	srv.Register(mux)
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 	c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	return &env{srv: srv, ts: ts, client: c, user: u, token: tok}
+	return &env{srv: srv, ts: ts, client: c, user: u, token: tok, session: sess}
 }
 
 func (e *env) get(t *testing.T, path string, q url.Values) (*http.Response, string) {
@@ -62,6 +74,34 @@ func (e *env) get(t *testing.T, path string, q url.Values) (*http.Response, stri
 func (e *env) postForm(t *testing.T, path string, form url.Values) (*http.Response, string) {
 	t.Helper()
 	resp, err := e.client.PostForm(e.ts.URL+path, form)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp, readBody(t, resp)
+}
+
+func (e *env) request(t *testing.T, method, path string, form url.Values, sess, origin string) (*http.Response, string) {
+	t.Helper()
+	var body io.Reader
+	if method == http.MethodGet {
+		path += "?" + form.Encode()
+	} else {
+		body = strings.NewReader(form.Encode())
+	}
+	req, err := http.NewRequest(method, e.ts.URL+path, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if sess != "" {
+		req.AddCookie(&http.Cookie{Name: session.CookieName, Value: sess})
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	resp, err := e.client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

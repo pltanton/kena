@@ -21,6 +21,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 
+	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
 
@@ -231,6 +232,8 @@ type authorizePage struct {
 	RedirectHost string
 	Error        string
 	Params       []param
+	User         string
+	Username     string
 }
 
 func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuthClient, error) {
@@ -245,6 +248,10 @@ func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuth
 }
 
 func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && !session.SameOrigin(r, s.PublicURL) {
+		renderAuthorize(w, http.StatusForbidden, authorizePage{Fatal: "Cross-site request rejected."})
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "Malformed request."})
 		return
@@ -296,19 +303,47 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	user, loggedIn, err := session.Current(r, s.Store)
+	if err != nil {
+		s.authorizeServerError(w, "session lookup", err)
+		return
+	}
+	if loggedIn {
+		page.User = user.Username
+	}
+
 	if r.Method == http.MethodGet {
 		renderAuthorize(w, http.StatusOK, page)
 		return
 	}
 
-	user, tokenID, err := s.Store.TokenUser(r.Context(), strings.TrimSpace(r.PostForm.Get("token")))
-	if errors.Is(err, store.ErrNotFound) {
-		page.Error = "Token not recognised."
+	switch r.PostForm.Get("action") {
+	case "cancel":
+		s.redirectError(w, r, redirectURI, "access_denied", "the user declined the request")
+		return
+	case "login":
+		page.Username = strings.TrimSpace(r.PostForm.Get("username"))
+		u, err := session.Login(w, r, s.Store, page.Username, r.PostForm.Get("passphrase"))
+		if errors.Is(err, store.ErrNotFound) {
+			page.User = ""
+			page.Error = "Wrong username or passphrase."
+			renderAuthorize(w, http.StatusOK, page)
+			return
+		}
+		if err != nil {
+			s.authorizeServerError(w, "login", err)
+			return
+		}
+		page.User = u.Username
 		renderAuthorize(w, http.StatusOK, page)
 		return
-	}
-	if err != nil {
-		s.authorizeServerError(w, "token lookup", err)
+	case "allow":
+		if !loggedIn {
+			renderAuthorize(w, http.StatusOK, page)
+			return
+		}
+	default:
+		renderAuthorize(w, http.StatusOK, page)
 		return
 	}
 
@@ -329,7 +364,6 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		Resource:      resource,
 		Scope:         scope,
 		ExpiresAt:     s.now().Add(codeTTL),
-		TokenID:       tokenID,
 	})
 	if err != nil {
 		s.authorizeServerError(w, "save code", err)
