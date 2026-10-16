@@ -114,7 +114,7 @@ func (s *server) addMistakeTools(srv *mcp.Server) {
 		}
 		var setID *int64
 		if in.Set != "" {
-			st, err := s.loadSet(ctx, in.Set)
+			st, err := s.visibleSet(ctx, u, in.Set)
 			if err != nil {
 				return MistakesReport{}, err
 			}

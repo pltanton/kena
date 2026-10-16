@@ -172,6 +172,11 @@ func setArgs(title string, tasks any) map[string]any {
 	return a
 }
 
+func shared(a map[string]any) map[string]any {
+	a["shared"] = true
+	return a
+}
+
 func TestNoTokenIs401(t *testing.T) {
 	e := newEnv(t)
 	resp, err := http.Post(e.ts.URL, "application/json", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
@@ -294,7 +299,7 @@ func TestAddTasksDuplicateWarning(t *testing.T) {
 func TestEditPermissions(t *testing.T) {
 	e := newEnv(t)
 	alice := e.connect(t, "alice")
-	out := ok[WriteResult](t, alice, "create_set", setArgs("Alice set", validTasks()))
+	out := ok[WriteResult](t, alice, "create_set", shared(setArgs("Alice set", validTasks())))
 	detail := ok[SetDetail](t, alice, "get_set", map[string]any{"set": out.Slug})
 	taskID := detail.Tasks[0].ID
 
@@ -479,7 +484,7 @@ func TestAdminResetPassword(t *testing.T) {
 
 func TestListSetsOwnerFilter(t *testing.T) {
 	e := newEnv(t)
-	ok[WriteResult](t, e.connect(t, "alice"), "create_set", setArgs("A", validTasks()))
+	ok[WriteResult](t, e.connect(t, "alice"), "create_set", shared(setArgs("A", validTasks())))
 	ok[WriteResult](t, e.connect(t, "bob"), "create_set", setArgs("B", nil))
 	cs := e.connect(t, "bob")
 	all := ok[SetList](t, cs, "list_sets", map[string]any{})
