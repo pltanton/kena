@@ -18,7 +18,7 @@ buildGoModule {
     ];
   };
 
-  vendorHash = "sha256-5T5mGaKVFloEsDtjgZCEuFgVA5dWtv5YcNvAa5OR5AU=";
+  vendorHash = "sha256-MdFVeLEzkO+JGkYhJUX2oHq4hom6Bd5HRjMyu3/d2iY=";
 
   subPackages = ["cmd/kena"];
 
