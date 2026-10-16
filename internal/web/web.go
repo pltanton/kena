@@ -477,7 +477,7 @@ type ownerGroup struct {
 
 func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	sets, err := h.st.ListSets(ctx, "")
+	sets, err := h.st.ListSets(ctx, store.ListFilter{All: true})
 	if err != nil {
 		h.fail(w, r, err)
 		return

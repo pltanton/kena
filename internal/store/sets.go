@@ -29,6 +29,7 @@ type Set struct {
 	Instructions string
 	SourceRef    string
 	TaskCount    int
+	Shared       bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -49,6 +50,7 @@ type SetInput struct {
 	Instructions string
 	SourceRef    string
 	Slug         string
+	Shared       bool
 }
 
 type SetPatch struct {
@@ -57,6 +59,7 @@ type SetPatch struct {
 	Level        *string
 	Instructions *string
 	SourceRef    *string
+	Shared       *bool
 }
 
 type TaskPatch struct {
@@ -130,7 +133,7 @@ func marshalBlanks(blanks []greek.Blank) ([]byte, error) {
 
 const setColumns = `
 	s.id, s.owner_id, u.username, s.slug, s.title, s.topic, s.level, s.instructions, s.source_ref,
-	COALESCE(t.task_count, 0), s.created_at, s.updated_at
+	COALESCE(t.task_count, 0), s.shared, s.created_at, s.updated_at
 `
 
 const setFromJoin = `
@@ -142,7 +145,7 @@ const setFromJoin = `
 func scanSet(row pgx.Row) (Set, error) {
 	var st Set
 	err := row.Scan(&st.ID, &st.OwnerID, &st.OwnerName, &st.Slug, &st.Title, &st.Topic, &st.Level,
-		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.CreatedAt, &st.UpdatedAt)
+		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Shared, &st.CreatedAt, &st.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Set{}, ErrNotFound
@@ -184,10 +187,10 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 
 		var id int64
 		err := s.pool.QueryRow(ctx, `
-			INSERT INTO sets (owner_id, slug, title, topic, level, instructions, source_ref)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO sets (owner_id, slug, title, topic, level, instructions, source_ref, shared)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id
-		`, ownerID, slug, title, in.Topic, in.Level, in.Instructions, in.SourceRef).Scan(&id)
+		`, ownerID, slug, title, in.Topic, in.Level, in.Instructions, in.SourceRef, in.Shared).Scan(&id)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -211,12 +214,19 @@ func (s *Store) GetSet(ctx context.Context, idOrSlug string) (Set, error) {
 	return s.setBySlug(ctx, idOrSlug)
 }
 
-func (s *Store) ListSets(ctx context.Context, ownerName string) ([]Set, error) {
+type ListFilter struct {
+	Owner    string
+	ViewerID int64
+	All      bool
+}
+
+func (s *Store) ListSets(ctx context.Context, f ListFilter) ([]Set, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT `+setColumns+setFromJoin+`
 		WHERE ($1 = '' OR u.username = $1)
+			AND ($2 OR s.shared OR s.owner_id = $3)
 		ORDER BY u.username, s.created_at DESC
-	`, ownerName)
+	`, f.Owner, f.All, f.ViewerID)
 	if err != nil {
 		return nil, fmt.Errorf("listing sets: %w", err)
 	}
@@ -244,9 +254,10 @@ func (s *Store) UpdateSet(ctx context.Context, setID int64, p SetPatch) (Set, er
 			level = COALESCE($4, level),
 			instructions = COALESCE($5, instructions),
 			source_ref = COALESCE($6, source_ref),
+			shared = COALESCE($7, shared),
 			updated_at = now()
 		WHERE id = $1
-	`, setID, p.Title, p.Topic, p.Level, p.Instructions, p.SourceRef)
+	`, setID, p.Title, p.Topic, p.Level, p.Instructions, p.SourceRef, p.Shared)
 	if err != nil {
 		return Set{}, fmt.Errorf("updating set: %w", err)
 	}
@@ -400,6 +411,10 @@ func (s *Store) DeleteTask(ctx context.Context, taskID int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func CanView(viewerID int64, set Set) bool {
+	return set.Shared || (viewerID != 0 && viewerID == set.OwnerID)
 }
 
 func CanEdit(u User, set Set) bool {

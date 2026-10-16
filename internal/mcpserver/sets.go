@@ -200,7 +200,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		Description: "List task sets: id, slug, title, topic, level, owner, task_count and the learner-facing url. Filter by owner username.",
 		Annotations: readOnly("List sets"),
 	}, handle(func(ctx context.Context, _ store.User, in ListSetsIn) (SetList, error) {
-		sets, err := s.st.ListSets(ctx, in.Owner)
+		sets, err := s.st.ListSets(ctx, store.ListFilter{Owner: in.Owner, All: true})
 		if err != nil {
 			return SetList{}, err
 		}

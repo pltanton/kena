@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -453,7 +454,7 @@ func TestListSetsOwnerNameAndTaskCount(t *testing.T) {
 		t.Fatalf("CreateSet: %v", err)
 	}
 
-	all, err := s.ListSets(ctx, "")
+	all, err := s.ListSets(ctx, store.ListFilter{All: true})
 	if err != nil {
 		t.Fatalf("ListSets: %v", err)
 	}
@@ -461,11 +462,85 @@ func TestListSetsOwnerNameAndTaskCount(t *testing.T) {
 		t.Fatalf("expected 2 sets, got %d", len(all))
 	}
 
-	annOnly, err := s.ListSets(ctx, "ann")
+	annOnly, err := s.ListSets(ctx, store.ListFilter{Owner: "ann", All: true})
 	if err != nil {
 		t.Fatalf("ListSets filtered: %v", err)
 	}
 	if len(annOnly) != 1 || annOnly[0].OwnerName != "ann" || annOnly[0].TaskCount != 1 {
 		t.Fatalf("unexpected filtered sets: %+v", annOnly)
+	}
+}
+
+func TestSharing(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	ann, err := s.CreateUser(ctx, "ann", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := s.CreateUser(ctx, "bob", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	private, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann private"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if private.Shared {
+		t.Fatal("new set is shared by default")
+	}
+	shared, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann shared", Shared: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !shared.Shared {
+		t.Fatal("Shared input ignored")
+	}
+	if _, err := s.CreateSet(ctx, bob.ID, store.SetInput{Title: "Bob private"}); err != nil {
+		t.Fatal(err)
+	}
+
+	titles := func(f store.ListFilter) []string {
+		t.Helper()
+		sets, err := s.ListSets(ctx, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, st := range sets {
+			out = append(out, st.Title)
+		}
+		slices.Sort(out)
+		return out
+	}
+	for _, c := range []struct {
+		name string
+		f    store.ListFilter
+		want []string
+	}{
+		{"anonymous", store.ListFilter{}, []string{"Ann shared"}},
+		{"ann", store.ListFilter{ViewerID: ann.ID}, []string{"Ann private", "Ann shared"}},
+		{"bob", store.ListFilter{ViewerID: bob.ID}, []string{"Ann shared", "Bob private"}},
+		{"bob filtered to ann", store.ListFilter{ViewerID: bob.ID, Owner: "ann"}, []string{"Ann shared"}},
+		{"all", store.ListFilter{All: true}, []string{"Ann private", "Ann shared", "Bob private"}},
+	} {
+		if got := titles(c.f); !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+
+	if !store.CanView(ann.ID, private) || store.CanView(bob.ID, private) || store.CanView(0, private) || !store.CanView(0, shared) {
+		t.Error("CanView")
+	}
+
+	on := true
+	updated, err := s.UpdateSet(ctx, private.ID, store.SetPatch{Shared: &on})
+	if err != nil || !updated.Shared || updated.Title != "Ann private" {
+		t.Fatalf("UpdateSet shared: %+v, %v", updated, err)
+	}
+	got, err := s.GetSet(ctx, private.Slug)
+	if err != nil || !got.Shared {
+		t.Fatalf("GetSet: %+v, %v", got, err)
 	}
 }
