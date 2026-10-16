@@ -270,6 +270,8 @@ func TestLintTaskFormatCharacters(t *testing.T) {
 		{"bar in answer", "blanks[0].answers[0]", `"|"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "γράφεις|" }},
 		{"brace in hint", "blanks[0].hint", `"}"`, func(t *TaskInput) { t.Blanks[0].Hint = "γράφω}" }},
 		{"bar in hint", "blanks[0].hint", `"|"`, func(t *TaskInput) { t.Blanks[0].Hint = "γράφω | αόρ." }},
+		{"quote marker at start of text", "text", "must not start with >", func(t *TaskInput) { t.Text = "> Εσύ ___ πολύ." }},
+		{"no blanks", "text", "no blanks", func(t *TaskInput) { t.Text = "Εσύ γράφεις πολύ."; t.Blanks = nil }},
 		{"NUL in text", "text", "control character", func(t *TaskInput) { t.Text = "Εσύ ___ \x00πολύ." }},
 		{"tab in answer", "blanks[0].answers[0]", "control character", func(t *TaskInput) { t.Blanks[0].Answers[0] = "γρά\tφεις" }},
 		{"control in hint", "blanks[0].hint", "control character", func(t *TaskInput) { t.Blanks[0].Hint = "γράφω\x1b" }},

@@ -33,12 +33,18 @@ func LintTask(t TaskInput) []Issue {
 	if strings.TrimSpace(t.Text) == "" {
 		issues = append(issues, Issue{Error, "text", "text is empty"})
 	}
+	if strings.TrimSpace(t.Text) != "" && len(t.Blanks) == 0 && !strings.Contains(t.Text, Marker) {
+		issues = append(issues, Issue{Error, "text", fmt.Sprintf("task has no blanks; mark each with %s", Marker)})
+	}
 	if n := strings.Count(t.Text, Marker); n != len(t.Blanks) {
 		issues = append(issues, Issue{Error, "text",
 			fmt.Sprintf("found %d %q placeholders but %d blanks", n, Marker, len(t.Blanks))})
 	}
 
 	issues = append(issues, charIssues("text", t.Text, "{}|", false)...)
+	if strings.HasPrefix(strings.TrimSpace(t.Text), ">") {
+		issues = append(issues, Issue{Error, "text", "text must not start with >; the editor reads such lines as explanations"})
+	}
 	issues = append(issues, charIssues("explanation", t.Explanation, "", true)...)
 
 	textNoMarker := strings.ReplaceAll(t.Text, Marker, " ")

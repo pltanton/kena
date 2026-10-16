@@ -1,6 +1,7 @@
 package deckfmt
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -85,9 +86,9 @@ func TestParse(t *testing.T) {
 			[]int{1},
 		},
 		{
-			"explanation lines joined",
+			"explanation lines joined with line breaks",
 			"Α {β}.\n> one\n>two\n>\n> three",
-			[]greek.TaskInput{{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "one two three"}},
+			[]greek.TaskInput{{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "one\ntwo\nthree"}},
 			[]int{1},
 		},
 		{
@@ -170,4 +171,60 @@ func TestParseErrorLine(t *testing.T) {
 	if len(errs) != 1 || errs[0].Line != 3 || !strings.Contains(errs[0].Msg, "unclosed") {
 		t.Fatalf("errs = %+v", errs)
 	}
+}
+
+func roundTrips(t *testing.T, task greek.TaskInput) {
+	t.Helper()
+	prepared, issues := greek.Prepare([]greek.TaskInput{task}, nil)
+	for _, iss := range issues {
+		if iss.Severity == greek.Error {
+			return
+		}
+	}
+	items, errs := Parse(Format(prepared))
+	if len(errs) != 0 {
+		t.Fatalf("lint-clean task %+q does not parse: %v\n%s", prepared[0], errs, Format(prepared))
+	}
+	got, _ := greek.Prepare(Tasks(items), nil)
+	if !reflect.DeepEqual(got, prepared) {
+		t.Fatalf("lint-clean task does not round-trip:\n%+q\n%+q", got, prepared)
+	}
+}
+
+var tricky = []greek.TaskInput{
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "one\ntwo"},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "one\n\n  two  \n"},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "> quoted"},
+	{Text: "> Α ___.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α {___}.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α ___ | γ.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α ___\nγ.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β/γ")}},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β}")}},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("δ | ε", "β")}},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("δ / ε", "β", "γ δ")}},
+	{Text: "Α\x00 ___.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "  Α ___ ___ ", Blanks: []greek.Blank{blank(" δ ", " β "), blank("", "γ")}},
+	{Text: "___", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "a > b"},
+}
+
+func TestLintCleanTasksRoundTrip(t *testing.T) {
+	for i, task := range tricky {
+		t.Run(fmt.Sprint(i), func(t *testing.T) { roundTrips(t, task) })
+	}
+}
+
+func FuzzRoundTrip(f *testing.F) {
+	for _, task := range tricky {
+		f.Add(task.Text, task.Blanks[0].Answers[0], task.Blanks[0].Hint, task.Explanation)
+	}
+	f.Fuzz(func(t *testing.T, text, answer, hint, explanation string) {
+		n := strings.Count(text, greek.Marker)
+		blanks := make([]greek.Blank, n)
+		for i := range blanks {
+			blanks[i] = blank(hint, answer)
+		}
+		roundTrips(t, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
+	})
 }

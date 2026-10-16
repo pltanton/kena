@@ -47,3 +47,10 @@ func TestPrepareIssues(t *testing.T) {
 		}
 	}
 }
+
+func TestPrepareExplanationLines(t *testing.T) {
+	out, _ := Prepare([]TaskInput{{Text: "Α ___.", Blanks: []Blank{{Answers: []string{"β"}}}, Explanation: " one \r\n\n  two\n"}}, nil)
+	if got := out[0].Explanation; got != "one\ntwo" {
+		t.Fatalf("explanation = %q", got)
+	}
+}
