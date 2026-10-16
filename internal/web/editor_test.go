@@ -5,6 +5,8 @@ import (
 	"html"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -30,8 +32,14 @@ func (e *env) tasksOf(set store.Set) []store.Task {
 	return tasks
 }
 
-func editForm(set store.Set, source string) url.Values {
+func (e *env) editForm(set store.Set, source string) url.Values {
+	e.t.Helper()
+	fresh, err := e.st.GetSet(context.Background(), set.Slug)
+	if err != nil {
+		e.t.Fatal(err)
+	}
 	return url.Values{
+		"version":      {strconv.FormatInt(fresh.UpdatedAt.UnixNano(), 10)},
 		"title":        {set.Title},
 		"topic":        {set.Topic},
 		"level":        {set.Level},
@@ -88,7 +96,7 @@ func TestEditorAccess(t *testing.T) {
 			if resp, _ := v.get(p); resp.StatusCode != http.StatusNotFound {
 				t.Errorf("non-owner GET %s: %d", p, resp.StatusCode)
 			}
-			if resp, _ := v.post(p, editForm(e.set, ""), e.srv.URL); resp.StatusCode != http.StatusNotFound {
+			if resp, _ := v.post(p, e.editForm(e.set, ""), e.srv.URL); resp.StatusCode != http.StatusNotFound {
 				t.Errorf("non-owner POST %s: %d", p, resp.StatusCode)
 			}
 		}
@@ -102,7 +110,7 @@ func TestEditorAccess(t *testing.T) {
 
 	maria := e.as("maria", false)
 	for _, p := range []string{edit, del, "/new"} {
-		resp, _ := maria.post(p, editForm(e.set, "Α {β}."), "https://evil.example")
+		resp, _ := maria.post(p, e.editForm(e.set, "Α {β}."), "https://evil.example")
 		wantStatus(t, resp, http.StatusForbidden)
 	}
 	if got := e.tasksOf(e.set); len(got) != 3 {
@@ -126,7 +134,7 @@ func TestEditorErrorsWriteNothing(t *testing.T) {
 		{"duplicate is only a warning but title missing", " ", "Εσύ {γράφεις} πολύ.\n", []string{"Title is required."}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			form := editForm(e.set, c.source)
+			form := e.editForm(e.set, c.source)
 			form.Set("title", c.title)
 			resp, body := maria.post(path, form, e.srv.URL)
 			wantStatus(t, resp, http.StatusUnprocessableEntity)
@@ -170,7 +178,7 @@ func TestEditorSave(t *testing.T) {
 	inputs := inputsOf(e.tasks)
 	inputs[1].Text = "Αυτός ___ πολύ γρήγορα."
 	inputs = append(inputs, greek.TaskInput{Text: "Εσείς ___ νερό.", Blanks: []greek.Blank{{Answers: []string{"πινετε"}, Hint: "πίνω"}}})
-	form := editForm(e.set, strings.ReplaceAll(deckfmt.Format(inputs), "\n", "\r\n"))
+	form := e.editForm(e.set, strings.ReplaceAll(deckfmt.Format(inputs), "\n", "\r\n"))
 	form.Set("title", "Present tense 2")
 	form.Set("visibility", "friends")
 	resp, body := maria.post(path, form, e.srv.URL)
@@ -205,7 +213,7 @@ func TestEditorSave(t *testing.T) {
 		t.Error("saved notice shown to a non-owner")
 	}
 
-	form = editForm(got, "Εσύ {γράφεις | γράφω} πολύ.\n")
+	form = e.editForm(got, "Εσύ {γράφεις | γράφω} πολύ.\n")
 	resp, _ = maria.post(path, form, e.srv.URL)
 	wantStatus(t, resp, http.StatusSeeOther)
 	if after := e.tasksOf(e.set); len(after) != 1 || after[0].ID != e.tasks[0].ID {
@@ -317,5 +325,79 @@ func TestEditorWarnsAboutLossyTasks(t *testing.T) {
 	e2 := setup(t)
 	if _, body := e2.as("maria", false).get("/s/" + e2.set.Slug + "/edit"); strings.Contains(body, `class="warning"`) {
 		t.Fatalf("warning on a clean deck:\n%s", body)
+	}
+}
+
+var versionRe = regexp.MustCompile(`name="version" value="(\d+)"`)
+
+func TestEditorStaleVersion(t *testing.T) {
+	e := setup(t)
+	maria := e.as("maria", false)
+	path := "/s/" + e.set.Slug + "/edit"
+	_, body := maria.get(path)
+	m := versionRe.FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("no version field:\n%s", body)
+	}
+	if _, err := e.st.AddTasks(context.Background(), e.set.ID, []greek.TaskInput{
+		{Text: "Αυτοί ___ μαζί.", Blanks: []greek.Blank{{Answers: []string{"τρώνε"}}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	src := "Εσύ {γράφεις | γράφω} πολύ.\n"
+	form := e.editForm(e.set, src)
+	form.Set("version", m[1])
+	form.Set("title", "Mine")
+	resp, body := maria.post(path, form, e.srv.URL)
+	wantStatus(t, resp, http.StatusConflict)
+	for _, want := range []string{"This deck changed since you opened it", html.EscapeString(src)} {
+		if !strings.Contains(body, want) {
+			t.Errorf("conflict page misses %q:\n%s", want, body)
+		}
+	}
+	if got := e.tasksOf(e.set); len(got) != 4 {
+		t.Fatalf("stale save wrote tasks: %d", len(got))
+	}
+	if got, _ := e.st.GetSet(context.Background(), e.set.Slug); got.Title == "Mine" {
+		t.Fatal("stale save wrote metadata")
+	}
+
+	for _, v := range []string{"", "x"} {
+		form.Set("version", v)
+		resp, _ = maria.post(path, form, e.srv.URL)
+		wantStatus(t, resp, http.StatusBadRequest)
+	}
+
+	resp, _ = maria.post(path, e.editForm(e.set, src), e.srv.URL)
+	wantStatus(t, resp, http.StatusSeeOther)
+}
+
+func TestEditorCaps(t *testing.T) {
+	e := setup(t)
+	maria := e.as("maria", false)
+	path := "/s/" + e.set.Slug + "/edit"
+
+	var b strings.Builder
+	for range 501 {
+		b.WriteString("Εσύ {γράφεις} πολύ.\n\n")
+	}
+	resp, body := maria.post(path, e.editForm(e.set, b.String()), e.srv.URL)
+	wantStatus(t, resp, http.StatusUnprocessableEntity)
+	if !strings.Contains(body, "line 1001: a deck holds at most 500 tasks") {
+		t.Fatalf("no task cap error")
+	}
+
+	b.Reset()
+	for range 60 {
+		b.WriteString("Εσύ {γράφεις πολύ.\n")
+	}
+	resp, body = maria.post(path, e.editForm(e.set, b.String()), e.srv.URL)
+	wantStatus(t, resp, http.StatusUnprocessableEntity)
+	if n := strings.Count(body, "unclosed {"); n != 50 {
+		t.Errorf("shown %d errors, want 50", n)
+	}
+	if !strings.Contains(body, "…and 10 more") {
+		t.Error("no overflow line")
 	}
 }

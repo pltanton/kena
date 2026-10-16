@@ -14,6 +14,9 @@
 <div class="warning" role="status"><p>The text on {{.}} can't show its task exactly (it has characters the format doesn't support). Saving will change it, so check those lines first.</p></div>
 {{- end}}
 <form class="editor" method="post" action="{{.Action}}">
+{{- if .Version}}
+<input type="hidden" name="version" value="{{.Version}}">
+{{- end}}
 <div class="card fields">
 <label for="title">Title</label>
 <input id="title" name="title" value="{{.Title}}" required maxlength="200" placeholder="Αόριστος ρημάτων / Simple past">
