@@ -209,3 +209,35 @@ func TestInvalidDeviceID(t *testing.T) {
 		t.Fatalf("expected ErrInvalid from ProgressBySet, got %v", err)
 	}
 }
+
+func TestLastAttempts(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	task := newTaskForAttempts(ctx, t, s, "learner9")
+	device := "33333333-3333-3333-3333-333333333333"
+
+	for _, a := range []struct {
+		answer  string
+		correct bool
+	}{{"λάθος", false}, {"τρέχω", true}, {"τρεχω", false}} {
+		if err := s.RecordAttempt(ctx, device, task.ID, []string{a.answer}, a.correct); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.LastAttempts(ctx, device, task.SetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("LastAttempts = %+v", got)
+	}
+	if la := got[task.ID]; la.Correct || len(la.Answers) != 1 || la.Answers[0] != "τρεχω" {
+		t.Fatalf("last = %+v", la)
+	}
+	if other, err := s.LastAttempts(ctx, "44444444-4444-4444-4444-444444444444", task.SetID); err != nil || len(other) != 0 {
+		t.Fatalf("other device = %+v, %v", other, err)
+	}
+	if _, err := s.LastAttempts(ctx, "bad", task.SetID); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("invalid device: %v", err)
+	}
+}

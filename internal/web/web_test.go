@@ -472,3 +472,43 @@ func TestStatic(t *testing.T) {
 		}
 	}
 }
+
+func TestListShowsLatestResults(t *testing.T) {
+	e := setup(t)
+	e.get("/")
+	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}}, true)
+	e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"list"}}, true)
+
+	_, body := e.get("/s/" + e.set.Slug + "?mode=list")
+	for _, want := range []string{
+		fmt.Sprintf(`<li id="t-%d" class="item ok">`, e.tasks[0].ID), `<span class="filled ok">γράφεις</span>`,
+		fmt.Sprintf(`<li id="t-%d" class="item bad">`, e.tasks[1].ID), "τρεχει", "τρέχει", "third person singular", "Try again",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list missing %q", want)
+		}
+	}
+	if n := answerInputs(body); n != 1 {
+		t.Errorf("got %d answer inputs, want 1 (untried task only)", n)
+	}
+	if strings.Contains(body, "πίνουμε") {
+		t.Error("untried task's answer leaked")
+	}
+}
+
+func TestCardsResumeAtFirstUnsolved(t *testing.T) {
+	e := setup(t)
+	e.get("/")
+	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}}, true)
+	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	if !strings.Contains(body, "Αυτός") || strings.Contains(body, "Εσύ") || !strings.Contains(body, "2/3") {
+		t.Fatalf("did not resume at the second task:\n%s", body)
+	}
+
+	e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}}, true)
+	e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}}, true)
+	_, body = e.get("/s/" + e.set.Slug + "?mode=cards")
+	if !strings.Contains(body, "Εσύ") || !strings.Contains(body, "1/3") {
+		t.Fatalf("all solved: expected the first task:\n%s", body)
+	}
+}

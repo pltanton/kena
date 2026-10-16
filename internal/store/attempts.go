@@ -44,34 +44,51 @@ func (s *Store) RecordAttempt(ctx context.Context, deviceID string, taskID int64
 	return nil
 }
 
-func (s *Store) LastResults(ctx context.Context, deviceID string, setID int64) (map[int64]bool, error) {
+type LastAttempt struct {
+	Answers []string
+	Correct bool
+}
+
+func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) (map[int64]LastAttempt, error) {
 	if err := validateDeviceID(deviceID); err != nil {
 		return nil, err
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT ON (a.task_id) a.task_id, a.correct
+		SELECT DISTINCT ON (a.task_id) a.task_id, a.answers, a.correct
 		FROM attempts a
 		JOIN tasks t ON t.id = a.task_id
 		WHERE a.device_id = $1 AND t.set_id = $2
 		ORDER BY a.task_id, a.created_at DESC, a.id DESC
 	`, deviceID, setID)
 	if err != nil {
-		return nil, fmt.Errorf("getting last results: %w", err)
+		return nil, fmt.Errorf("getting last attempts: %w", err)
 	}
 	defer rows.Close()
 
-	results := make(map[int64]bool)
+	out := make(map[int64]LastAttempt)
 	for rows.Next() {
 		var taskID int64
-		var correct bool
-		if err := rows.Scan(&taskID, &correct); err != nil {
-			return nil, fmt.Errorf("scanning last result: %w", err)
+		var la LastAttempt
+		if err := rows.Scan(&taskID, &la.Answers, &la.Correct); err != nil {
+			return nil, fmt.Errorf("scanning last attempt: %w", err)
 		}
-		results[taskID] = correct
+		out[taskID] = la
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("getting last results: %w", err)
+		return nil, fmt.Errorf("getting last attempts: %w", err)
+	}
+	return out, nil
+}
+
+func (s *Store) LastResults(ctx context.Context, deviceID string, setID int64) (map[int64]bool, error) {
+	attempts, err := s.LastAttempts(ctx, deviceID, setID)
+	if err != nil {
+		return nil, err
+	}
+	results := make(map[int64]bool, len(attempts))
+	for id, la := range attempts {
+		results[id] = la.Correct
 	}
 	return results, nil
 }

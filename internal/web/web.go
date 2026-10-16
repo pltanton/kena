@@ -517,18 +517,47 @@ type setPage struct {
 	Done     *doneView
 }
 
-func (h *handler) loadSet(r *http.Request, slug string) (store.Set, []store.Task, map[int64]bool, error) {
+type setData struct {
+	set      store.Set
+	tasks    []store.Task
+	attempts map[int64]store.LastAttempt
+	last     map[int64]bool
+}
+
+func (h *handler) loadSet(r *http.Request, slug string) (setData, error) {
 	ctx := r.Context()
-	set, err := h.st.GetSet(ctx, slug)
-	if err != nil {
-		return set, nil, nil, err
+	var d setData
+	var err error
+	if d.set, err = h.st.GetSet(ctx, slug); err != nil {
+		return d, err
 	}
-	tasks, err := h.st.ListTasks(ctx, set.ID)
-	if err != nil {
-		return set, nil, nil, err
+	if d.tasks, err = h.st.ListTasks(ctx, d.set.ID); err != nil {
+		return d, err
 	}
-	last, err := h.st.LastResults(ctx, progressID(r), set.ID)
-	return set, tasks, last, err
+	if d.attempts, err = h.st.LastAttempts(ctx, progressID(r), d.set.ID); err != nil {
+		return d, err
+	}
+	d.last = make(map[int64]bool, len(d.attempts))
+	for id, la := range d.attempts {
+		d.last[id] = la.Correct
+	}
+	return d, nil
+}
+
+func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) itemView {
+	la, tried := attempts[t.ID]
+	if !tried {
+		return itemView{Task: newTaskView(t, false, nil), Params: p}
+	}
+	results, _ := greek.Check(t.Blanks, la.Answers)
+	return itemView{
+		Task:        newTaskView(t, false, results),
+		Params:      p,
+		Checked:     true,
+		Correct:     la.Correct,
+		Explanation: t.Explanation,
+		ItemURL:     itemURL(t.ID, p),
+	}
 }
 
 func (h *handler) set(w http.ResponseWriter, r *http.Request) {
@@ -549,11 +578,12 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	}
 	p.I, p.N = 0, 0
 
-	set, tasks, last, err := h.loadSet(r, r.PathValue("slug"))
+	d, err := h.loadSet(r, r.PathValue("slug"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
+	set, tasks, last := d.set, d.tasks, d.last
 	if q.Get("mode") != "" {
 		setCookie(w, r, modeCookie, p.Mode)
 	}
@@ -602,6 +632,13 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			rest = filtered(order[start:], p.Filter, last)
+		} else {
+			for k, t := range todo {
+				if !last[t.ID] {
+					rest = todo[k:]
+					break
+				}
+			}
 		}
 		if len(rest) == 0 {
 			data.Done = newDone(r, set.Slug, false, pr)
@@ -617,7 +654,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 		data.Card = newCard(rest[0], idx, len(todo), p)
 	default:
 		for _, t := range todo {
-			data.Items = append(data.Items, itemView{Task: newTaskView(t, false, nil), Params: p})
+			data.Items = append(data.Items, listItem(t, p, d.attempts))
 		}
 	}
 	h.page(w, r, http.StatusOK, "set", data)
@@ -636,11 +673,12 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, fmt.Errorf("after %q: %w", q.Get("after"), store.ErrInvalid))
 		return
 	}
-	set, tasks, last, err := h.loadSet(r, r.PathValue("slug"))
+	d, err := h.loadSet(r, r.PathValue("slug"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
+	set, tasks, last := d.set, d.tasks, d.last
 
 	order := ordered(tasks, p)
 	start := 0
