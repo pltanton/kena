@@ -285,11 +285,7 @@ func (s *Store) UpdateSet(ctx context.Context, setID int64, p SetPatch) (Set, er
 	return s.setByID(ctx, setID)
 }
 
-type execer interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
-
-func updateSet(ctx context.Context, db execer, setID int64, p SetPatch) error {
+func updateSet(ctx context.Context, db querier, setID int64, p SetPatch) error {
 	if p.Visibility != nil && !p.Visibility.valid() {
 		return fmt.Errorf("visibility %q: %w", *p.Visibility, ErrInvalid)
 	}
@@ -376,7 +372,11 @@ func (s *Store) AddTasks(ctx context.Context, setID int64, inputs []greek.TaskIn
 }
 
 func (s *Store) ListTasks(ctx context.Context, setID int64) ([]Task, error) {
-	rows, err := s.pool.Query(ctx, `
+	return listTasks(ctx, s.pool, setID)
+}
+
+func listTasks(ctx context.Context, db querier, setID int64) ([]Task, error) {
+	rows, err := db.Query(ctx, `
 		SELECT id, set_id, position, text, blanks, explanation
 		FROM tasks WHERE set_id = $1 ORDER BY position
 	`, setID)
