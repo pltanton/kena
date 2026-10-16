@@ -12,7 +12,7 @@ import (
 )
 
 type CreateUserIn struct {
-	Username string `json:"username" jsonschema:"2-32 chars: lowercase latin letters, digits, _ or -, starting with a letter or digit"`
+	Username string `json:"username" jsonschema:"2-32 chars: lowercase latin letters, digits, _ or -, starting with a letter or digit; not \"me\""`
 	IsAdmin  bool   `json:"is_admin,omitempty" jsonschema:"grant admin rights"`
 }
 

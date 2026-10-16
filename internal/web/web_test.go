@@ -253,7 +253,7 @@ func TestStreakCarriedThroughNextAndRedirect(t *testing.T) {
 func TestCardsEnterAdvances(t *testing.T) {
 	e := setup(t)
 	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
-	if !strings.Contains(body, `"keydown"`) || !strings.Contains(body, "e.repeat") {
+	if !strings.Contains(body, `"keydown"`) || !strings.Contains(body, "e.repeat") || !strings.Contains(body, "e.isComposing") || !strings.Contains(body, "card.contains(e.target)") {
 		t.Fatalf("cards page lacks the Enter handler:\n%s", body)
 	}
 }

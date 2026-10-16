@@ -41,7 +41,7 @@ type Token struct {
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,31}$`)
 
 func validateUsername(username string) error {
-	if !usernameRe.MatchString(username) {
+	if !usernameRe.MatchString(username) || username == "me" {
 		return fmt.Errorf("invalid username %q: %w", username, ErrInvalid)
 	}
 	return nil

@@ -44,12 +44,12 @@ func TestRecordAttemptWrongThenRightIsSolved(t *testing.T) {
 		t.Fatalf("RecordAttempt: %v", err)
 	}
 
-	results, err := s.LastResults(ctx, device, task.SetID)
+	results, err := s.LastAttempts(ctx, device, task.SetID)
 	if err != nil {
-		t.Fatalf("LastResults: %v", err)
+		t.Fatalf("LastAttempts: %v", err)
 	}
-	if correct, ok := results[task.ID]; !ok || !correct {
-		t.Fatalf("expected last result correct=true, got %v (ok=%v)", correct, ok)
+	if last, ok := results[task.ID]; !ok || !last.Correct {
+		t.Fatalf("expected last result correct=true, got %+v (ok=%v)", last, ok)
 	}
 }
 
@@ -67,16 +67,16 @@ func TestRecordAttemptRightThenWrongIsMistake(t *testing.T) {
 		t.Fatalf("RecordAttempt: %v", err)
 	}
 
-	results, err := s.LastResults(ctx, device, task.SetID)
+	results, err := s.LastAttempts(ctx, device, task.SetID)
 	if err != nil {
-		t.Fatalf("LastResults: %v", err)
+		t.Fatalf("LastAttempts: %v", err)
 	}
-	if correct, ok := results[task.ID]; !ok || correct {
-		t.Fatalf("expected last result correct=false, got %v (ok=%v)", correct, ok)
+	if last, ok := results[task.ID]; !ok || last.Correct {
+		t.Fatalf("expected last result correct=false, got %+v (ok=%v)", last, ok)
 	}
 }
 
-func TestLastResultsUntouchedTaskAbsent(t *testing.T) {
+func TestLastAttemptsUntouchedTaskAbsent(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
@@ -87,9 +87,9 @@ func TestLastResultsUntouchedTaskAbsent(t *testing.T) {
 		t.Fatalf("RecordAttempt: %v", err)
 	}
 
-	results, err := s.LastResults(ctx, device, task.SetID)
+	results, err := s.LastAttempts(ctx, device, task.SetID)
 	if err != nil {
-		t.Fatalf("LastResults: %v", err)
+		t.Fatalf("LastAttempts: %v", err)
 	}
 	if len(results) != 1 {
 		t.Fatalf("expected only the attempted task present, got %+v", results)
@@ -105,7 +105,7 @@ func TestLastResultsUntouchedTaskAbsent(t *testing.T) {
 	}
 }
 
-func TestLastResultsOtherDeviceIsolated(t *testing.T) {
+func TestLastAttemptsOtherDeviceIsolated(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
@@ -117,17 +117,17 @@ func TestLastResultsOtherDeviceIsolated(t *testing.T) {
 		t.Fatalf("RecordAttempt: %v", err)
 	}
 
-	resultsB, err := s.LastResults(ctx, deviceB, task.SetID)
+	resultsB, err := s.LastAttempts(ctx, deviceB, task.SetID)
 	if err != nil {
-		t.Fatalf("LastResults: %v", err)
+		t.Fatalf("LastAttempts: %v", err)
 	}
 	if len(resultsB) != 0 {
 		t.Fatalf("expected no results for unrelated device, got %+v", resultsB)
 	}
 
-	resultsA, err := s.LastResults(ctx, deviceA, task.SetID)
+	resultsA, err := s.LastAttempts(ctx, deviceA, task.SetID)
 	if err != nil {
-		t.Fatalf("LastResults: %v", err)
+		t.Fatalf("LastAttempts: %v", err)
 	}
 	if len(resultsA) != 1 {
 		t.Fatalf("expected one result for device A, got %+v", resultsA)
@@ -202,8 +202,8 @@ func TestInvalidDeviceID(t *testing.T) {
 	if err := s.RecordAttempt(ctx, "not-a-uuid", task.ID, []string{"x"}, true); !errors.Is(err, store.ErrInvalid) {
 		t.Fatalf("expected ErrInvalid from RecordAttempt, got %v", err)
 	}
-	if _, err := s.LastResults(ctx, "not-a-uuid", task.SetID); !errors.Is(err, store.ErrInvalid) {
-		t.Fatalf("expected ErrInvalid from LastResults, got %v", err)
+	if _, err := s.LastAttempts(ctx, "not-a-uuid", task.SetID); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("expected ErrInvalid from LastAttempts, got %v", err)
 	}
 	if _, err := s.ProgressBySet(ctx, "not-a-uuid"); !errors.Is(err, store.ErrInvalid) {
 		t.Fatalf("expected ErrInvalid from ProgressBySet, got %v", err)

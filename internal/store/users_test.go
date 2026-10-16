@@ -32,7 +32,7 @@ func TestCreateUserInvalidUsername(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	for _, name := range []string{"A b", "x"} {
+	for _, name := range []string{"A b", "x", "me"} {
 		_, err := s.CreateUser(ctx, name, false)
 		if !errors.Is(err, store.ErrInvalid) {
 			t.Fatalf("username %q: expected ErrInvalid, got %v", name, err)

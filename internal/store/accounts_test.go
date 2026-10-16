@@ -131,21 +131,21 @@ func TestMergeAttempts(t *testing.T) {
 		t.Fatalf("MergeAttempts: %v", err)
 	}
 
-	mine, err := s.LastResults(ctx, u.ProgressID, task.SetID)
+	mine, err := s.LastAttempts(ctx, u.ProgressID, task.SetID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if correct, ok := mine[task.ID]; !ok || !correct {
+	if last, ok := mine[task.ID]; !ok || !last.Correct {
 		t.Fatalf("progress after merge = %v", mine)
 	}
-	left, err := s.LastResults(ctx, anon, task.SetID)
+	left, err := s.LastAttempts(ctx, anon, task.SetID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(left) != 0 {
 		t.Fatalf("anonymous device still has attempts: %v", left)
 	}
-	untouched, _ := s.LastResults(ctx, other, task.SetID)
+	untouched, _ := s.LastAttempts(ctx, other, task.SetID)
 	if len(untouched) != 1 {
 		t.Fatalf("other device changed: %v", untouched)
 	}
@@ -320,7 +320,7 @@ func TestMergeAttemptsRefusesProgressIDSource(t *testing.T) {
 	if err := s.MergeAttempts(ctx, victim.ProgressID, thief.ProgressID); !errors.Is(err, store.ErrForbidden) {
 		t.Fatalf("merge from a progress id: err = %v", err)
 	}
-	if got, _ := s.LastResults(ctx, victim.ProgressID, task.SetID); len(got) != 1 {
+	if got, _ := s.LastAttempts(ctx, victim.ProgressID, task.SetID); len(got) != 1 {
 		t.Fatalf("victim's attempts moved: %v", got)
 	}
 }

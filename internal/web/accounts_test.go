@@ -385,7 +385,7 @@ func TestLoginMergeSkipsProgressIDDevice(t *testing.T) {
 	u, _ := url.Parse(e.srv.URL)
 	e.client.Jar.SetCookies(u, []*http.Cookie{{Name: "kena_device", Value: victim.ProgressID}})
 	e.login("anna")
-	if got, _ := e.st.LastResults(context.Background(), victim.ProgressID, e.set.ID); len(got) != 1 {
+	if got, _ := e.st.LastAttempts(context.Background(), victim.ProgressID, e.set.ID); len(got) != 1 {
 		t.Fatalf("victim's progress moved: %v", got)
 	}
 }

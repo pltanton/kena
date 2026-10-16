@@ -1,6 +1,10 @@
 package mcpserver
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 func TestSharing(t *testing.T) {
 	e := newEnv(t)
@@ -38,6 +42,18 @@ func TestSharing(t *testing.T) {
 	fails(t, bob, "add_tasks", map[string]any{"set": priv.Slug, "tasks": validTasks()}, "not found")
 	fails(t, bob, "validate_tasks", map[string]any{"set": priv.Slug, "tasks": validTasks()}, "not found")
 	fails(t, bob, "get_mistakes_report", ref, "not found")
+	fails(t, bob, "delete_set", ref, "not found")
+	privTask := ok[SetDetail](t, alice, "get_set", ref).Tasks[0].ID
+	for _, tool := range []string{"update_task", "delete_task"} {
+		args := map[string]any{"task_id": privTask, "explanation": "x"}
+		if tool == "delete_task" {
+			args = map[string]any{"task_id": privTask}
+		}
+		msg := fails(t, bob, tool, args, fmt.Sprintf("task %d not found", privTask))
+		if strings.Contains(msg, "set") {
+			t.Errorf("%s leaks the set: %q", tool, msg)
+		}
+	}
 	if d := ok[SetDetail](t, root, "get_set", ref); d.Shared || len(d.Tasks) != 2 {
 		t.Fatalf("admin get_set = %+v", d)
 	}

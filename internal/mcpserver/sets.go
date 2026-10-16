@@ -192,8 +192,17 @@ func (s *server) editableTask(ctx context.Context, u store.User, id int64) (stor
 	if err != nil {
 		return store.Task{}, store.Set{}, err
 	}
-	st, err := s.editableSet(ctx, u, strconv.FormatInt(t.SetID, 10))
-	return t, st, err
+	st, err := s.st.GetSet(ctx, strconv.FormatInt(t.SetID, 10))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !u.IsAdmin && !store.CanView(u.ID, st)) {
+		return store.Task{}, store.Set{}, fail("task %d not found", id)
+	}
+	if err != nil {
+		return store.Task{}, store.Set{}, err
+	}
+	if !store.CanEdit(u, st) {
+		return store.Task{}, store.Set{}, fail("set %q belongs to %s; you can only edit your own sets", st.Slug, st.OwnerName)
+	}
+	return t, st, nil
 }
 
 func (s *server) existingTexts(ctx context.Context, setID int64, skipTask int64) ([]string, error) {

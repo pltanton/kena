@@ -81,18 +81,6 @@ func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) 
 	return out, nil
 }
 
-func (s *Store) LastResults(ctx context.Context, deviceID string, setID int64) (map[int64]bool, error) {
-	attempts, err := s.LastAttempts(ctx, deviceID, setID)
-	if err != nil {
-		return nil, err
-	}
-	results := make(map[int64]bool, len(attempts))
-	for id, la := range attempts {
-		results[id] = la.Correct
-	}
-	return results, nil
-}
-
 func (s *Store) ProgressBySet(ctx context.Context, deviceID string) (map[int64]Progress, error) {
 	if err := validateDeviceID(deviceID); err != nil {
 		return nil, err

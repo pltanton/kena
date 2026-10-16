@@ -33,7 +33,8 @@
     if (el) el.focus({preventScroll: true});
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" || e.repeat) return;
+    if (e.key !== "Enter" || e.repeat || e.isComposing) return;
+    if (e.target !== keeper && e.target !== document.body && !card.contains(e.target)) return;
     var next = card.querySelector("button[data-next]");
     if (!next) return;
     e.preventDefault();
