@@ -208,8 +208,14 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.Us
 		return
 	}
 	label := strings.TrimSpace(r.PostForm.Get("label"))
+	toConnect := r.PostForm.Get("return") == "connect"
 	if utf8.RuneCountInString(label) > maxTokenLabelRunes {
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: fmt.Sprintf("The label must be at most %d characters.", maxTokenLabelRunes)})
+		msg := fmt.Sprintf("The label must be at most %d characters.", maxTokenLabelRunes)
+		if toConnect {
+			h.renderConnect(w, r, http.StatusOK, connectView{Error: msg})
+			return
+		}
+		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: msg})
 		return
 	}
 	secret, _, err := h.st.IssueToken(r.Context(), u.ID, label)
@@ -217,7 +223,12 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.Us
 		h.serverError(w, r, err)
 		return
 	}
-	h.renderAccount(w, r, http.StatusOK, u, accountView{NewToken: &newToken{Secret: secret, Label: label, MCPURL: h.publicURL + "/mcp"}})
+	nt := &newToken{Secret: secret, Label: label, MCPURL: h.publicURL + "/mcp"}
+	if toConnect {
+		h.renderConnect(w, r, http.StatusOK, connectView{NewToken: nt})
+		return
+	}
+	h.renderAccount(w, r, http.StatusOK, u, accountView{NewToken: nt})
 }
 
 func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request, u store.User) {

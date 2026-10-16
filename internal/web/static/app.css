@@ -178,6 +178,22 @@ header.site {
   color: var(--primary);
 }
 
+.who.acct {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.who.acct .uname {
+  font-weight: 600;
+}
+
+.who.acct .label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .strip {
   height: 8px;
   margin-bottom: 8px;

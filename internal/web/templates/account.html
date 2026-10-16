@@ -5,8 +5,8 @@
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 {{with .Notice}}<p class="notice" role="status">{{.}}</p>{{end}}
 
-<h2>Personal tokens</h2>
-<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT don't need one: they ask you to log in here.</p>
+<h2 id="tokens">Personal tokens</h2>
+<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT don't need one: they ask you to log in here. See <a href="/connect">Connect</a> for setup steps per app.</p>
 {{with .NewToken}}<div class="card secret">
 <p><strong>New token{{with .Label}} “{{.}}”{{end}}.</strong> Copy it now, it won't be shown again.</p>
 <code class="copy">{{.Secret}}</code>

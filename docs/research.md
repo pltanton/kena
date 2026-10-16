@@ -76,3 +76,19 @@ MORFES benchmark (LLM Greek morphology); elon.io Greek grammar pages.
   ήρθα/ήλθα, αγαπούσα/αγάπαγα.
 - Copyright: extract the spec (target, slots, word pool, hint format), write new
   sentences; store only a short source reference.
+
+## Connect deep links
+
+- Claude: `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=<name>&connectorUrl=<url>`
+  opens the add-custom-connector dialog pre-filled; the user still confirms,
+  logs in and allows. https://claude.com/docs/connectors/custom/add-unlisted
+- Cursor: `cursor://anysphere.cursor-deeplink/mcp/install?name=<name>&config=<base64 JSON>`,
+  where the JSON is `{"url": "<url>"}` for a remote server (or `{"command": ...}`
+  for stdio). https://cursor.com/docs/mcp/install-links
+- VS Code: `vscode:mcp/install?<url-encoded JSON>`, where the JSON is
+  `{"name": "<name>", "type": "http", "url": "<url>"}`; installed servers only
+  expose tools to Copilot's agent mode. https://code.visualstudio.com/docs/agent-customization/mcp-servers
+- ChatGPT: no prefill or deep-link URL scheme exists for adding a custom MCP
+  connector; the user must go through Settings → Apps & Connectors (or
+  Plugins) manually, and developer mode gating applies on Plus/Pro.
+  https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt

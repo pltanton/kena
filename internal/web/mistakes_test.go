@@ -35,7 +35,7 @@ func TestMistakesPage(t *testing.T) {
 	wantNoFraming(t, resp)
 	for _, want := range []string{
 		e.set.Title, "Εσύ", "γραφεις", "γράφεις", "→", `class="kind">accent<`, `class="kind">near miss<`,
-		"1 wrong", "fixed ✓", "Analyze my kena mistakes and make a practice set for my weak spots.", `href="/account"`,
+		"1 wrong", "fixed ✓", "Analyze my kena mistakes and make a practice set for my weak spots.", `href="/connect"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)

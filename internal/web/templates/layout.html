@@ -14,7 +14,7 @@
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
-<header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a><nav class="nav"><a href="/browse" class="who">Browse</a>{{if .User}}<a href="/mistakes" class="who">Mistakes</a><a href="/account" class="who">{{.User.Username}} · Account</a>{{else}}<a href="{{.LoginURL}}" class="who">Log in</a>{{end}}</nav></header>
+<header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a><nav class="nav"><a href="/browse" class="who">Browse</a><a href="/connect" class="who">Connect</a>{{if .User}}<a href="/mistakes" class="who">Mistakes</a><a href="/account" class="who acct"><span class="uname">{{.User.Username}}</span><span class="label">Account</span></a>{{else}}<a href="{{.LoginURL}}" class="who">Log in</a>{{end}}</nav></header>
 <div class="strip" aria-hidden="true"></div>
 <main>
 {{template "main" .Data}}
