@@ -1,0 +1,19 @@
+{{define "title"}}{{.Set.Title}} · kena{{end}}
+{{define "main"}}<header class="set-head">
+<h1>{{.Set.Title}}</h1>
+{{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
+<p class="meta">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</p>
+<nav class="controls">
+<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+<span class="seg">{{with .Shuffle}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+</nav>
+</header>
+{{if eq .Params.Mode "cards"}}<div id="card">
+{{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
+</div>
+{{- else if .Items}}<ol class="items">
+{{range .Items}}{{template "list_item" .}}
+{{end}}</ol>
+{{- else}}{{template "done" .Done}}{{end}}
+{{end}}

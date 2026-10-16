@@ -1,0 +1,20 @@
+{{define "main"}}<h1>Sets</h1>
+{{- range .}}
+<section class="group">
+<h2>{{.Owner}}</h2>
+<ul class="sets">
+{{- range .Sets}}
+<li>
+<a class="set-row" href="/s/{{.Set.Slug}}">
+<span class="title">{{.Set.Title}}</span>
+<span class="meta">{{.Set.Topic}}{{if and .Set.Topic .Set.Level}} · {{end}}{{.Set.Level}}</span>
+<span class="score">{{.Progress.Solved}}/{{.Progress.Total}}{{with .Progress.Mistakes}} <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</span>
+</a>
+</li>
+{{- end}}
+</ul>
+</section>
+{{- else}}
+<p class="empty">No sets yet. Sets are created by their authors through the MCP connector.</p>
+{{- end}}
+{{end}}

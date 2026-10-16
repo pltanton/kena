@@ -1,0 +1,6 @@
+{{define "card"}}{{template "bar" .Bar}}
+<form class="card" action="/t/{{.Task.ID}}/check" method="post" hx-post="/t/{{.Task.ID}}/check" hx-target="#card" hx-swap="innerHTML">
+{{template "hidden" .Params}}
+<p class="sentence" lang="el">{{template "sentence" .Task}}</p>
+<button type="submit">Check</button>
+</form>{{end}}

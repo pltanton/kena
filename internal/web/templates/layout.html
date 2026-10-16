@@ -1,0 +1,33 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "title" .}}kena{{end}}</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="site"><a href="/" class="brand">kena</a></header>
+<main>
+{{template "main" .}}
+</main>
+</body>
+</html>
+{{end}}
+
+{{define "sentence"}}{{range .Segments}}{{if not .Blank}}{{.Text}}{{else if .Checked}}{{if .Correct}}<span class="filled ok">{{.Given}}</span>{{else}}<span class="fix"><s class="given bad">{{or .Given "—"}}</s> → <span class="expected ok">{{.Expected}}</span></span>{{end}}{{else}}<input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Blank {{.Index}}"{{with .Hint}} placeholder="{{.}}"{{end}}{{if .Autofocus}} autofocus{{end}}>{{with .Hint}} <span class="hint">({{.}})</span>{{end}}{{end}}{{end}}{{end}}
+
+{{define "hidden"}}<input type="hidden" name="mode" value="{{.Mode}}">
+<input type="hidden" name="filter" value="{{.Filter}}">
+{{- if .Shuffle}}
+<input type="hidden" name="shuffle" value="1">
+<input type="hidden" name="seed" value="{{.Seed}}">
+{{- end}}
+{{- if .N}}
+<input type="hidden" name="i" value="{{.I}}">
+<input type="hidden" name="n" value="{{.N}}">
+{{- end}}{{end}}
+
+{{define "bar"}}{{if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
+<p class="count">{{.Index}}/{{.Total}}</p>{{end}}{{end}}

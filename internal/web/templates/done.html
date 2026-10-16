@@ -1,0 +1,9 @@
+{{define "done"}}<div class="card done">
+<h2>{{if .Empty}}Nothing to practise here{{else}}Done!{{end}}</h2>
+<p>Solved {{.Progress.Solved}}/{{.Progress.Total}}{{with .Progress.Mistakes}} · <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</p>
+<nav class="actions">
+<a class="button" href="{{.AgainURL}}">Again</a>
+<a class="button secondary" href="{{.MistakesURL}}">Mistakes only</a>
+<a class="button secondary" href="/">All sets</a>
+</nav>
+</div>{{end}}
