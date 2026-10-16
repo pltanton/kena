@@ -26,11 +26,7 @@ type LintReport struct {
 func toGreekBlanks(in []BlankIn) []greek.Blank {
 	out := make([]greek.Blank, len(in))
 	for i, b := range in {
-		answers := make([]string, len(b.Answers))
-		for j, a := range b.Answers {
-			answers[j] = strings.TrimSpace(greek.NFC(a))
-		}
-		out[i] = greek.Blank{Answers: answers, Hint: strings.TrimSpace(greek.NFC(b.Hint))}
+		out[i] = greek.Blank{Answers: b.Answers, Hint: b.Hint}
 	}
 	return out
 }
@@ -43,38 +39,20 @@ func fromGreekBlanks(in []greek.Blank) []BlankIn {
 	return out
 }
 
-func normalizeTask(t TaskIn) greek.TaskInput {
-	return greek.TaskInput{
-		Text:        strings.TrimSpace(greek.NFC(t.Text)),
-		Blanks:      toGreekBlanks(t.Blanks),
-		Explanation: strings.TrimSpace(greek.NFC(t.Explanation)),
-	}
-}
-
 func prepare(tasks []TaskIn, existingTexts []string) ([]greek.TaskInput, LintReport) {
-	rep := LintReport{Errors: []string{}, Warnings: []string{}}
-	seen := make(map[string]bool, len(existingTexts)+len(tasks))
-	for _, t := range existingTexts {
-		seen[strings.TrimSpace(greek.NFC(t))] = true
-	}
-
-	out := make([]greek.TaskInput, len(tasks))
+	raw := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
-		in := normalizeTask(t)
-		out[i] = in
-		prefix := fmt.Sprintf("task[%d].", i)
-		for _, iss := range greek.LintTask(in) {
-			line := prefix + iss.Field + ": " + iss.Message
-			if iss.Severity == greek.Error {
-				rep.Errors = append(rep.Errors, line)
-			} else {
-				rep.Warnings = append(rep.Warnings, line)
-			}
+		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation}
+	}
+	out, issues := greek.Prepare(raw, existingTexts)
+	rep := LintReport{Errors: []string{}, Warnings: []string{}}
+	for _, iss := range issues {
+		line := fmt.Sprintf("task[%d].%s: %s", iss.Task, iss.Field, iss.Message)
+		if iss.Severity == greek.Error {
+			rep.Errors = append(rep.Errors, line)
+		} else {
+			rep.Warnings = append(rep.Warnings, line)
 		}
-		if in.Text != "" && seen[in.Text] {
-			rep.Warnings = append(rep.Warnings, prefix+"text: duplicate of another task's text")
-		}
-		seen[in.Text] = true
 	}
 	return out, rep
 }
