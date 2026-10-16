@@ -43,8 +43,10 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
 
   `{a / b}` accepts both answers, `| hint` is shown next to the blank. Saving
   runs the same checks as the MCP tools: any error is listed as `line N: …`
-  and nothing is saved; warnings show after the save. Tasks are matched by
-  position, so unchanged tasks keep everyone's progress. Delete deck (bottom
+  and nothing is saved; warnings show after the save. Unchanged tasks keep
+  everyone's progress even when you insert or reorder tasks. If the deck
+  changed since you opened the editor (for example an agent added tasks),
+  the save is refused and your text stays in the form to re-apply. Delete deck (bottom
   of the editor) asks for confirmation first.
 
 ## Run locally
