@@ -22,7 +22,7 @@ func TestMistakesReport(t *testing.T) {
 	e := newEnv(t)
 	alice := e.connect(t, "alice")
 	bob := e.connect(t, "bob")
-	out := ok[WriteResult](t, alice, "create_set", setArgs("Αόριστος", validTasks()))
+	out := ok[WriteResult](t, alice, "create_set", public(setArgs("Αόριστος", validTasks())))
 	detail := ok[SetDetail](t, alice, "get_set", map[string]any{"set": out.Slug})
 	t0, t1 := detail.Tasks[0].ID, detail.Tasks[1].ID
 	other := ok[WriteResult](t, bob, "create_set", public(setArgs("Bob set", validTasks())))
@@ -69,6 +69,14 @@ func TestMistakesReport(t *testing.T) {
 	}
 	if k := bobRep.Summary.ByKind; k.Other != 1 || k.Accent != 0 {
 		t.Errorf("bob by_kind = %+v", k)
+	}
+
+	ok[SetDetail](t, alice, "update_set", map[string]any{"set": out.Slug, "visibility": "private"})
+	if hidden := ok[MistakesReport](t, bob, "get_mistakes_report", map[string]any{}); len(hidden.Sets) != 0 {
+		t.Fatalf("bob still sees a private set: %+v", hidden.Sets)
+	}
+	if own := ok[MistakesReport](t, alice, "get_mistakes_report", map[string]any{}); len(own.Sets) != 1 {
+		t.Fatalf("owner lost her private set: %+v", own.Sets)
 	}
 
 	filtered := ok[MistakesReport](t, alice, "get_mistakes_report", map[string]any{"set": other.Slug, "days": 7})

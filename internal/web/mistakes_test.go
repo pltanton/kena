@@ -1,10 +1,13 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/pltanton/kena/internal/store"
 )
 
 func TestMistakesRequiresLogin(t *testing.T) {
@@ -50,6 +53,14 @@ func TestMistakesPage(t *testing.T) {
 	other.login("bob")
 	if _, body := other.get("/mistakes"); strings.Contains(body, "γραφεις") {
 		t.Errorf("bob sees anna's mistakes")
+	}
+
+	private := store.Private
+	if _, err := e.st.UpdateSet(context.Background(), e.set.ID, store.SetPatch{Visibility: &private}); err != nil {
+		t.Fatal(err)
+	}
+	if _, body := e.get("/mistakes"); strings.Contains(body, e.set.Title) || !strings.Contains(body, "No mistakes") {
+		t.Errorf("mistakes page lists a set that became private:\n%s", body)
 	}
 }
 

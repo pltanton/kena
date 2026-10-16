@@ -37,11 +37,12 @@ nix flake check
 ## Rules
 
 - Answers never reach the browser before an attempt; checking is server-side. `/mistakes` shows only tasks already attempted.
-- `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts.
+- `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts. The report (MCP and `/mistakes`) leaves out other users' private sets.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
 - MCP tool errors the model should see are returned as Go errors from handlers (the SDK then omits structuredContent).
 - `sets.visibility`: `private` = owner only (web 404 for everyone else, admins included; MCP not found except for admins), `friends` = any logged-in user, `public` = everyone. `store.CanView` is the single rule; listings use the same SQL conditions.
 - Stars only add non-private sets to a user's home list; a starred set that turns private disappears and the star stays dormant.
-- Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing.
+- Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
+- Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, line breaks in text, control characters), so every lint-clean task round-trips through `deckfmt`.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

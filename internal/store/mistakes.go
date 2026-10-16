@@ -41,7 +41,7 @@ type Report struct {
 	Sets []SetMistakes
 }
 
-func (s *Store) MistakesReport(ctx context.Context, progressID string, setID *int64, since time.Time) (Report, error) {
+func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID string, setID *int64, since time.Time) (Report, error) {
 	if err := validateDeviceID(progressID); err != nil {
 		return Report{}, err
 	}
@@ -51,7 +51,9 @@ func (s *Store) MistakesReport(ctx context.Context, progressID string, setID *in
 			SELECT a.task_id, count(*) AS attempts, count(*) FILTER (WHERE NOT a.correct) AS wrong
 			FROM attempts a
 			JOIN tasks t ON t.id = a.task_id
+			JOIN sets vs ON vs.id = t.set_id
 			WHERE a.device_id = $1 AND a.created_at >= $2 AND ($3::bigint IS NULL OR t.set_id = $3)
+				AND (vs.owner_id = $4 OR vs.visibility <> 'private')
 			GROUP BY a.task_id
 		), last AS (
 			SELECT DISTINCT ON (a.task_id) a.task_id, a.correct
@@ -68,7 +70,7 @@ func (s *Store) MistakesReport(ctx context.Context, progressID string, setID *in
 		JOIN tasks t ON t.id = w.task_id
 		JOIN sets s ON s.id = t.set_id
 		ORDER BY s.title, s.id, w.wrong DESC, t.position
-	`, progressID, since, setID)
+	`, progressID, since, setID, viewerID)
 	if err != nil {
 		return Report{}, fmt.Errorf("getting mistakes: %w", err)
 	}

@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func mistakesFixture(ctx context.Context, t *testing.T, s *store.Store) (store.U
 	var sets []store.Set
 	var tasks [][]store.Task
 	for _, title := range []string{"Alpha", "Beta"} {
-		st, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: title, Topic: "aorist", Level: "A2"})
+		st, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: title, Topic: "aorist", Level: "A2", Visibility: store.Public})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +75,7 @@ func TestMistakesReport(t *testing.T) {
 	attempt(ctx, t, s, me, tasks[1][0].ID, "γραφω", false, time.Hour)
 	attempt(ctx, t, s, other, tasks[1][1].ID, "λάθος", false, time.Hour)
 
-	rep, err := s.MistakesReport(ctx, me, nil, since)
+	rep, err := s.MistakesReport(ctx, learner.ID, me, nil, since)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +114,7 @@ func TestMistakesReport(t *testing.T) {
 		t.Errorf("beta = %+v (other device's attempts leaked?)", beta.Tasks)
 	}
 
-	filtered, err := s.MistakesReport(ctx, me, &sets[1].ID, since)
+	filtered, err := s.MistakesReport(ctx, learner.ID, me, &sets[1].ID, since)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestMistakesReport(t *testing.T) {
 		t.Fatalf("filtered = %+v", filtered.Sets)
 	}
 
-	wide, err := s.MistakesReport(ctx, me, &sets[0].ID, time.Now().Add(-60*24*time.Hour))
+	wide, err := s.MistakesReport(ctx, learner.ID, me, &sets[0].ID, time.Now().Add(-60*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +136,7 @@ func TestMistakesReport(t *testing.T) {
 		t.Errorf("60-day window: a2 = %+v", a2Row)
 	}
 
-	none, err := s.MistakesReport(ctx, other, &sets[0].ID, since)
+	none, err := s.MistakesReport(ctx, learner.ID, other, &sets[0].ID, since)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,48 @@ func TestMistakesReport(t *testing.T) {
 
 func TestMistakesReportInvalidProgressID(t *testing.T) {
 	s := store.New(dbtest.New(t))
-	if _, err := s.MistakesReport(context.Background(), "nope", nil, time.Now()); err == nil {
+	if _, err := s.MistakesReport(context.Background(), 1, "nope", nil, time.Now()); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestMistakesReportHidesPrivateSets(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	learner, sets, tasks := mistakesFixture(ctx, t, s)
+	since := time.Now().Add(-time.Hour * 24)
+	attempt(ctx, t, s, learner.ProgressID, tasks[0][0].ID, "λάθος", false, time.Hour)
+	attempt(ctx, t, s, learner.ProgressID, tasks[1][0].ID, "λάθος", false, time.Hour)
+
+	titles := func(viewer int64, progress string) []string {
+		t.Helper()
+		rep, err := s.MistakesReport(ctx, viewer, progress, nil, since)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, sm := range rep.Sets {
+			out = append(out, sm.Set.Title)
+		}
+		return out
+	}
+	friends, private := store.Friends, store.Private
+	if _, err := s.UpdateSet(ctx, sets[0].ID, store.SetPatch{Visibility: &friends}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateSet(ctx, sets[1].ID, store.SetPatch{Visibility: &private}); err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(learner.ID, learner.ProgressID); !slices.Equal(got, []string{"Alpha"}) {
+		t.Errorf("learner sees %v, want only the friends set", got)
+	}
+
+	author, err := s.UserByName(ctx, "author")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt(ctx, t, s, author.ProgressID, tasks[1][1].ID, "λάθος", false, time.Hour)
+	if got := titles(author.ID, author.ProgressID); !slices.Equal(got, []string{"Beta"}) {
+		t.Errorf("owner sees %v, want own private set", got)
 	}
 }

@@ -61,7 +61,7 @@ func newMistakeRow(tm store.TaskMistakes) mistakeRow {
 }
 
 func (h *handler) mistakes(w http.ResponseWriter, r *http.Request, u store.User) {
-	rep, err := h.st.MistakesReport(r.Context(), u.ProgressID, nil, time.Now().AddDate(0, 0, -mistakesDays))
+	rep, err := h.st.MistakesReport(r.Context(), u.ID, u.ProgressID, nil, time.Now().AddDate(0, 0, -mistakesDays))
 	if err != nil {
 		h.serverError(w, r, err)
 		return
