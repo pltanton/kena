@@ -44,7 +44,7 @@ tags, lemma class) and by kind; separate spelling issues (accent, final ς) from
 grammar issues (wrong form); explain the 2–4 main patterns to the user in plain
 words with examples from their answers; then offer a practice set of 20–40 new
 tasks targeting those patterns (new sentences, same rules as always), titled
-"Μου λάθη: …" style is not needed — use "Practice: <pattern>"; never resubmit the
+"Practice: <pattern>"; never resubmit the
 learner's original tasks verbatim. Add it to `Topics()` and mention in
 Instructions only if space allows.
 
