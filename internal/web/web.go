@@ -507,6 +507,7 @@ type ownerGroup struct {
 
 type indexView struct {
 	LoggedIn bool
+	LoginURL string
 	Mine     []deckRow
 	Groups   []ownerGroup
 }
@@ -535,6 +536,7 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 		h.page(w, r, http.StatusOK, "index", v)
 		return
 	}
+	v.LoginURL = "/login?" + url.Values{"next": {"/"}}.Encode()
 	sets, err := h.st.ListSets(ctx, store.ListFilter{})
 	if err != nil {
 		h.fail(w, r, err)
@@ -945,6 +947,10 @@ func (h *handler) star(w http.ResponseWriter, r *http.Request, u store.User) {
 	}
 	if err := r.ParseForm(); err != nil {
 		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+		return
+	}
+	if set.OwnerID == u.ID {
+		h.fail(w, r, fmt.Errorf("starring own set: %w", store.ErrInvalid))
 		return
 	}
 	switch v := r.PostForm.Get("star"); v {

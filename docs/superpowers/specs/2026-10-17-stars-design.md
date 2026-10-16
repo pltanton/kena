@@ -18,6 +18,8 @@ DELETE CASCADE, created_at, PRIMARY KEY (user_id, set_id))`.
 - `store.MyDecks(user)`: own sets + starred sets the user can still view
   (shared), ordered by title, each with `Starred`. A starred set that became
   private disappears; its star row stays and comes back if it is shared again.
+  Such a dormant star cannot be removed until the set is shared again
+  (intentional: star/unstar on it is 404, so there is no existence oracle).
 - `store.BrowseDecks(viewer)`: shared sets of other users (anonymous: all
   shared sets), ordered by title, each with `Starred` for the viewer.
 - `store.IsStarred(user, set)` for the set page.

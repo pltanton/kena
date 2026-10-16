@@ -9,7 +9,7 @@
 <p class="empty">No decks yet — <a href="/browse">Browse shared decks</a></p>
 {{- end}}
 {{- else}}<h1>Shared decks</h1>
-<p class="muted"><a href="/login">Log in</a> to keep your own list of decks.</p>
+<p class="muted"><a href="{{.LoginURL}}">Log in</a> to keep your own list of decks.</p>
 {{- range .Groups}}
 <section class="group">
 <h2>{{.Owner}}</h2>

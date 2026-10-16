@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -40,7 +41,7 @@ func TestAnonymousHome(t *testing.T) {
 	e := setup(t)
 	set, _ := e.privateSet()
 	_, body := e.get("/")
-	for _, want := range []string{e.set.Title, "to keep your own list of decks", `href="/browse"`} {
+	for _, want := range []string{e.set.Title, "to keep your own list of decks", `href="/browse"`, `href="/login?next=%2F"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("anonymous home missing %q", want)
 		}
@@ -152,8 +153,13 @@ func TestStarToggle(t *testing.T) {
 	wantStatus(t, resp, http.StatusNotFound)
 
 	maria := e.loginOwner()
-	resp, _ = maria.post(path, url.Values{"star": {"1"}}, e.srv.URL)
-	wantStatus(t, resp, http.StatusBadRequest)
+	for _, v := range []string{"1", "0"} {
+		resp, _ = maria.post(path, url.Values{"star": {v}}, e.srv.URL)
+		wantStatus(t, resp, http.StatusBadRequest)
+	}
+	private, _ := e.privateSet()
+	resp, _ = bob.post(fmt.Sprintf("/s/%d/star", private.ID), url.Values{"star": {"1"}}, e.srv.URL)
+	wantStatus(t, resp, http.StatusNotFound)
 
 	resp, _ = bob.post(path, url.Values{"star": {"1"}, "next": {"//evil.example/x"}}, e.srv.URL)
 	wantStatus(t, resp, http.StatusSeeOther)
