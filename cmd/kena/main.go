@@ -166,6 +166,10 @@ func runToken(args []string) error {
 	}
 	defer pool.Close()
 
+	if err := db.Migrate(ctx, pool); err != nil {
+		return fmt.Errorf("migrating database: %w", err)
+	}
+
 	st := store.New(pool)
 	u, err := st.EnsureUser(ctx, *user, *admin)
 	if err != nil {

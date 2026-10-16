@@ -154,6 +154,25 @@ func randomHex(n int) string {
 // New returns a pool connected to a freshly created, migrated database.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
+	pool, _ := newDatabase(t)
+	if err := db.Migrate(context.Background(), pool); err != nil {
+		pool.Close()
+		t.Fatalf("dbtest: migrating: %v", err)
+	}
+	return pool
+}
+
+// NewURL returns the connection string of a freshly created, unmigrated
+// database, for tests that exercise a command's own migration step.
+func NewURL(t testing.TB) string {
+	t.Helper()
+	pool, url := newDatabase(t)
+	pool.Close()
+	return url
+}
+
+func newDatabase(t testing.TB) (*pgxpool.Pool, string) {
+	t.Helper()
 	ctx := context.Background()
 
 	adminURL := os.Getenv("KENA_TEST_DATABASE_URL")
@@ -186,11 +205,6 @@ func New(t testing.TB) *pgxpool.Pool {
 		t.Fatalf("dbtest: connecting to %s: %v", dbName, err)
 	}
 
-	if err := db.Migrate(ctx, pool); err != nil {
-		pool.Close()
-		t.Fatalf("dbtest: migrating %s: %v", dbName, err)
-	}
-
 	t.Cleanup(func() {
 		pool.Close()
 		dropCtx := context.Background()
@@ -202,5 +216,5 @@ func New(t testing.TB) *pgxpool.Pool {
 		_, _ = dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize())
 	})
 
-	return pool
+	return pool, dbCfg.ConnConfig.ConnString()
 }
