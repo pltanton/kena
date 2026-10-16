@@ -111,6 +111,9 @@ func Slugify(s string) string {
 	if slug == "" {
 		return "set"
 	}
+	if strings.Trim(slug, "0123456789") == "" {
+		return "set-" + slug
+	}
 	return slug
 }
 

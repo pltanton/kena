@@ -20,6 +20,7 @@ func TestSlugify(t *testing.T) {
 	}{
 		{"greek transliteration", "Αόριστος: ρήματα σε -ω", "aoristos-rimata-se-o"},
 		{"empty", "", "set"},
+		{"digits only", "2024", "set-2024"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
