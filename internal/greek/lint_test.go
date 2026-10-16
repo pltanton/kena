@@ -145,6 +145,20 @@ func TestLintTaskClean(t *testing.T) {
 			t.Errorf("expected no issues, got %+v", issues)
 		}
 	})
+
+	t.Run("elided sigma", func(t *testing.T) {
+		input := TaskInput{
+			Text:   "Σ' ___ πολύ, του λέει.",
+			Blanks: []Blank{{Answers: []string{"αγαπώ"}}},
+		}
+		if issues := LintTask(input); len(issues) != 0 {
+			t.Errorf("expected no issues, got %+v", issues)
+		}
+		input = TaskInput{Text: "Η Άννα ___ αγαπάει.", Blanks: []Blank{{Answers: []string{"σ’"}}}}
+		if issues := LintTask(input); len(issues) != 0 {
+			t.Errorf("expected no issues, got %+v", issues)
+		}
+	})
 }
 
 func TestLintTaskWarnings(t *testing.T) {

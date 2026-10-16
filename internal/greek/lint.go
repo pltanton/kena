@@ -92,12 +92,6 @@ func scriptIssues(field, s string) []Issue {
 		}
 
 		runes := []rune(word)
-		if len(runes) == 0 {
-			continue
-		}
-		if runes[len(runes)-1] == 'σ' {
-			issues = append(issues, Issue{Error, field, fmt.Sprintf("word %q ends with σ; use ς", word)})
-		}
 		for k, r := range runes {
 			if r == 'ς' && k != len(runes)-1 {
 				issues = append(issues, Issue{Error, field, fmt.Sprintf("word %q has ς not at the end; use σ", word)})
@@ -106,7 +100,22 @@ func scriptIssues(field, s string) []Issue {
 		}
 	}
 
+	runes := []rune(s)
+	for i, r := range runes {
+		if r != 'σ' {
+			continue
+		}
+		if i+1 < len(runes) && (isWordRune(runes[i+1]) || isApostrophe(runes[i+1])) {
+			continue
+		}
+		issues = append(issues, Issue{Error, field, "word ending in σ; use ς"})
+	}
+
 	return issues
+}
+
+func isApostrophe(r rune) bool {
+	return r == '\'' || r == '’' || r == 'ʼ'
 }
 
 func accentWarnings(field, answer string) []Issue {
@@ -169,9 +178,7 @@ func vowelGroupCount(word string) int {
 			j++
 		}
 
-		if i == prevVowelEnd && !hasDiaeresis && digraphs[[2]rune{prevBase, r}] {
-			// continues previous vowel group
-		} else {
+		if i != prevVowelEnd || hasDiaeresis || !digraphs[[2]rune{prevBase, r}] {
 			count++
 		}
 
