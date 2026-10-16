@@ -16,10 +16,17 @@ import (
 )
 
 type User struct {
-	ID        int64
-	Username  string
-	IsAdmin   bool
-	CreatedAt time.Time
+	ID         int64
+	Username   string
+	IsAdmin    bool
+	CreatedAt  time.Time
+	ProgressID string
+}
+
+const userColumns = "u.id, u.username, u.is_admin, u.created_at, u.progress_id::text"
+
+func (u *User) dest() []any {
+	return []any{&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &u.ProgressID}
 }
 
 type Token struct {
@@ -60,9 +67,8 @@ func (s *Store) CreateUser(ctx context.Context, username string, isAdmin bool) (
 	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO users (username, is_admin) VALUES ($1, $2)
-		RETURNING id, username, is_admin, created_at
-	`, username, isAdmin).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+		INSERT INTO users AS u (username, is_admin) VALUES ($1, $2)
+		RETURNING `+userColumns, username, isAdmin).Scan(u.dest()...)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -79,10 +85,9 @@ func (s *Store) EnsureUser(ctx context.Context, username string, isAdmin bool) (
 	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO users (username, is_admin) VALUES ($1, $2)
-		ON CONFLICT (username) DO UPDATE SET is_admin = users.is_admin OR EXCLUDED.is_admin
-		RETURNING id, username, is_admin, created_at
-	`, username, isAdmin).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+		INSERT INTO users AS u (username, is_admin) VALUES ($1, $2)
+		ON CONFLICT (username) DO UPDATE SET is_admin = u.is_admin OR EXCLUDED.is_admin
+		RETURNING `+userColumns, username, isAdmin).Scan(u.dest()...)
 	if err != nil {
 		return User{}, fmt.Errorf("ensuring user: %w", err)
 	}
@@ -92,8 +97,7 @@ func (s *Store) EnsureUser(ctx context.Context, username string, isAdmin bool) (
 func (s *Store) UserByName(ctx context.Context, username string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, is_admin, created_at FROM users WHERE username = $1
-	`, username).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+SELECT `+userColumns+` FROM users u WHERE u.username = $1`, username).Scan(u.dest()...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -106,8 +110,7 @@ func (s *Store) UserByName(ctx context.Context, username string) (User, error) {
 func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, is_admin, created_at FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+SELECT `+userColumns+` FROM users u WHERE u.id = $1`, id).Scan(u.dest()...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -118,9 +121,7 @@ func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, username, is_admin, created_at FROM users ORDER BY username
-	`)
+	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM users u ORDER BY u.username`)
 	if err != nil {
 		return nil, fmt.Errorf("listing users: %w", err)
 	}
@@ -129,7 +130,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt); err != nil {
+		if err := rows.Scan(u.dest()...); err != nil {
 			return nil, fmt.Errorf("scanning user: %w", err)
 		}
 		users = append(users, u)
@@ -183,6 +184,14 @@ func (s *Store) ListTokens(ctx context.Context, userID int64) ([]Token, error) {
 }
 
 func (s *Store) RevokeToken(ctx context.Context, tokenID int64) error {
+	return s.revokeToken(ctx, tokenID, 0)
+}
+
+func (s *Store) RevokeUserToken(ctx context.Context, userID, tokenID int64) error {
+	return s.revokeToken(ctx, tokenID, userID)
+}
+
+func (s *Store) revokeToken(ctx context.Context, tokenID, userID int64) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("beginning tx: %w", err)
@@ -190,8 +199,9 @@ func (s *Store) RevokeToken(ctx context.Context, tokenID int64) error {
 	defer tx.Rollback(ctx)
 
 	tag, err := tx.Exec(ctx, `
-		UPDATE tokens SET revoked_at = COALESCE(revoked_at, now()) WHERE id = $1
-	`, tokenID)
+		UPDATE tokens SET revoked_at = COALESCE(revoked_at, now())
+		WHERE id = $1 AND ($2::bigint IS NULL OR user_id = $2)
+	`, tokenID, nullableID(userID))
 	if err != nil {
 		return fmt.Errorf("revoking token: %w", err)
 	}
@@ -219,10 +229,10 @@ func (s *Store) TokenUser(ctx context.Context, secret string) (User, int64, erro
 	var u User
 	var tokenID int64
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.username, u.is_admin, u.created_at, t.id
+		SELECT `+userColumns+`, t.id
 		FROM tokens t JOIN users u ON u.id = t.user_id
 		WHERE t.hash = $1 AND t.revoked_at IS NULL
-	`, hash).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &tokenID)
+	`, hash).Scan(append(u.dest(), &tokenID)...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, 0, ErrNotFound

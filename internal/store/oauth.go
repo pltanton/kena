@@ -186,13 +186,10 @@ func (s *Store) GrantByAccess(ctx context.Context, access string) (Grant, User, 
 	var g Grant
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT g.id, g.user_id, g.client_id, g.resource, g.access_expires_at, u.id, u.username, u.is_admin, u.created_at
+		SELECT g.id, g.user_id, g.client_id, g.resource, g.access_expires_at, `+userColumns+`
 		FROM oauth_grants g JOIN users u ON u.id = g.user_id
 		WHERE g.access_hash = $1 AND g.revoked_at IS NULL AND g.access_expires_at > now()
-	`, HashSecret(access)).Scan(
-		&g.ID, &g.UserID, &g.ClientID, &g.Resource, &g.AccessExpiresAt,
-		&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt,
-	)
+	`, HashSecret(access)).Scan(append([]any{&g.ID, &g.UserID, &g.ClientID, &g.Resource, &g.AccessExpiresAt}, u.dest()...)...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Grant{}, User{}, ErrNotFound
