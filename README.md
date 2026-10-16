@@ -78,6 +78,14 @@ Example prompt with a photo attached:
 The agent reads the guide, writes new sentences in batches, validates them and
 returns the set URL.
 
+## Revoking access
+
+Ask an admin agent for `admin_list_users` to find the token id, then
+`admin_revoke_token`. This also disconnects any OAuth connector (claude.ai,
+ChatGPT) that was authorised through that token: its access and refresh
+tokens stop working immediately, so the app loses access even if it never
+sees the revoked personal token again.
+
 ## Development
 
 See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`.

@@ -38,6 +38,7 @@ func (s *Server) fetchClientDoc(ctx context.Context, clientID string) (store.OAu
 		return store.OAuthClient{}, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", s.userAgent())
 	resp, err := s.httpClient().Do(req)
 	if err != nil {
 		return store.OAuthClient{}, err

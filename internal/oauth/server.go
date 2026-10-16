@@ -48,6 +48,14 @@ type Server struct {
 	PublicURL string
 	HTTP      *http.Client
 	Now       func() time.Time
+	UserAgent string
+}
+
+func (s *Server) userAgent() string {
+	if s.UserAgent != "" {
+		return s.UserAgent
+	}
+	return "kena"
 }
 
 func (s *Server) now() time.Time {
@@ -293,7 +301,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.Store.UserByToken(r.Context(), strings.TrimSpace(r.PostForm.Get("token")))
+	user, tokenID, err := s.Store.TokenUser(r.Context(), strings.TrimSpace(r.PostForm.Get("token")))
 	if errors.Is(err, store.ErrNotFound) {
 		page.Error = "Token not recognised."
 		renderAuthorize(w, http.StatusOK, page)
@@ -321,6 +329,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		Resource:      resource,
 		Scope:         scope,
 		ExpiresAt:     s.now().Add(codeTTL),
+		TokenID:       tokenID,
 	})
 	if err != nil {
 		s.authorizeServerError(w, "save code", err)
@@ -429,7 +438,7 @@ func (s *Server) exchangeCode(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_target", "resource does not match the authorization request")
 		return
 	}
-	access, refresh, _, err := s.Store.CreateGrant(r.Context(), ac.UserID, ac.ClientID, ac.Resource, accessTTL, refreshTTL)
+	access, refresh, _, err := s.Store.CreateGrant(r.Context(), ac.UserID, ac.ClientID, ac.Resource, ac.TokenID, accessTTL, refreshTTL)
 	if err != nil {
 		serverError(w, "create grant", err)
 		return

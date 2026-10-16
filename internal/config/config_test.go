@@ -51,6 +51,38 @@ func TestFromEnvTrailingSlashTrimmed(t *testing.T) {
 	}
 }
 
+func TestFromEnvPublicURLInvalid(t *testing.T) {
+	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
+	cases := []string{
+		"not a url",
+		"ftp://kena.example.org",
+		"https://",
+		"https://kena.example.org/path",
+		"https://kena.example.org?q=1",
+		"https://kena.example.org#frag",
+	}
+	for _, v := range cases {
+		t.Run(v, func(t *testing.T) {
+			t.Setenv("KENA_PUBLIC_URL", v)
+			_, err := FromEnv()
+			if err == nil {
+				t.Fatalf("expected error for KENA_PUBLIC_URL=%q", v)
+			}
+			if got := err.Error(); !strings.Contains(got, "KENA_PUBLIC_URL") {
+				t.Fatalf("error %q does not name KENA_PUBLIC_URL", got)
+			}
+		})
+	}
+}
+
+func TestFromEnvPublicURLHTTPAllowed(t *testing.T) {
+	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
+	t.Setenv("KENA_PUBLIC_URL", "http://127.0.0.1:8080")
+	if _, err := FromEnv(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestFromEnvCustomListen(t *testing.T) {
 	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
 	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org")

@@ -68,6 +68,7 @@ func runServe(args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg.Version = version
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -87,6 +88,8 @@ func runServe(args []string) error {
 		Addr:              cfg.Listen,
 		Handler:           app.New(cfg, st),
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	errCh := make(chan error, 1)

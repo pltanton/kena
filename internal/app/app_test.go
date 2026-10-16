@@ -106,6 +106,22 @@ func TestStaticAsset(t *testing.T) {
 	}
 }
 
+func TestMCPTrailingSlashRedirects(t *testing.T) {
+	_, url, _ := newServer(t)
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Get(url + "/mcp/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusPermanentRedirect {
+		t.Fatalf("status = %d, want 308", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); loc != "/mcp" {
+		t.Fatalf("Location = %q, want /mcp", loc)
+	}
+}
+
 func TestMCPInitializeWithValidToken(t *testing.T) {
 	ts, url, st := newServer(t)
 	ctx := context.Background()

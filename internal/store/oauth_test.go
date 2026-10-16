@@ -141,7 +141,7 @@ func TestGrantByAccess(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-4", "https://api.example/mcp", time.Hour, 24*time.Hour)
+	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-4", "https://api.example/mcp", 0, time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("CreateGrant: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestGrantByAccessExpired(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	access, _, _, err := s.CreateGrant(ctx, u.ID, "client-5", "", -time.Hour, 24*time.Hour)
+	access, _, _, err := s.CreateGrant(ctx, u.ID, "client-5", "", 0, -time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("CreateGrant: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestRotateRefresh(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-6", "res", time.Hour, 24*time.Hour)
+	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-6", "res", 0, time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("CreateGrant: %v", err)
 	}
@@ -216,6 +216,118 @@ func TestRotateRefresh(t *testing.T) {
 	}
 }
 
+func TestRevokeTokenRevokesGrant(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+
+	u, err := s.CreateUser(ctx, "nina", false)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	secret, tok, err := s.IssueToken(ctx, u.ID, "laptop")
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+
+	gotUser, gotTokenID, err := s.TokenUser(ctx, secret)
+	if err != nil {
+		t.Fatalf("TokenUser: %v", err)
+	}
+	if gotUser.ID != u.ID || gotTokenID != tok.ID {
+		t.Fatalf("TokenUser = %+v, %d; want user %d, token %d", gotUser, gotTokenID, u.ID, tok.ID)
+	}
+
+	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-8", "res", tok.ID, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("CreateGrant: %v", err)
+	}
+	if g.TokenID != tok.ID {
+		t.Fatalf("Grant.TokenID = %d, want %d", g.TokenID, tok.ID)
+	}
+
+	if err := s.RevokeToken(ctx, tok.ID); err != nil {
+		t.Fatalf("RevokeToken: %v", err)
+	}
+
+	if _, _, err := s.GrantByAccess(ctx, access); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("GrantByAccess after token revoke: expected ErrNotFound, got %v", err)
+	}
+	if _, _, _, err := s.RotateRefresh(ctx, refresh, "client-8", time.Hour, 24*time.Hour); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("RotateRefresh after token revoke: expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestRotateRefreshCarriesTokenID(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+
+	u, err := s.CreateUser(ctx, "oscar", false)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	_, tok, err := s.IssueToken(ctx, u.ID, "")
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+
+	_, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-9", "", tok.ID, time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("CreateGrant: %v", err)
+	}
+	if g.TokenID != tok.ID {
+		t.Fatalf("Grant.TokenID = %d, want %d", g.TokenID, tok.ID)
+	}
+
+	_, newRefresh, newG, err := s.RotateRefresh(ctx, refresh, "client-9", time.Hour, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("RotateRefresh: %v", err)
+	}
+	if newG.TokenID != tok.ID {
+		t.Fatalf("rotated Grant.TokenID = %d, want %d", newG.TokenID, tok.ID)
+	}
+
+	if err := s.RevokeToken(ctx, tok.ID); err != nil {
+		t.Fatalf("RevokeToken: %v", err)
+	}
+	if _, _, _, err := s.RotateRefresh(ctx, newRefresh, "client-9", time.Hour, 24*time.Hour); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("RotateRefresh after token revoke: expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestSaveCodeConsumeCodeTokenID(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+
+	u, err := s.CreateUser(ctx, "pia", false)
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	_, tok, err := s.IssueToken(ctx, u.ID, "")
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+
+	ac := store.AuthCode{
+		ClientID:      "client-10",
+		UserID:        u.ID,
+		RedirectURI:   "https://x.example/cb",
+		CodeChallenge: "challenge",
+		ExpiresAt:     time.Now().Add(time.Minute),
+		TokenID:       tok.ID,
+	}
+	if err := s.SaveCode(ctx, "code-with-token", ac); err != nil {
+		t.Fatalf("SaveCode: %v", err)
+	}
+
+	got, err := s.ConsumeCode(ctx, "code-with-token")
+	if err != nil {
+		t.Fatalf("ConsumeCode: %v", err)
+	}
+	if got.TokenID != tok.ID {
+		t.Fatalf("ConsumeCode TokenID = %d, want %d", got.TokenID, tok.ID)
+	}
+}
+
 func TestRotateRefreshWrongClient(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
@@ -225,7 +337,7 @@ func TestRotateRefreshWrongClient(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	_, refresh, _, err := s.CreateGrant(ctx, u.ID, "client-7", "", time.Hour, 24*time.Hour)
+	_, refresh, _, err := s.CreateGrant(ctx, u.ID, "client-7", "", 0, time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("CreateGrant: %v", err)
 	}

@@ -120,7 +120,7 @@ func (s *server) addAdminTools(srv *mcp.Server) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "admin_revoke_token",
-		Description: "Admin only. Revoke a personal token by id; clients using it get 401 from then on.",
+		Description: "Admin only. Revoke a personal token by id; clients using it get 401 from then on. Also disconnects OAuth connectors (claude.ai, ChatGPT) authorised with it.",
 		Annotations: destructive("Revoke token", true),
 	}, adminOnly(func(ctx context.Context, _ store.User, in RevokeTokenIn) (RevokeResult, error) {
 		err := s.st.RevokeToken(ctx, in.TokenID)

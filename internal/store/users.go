@@ -183,7 +183,13 @@ func (s *Store) ListTokens(ctx context.Context, userID int64) ([]Token, error) {
 }
 
 func (s *Store) RevokeToken(ctx context.Context, tokenID int64) error {
-	tag, err := s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `
 		UPDATE tokens SET revoked_at = COALESCE(revoked_at, now()) WHERE id = $1
 	`, tokenID)
 	if err != nil {
@@ -192,10 +198,22 @@ func (s *Store) RevokeToken(ctx context.Context, tokenID int64) error {
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE oauth_grants SET revoked_at = now() WHERE token_id = $1 AND revoked_at IS NULL
+	`, tokenID); err != nil {
+		return fmt.Errorf("revoking grants issued via token: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing tx: %w", err)
+	}
 	return nil
 }
 
-func (s *Store) UserByToken(ctx context.Context, secret string) (User, error) {
+// TokenUser also returns the token's id, for callers (OAuth authorize) that must
+// tie a later grant back to the personal token that was used to approve it.
+func (s *Store) TokenUser(ctx context.Context, secret string) (User, int64, error) {
 	hash := HashSecret(secret)
 
 	var u User
@@ -207,17 +225,22 @@ func (s *Store) UserByToken(ctx context.Context, secret string) (User, error) {
 	`, hash).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &tokenID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return User{}, ErrNotFound
+			return User{}, 0, ErrNotFound
 		}
-		return User{}, fmt.Errorf("looking up token: %w", err)
+		return User{}, 0, fmt.Errorf("looking up token: %w", err)
 	}
 
 	if _, err := s.pool.Exec(ctx, `
 		UPDATE tokens SET last_used_at = now()
 		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
 	`, tokenID); err != nil {
-		return User{}, fmt.Errorf("updating last_used_at: %w", err)
+		return User{}, 0, fmt.Errorf("updating last_used_at: %w", err)
 	}
 
-	return u, nil
+	return u, tokenID, nil
+}
+
+func (s *Store) UserByToken(ctx context.Context, secret string) (User, error) {
+	u, _, err := s.TokenUser(ctx, secret)
+	return u, err
 }

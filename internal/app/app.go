@@ -18,7 +18,11 @@ import (
 const maxBodyBytes = 2 << 20
 
 func New(cfg config.Config, st *store.Store) http.Handler {
-	oauthSrv := &oauth.Server{Store: st, PublicURL: cfg.PublicURL}
+	userAgent := "kena"
+	if cfg.Version != "" {
+		userAgent = "kena/" + cfg.Version
+	}
+	oauthSrv := &oauth.Server{Store: st, PublicURL: cfg.PublicURL, UserAgent: userAgent}
 
 	mux := http.NewServeMux()
 	oauthSrv.Register(mux)
@@ -27,6 +31,7 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 		ResourceMetadataURL: oauthSrv.ResourceMetadataURL(),
 	})
 	mux.Handle("/mcp", mcpAuth(mcpserver.Handler(mcpserver.New(st, cfg.PublicURL))))
+	mux.Handle("/mcp/", http.RedirectHandler("/mcp", http.StatusPermanentRedirect))
 
 	mux.Handle("/", web.Handler(st))
 
@@ -41,6 +46,10 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func withLogging(next http.Handler) http.Handler {

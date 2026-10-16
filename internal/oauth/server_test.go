@@ -246,6 +246,44 @@ func TestFullFlow(t *testing.T) {
 	}
 }
 
+func TestRevokingTokenRevokesOAuthGrant(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	redirect := "https://claude.ai/api/mcp/auth_callback"
+	clientID := e.register(t, redirect)
+	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+
+	q := authorize(t, e, clientID, redirect, verifier)
+	resp, body := e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
+	if resp.StatusCode != 200 {
+		t.Fatalf("token: status %d body %s", resp.StatusCode, body)
+	}
+	tok := decodeJSON(t, body)
+	access, refresh := tok["access_token"].(string), tok["refresh_token"].(string)
+
+	if _, err := e.srv.Verify(ctx, access, nil); err != nil {
+		t.Fatalf("Verify(access) before revoke: %v", err)
+	}
+
+	toks, err := e.srv.Store.ListTokens(ctx, e.user.ID)
+	if err != nil {
+		t.Fatalf("ListTokens: %v", err)
+	}
+	if err := e.srv.Store.RevokeToken(ctx, toks[0].ID); err != nil {
+		t.Fatalf("RevokeToken: %v", err)
+	}
+
+	if _, err := e.srv.Verify(ctx, access, nil); err == nil {
+		t.Error("access token still verifies after revoking the personal token used to connect it")
+	}
+
+	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}}
+	resp, body = e.postForm(t, "/oauth/token", refreshForm)
+	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
+		t.Errorf("refresh after token revoke: status %d body %s", resp.StatusCode, body)
+	}
+}
+
 func TestTokenErrors(t *testing.T) {
 	e := newEnv(t)
 	redirect := "https://a.example/cb"

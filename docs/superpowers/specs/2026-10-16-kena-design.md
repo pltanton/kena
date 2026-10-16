@@ -20,7 +20,7 @@ One Go binary (`kena`), Postgres for storage.
 - OAuth 2.1 authorization server for MCP clients that only speak OAuth
   (claude.ai connectors, ChatGPT apps).
 - CLI subcommands for bootstrap: `kena serve`, `kena migrate`,
-  `kena token create --user NAME [--admin] [--name LABEL]`.
+  `kena token create --user NAME [--admin] [--label LABEL]`.
 
 Config via env: `KENA_DATABASE_URL`, `KENA_LISTEN` (default `127.0.0.1:8080`),
 `KENA_PUBLIC_URL` (e.g. `https://kena.example.org`, used for OAuth metadata and

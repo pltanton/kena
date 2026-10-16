@@ -63,8 +63,8 @@ in {
     systemd.services.kena = {
       description = "kena";
       wantedBy = ["multi-user.target"];
-      after = ["network.target"] ++ lib.optional cfg.database.createLocally "postgresql.service";
-      requires = lib.optional cfg.database.createLocally "postgresql.service";
+      after = ["network.target"] ++ lib.optional cfg.database.createLocally "postgresql.target";
+      requires = lib.optional cfg.database.createLocally "postgresql.target";
 
       environment = {
         KENA_DATABASE_URL = cfg.database.url;
@@ -77,6 +77,7 @@ in {
         User = "kena";
         Group = "kena";
         Restart = "on-failure";
+        RestartSec = 5;
 
         NoNewPrivileges = true;
         ProtectSystem = "strict";
@@ -100,13 +101,13 @@ in {
         set -euo pipefail
         if [ "$(id -u)" = 0 ]; then
           exec ${pkgs.util-linux}/bin/runuser -u kena -- \
-            env KENA_DATABASE_URL=${lib.escapeShellArg cfg.database.url} \
+            ${pkgs.coreutils}/bin/env KENA_DATABASE_URL=${lib.escapeShellArg cfg.database.url} \
                 KENA_LISTEN=${lib.escapeShellArg cfg.listen} \
                 KENA_PUBLIC_URL=${lib.escapeShellArg cfg.publicUrl} \
                 ${cfg.package}/bin/kena "$@"
         else
           exec sudo -u kena \
-            env KENA_DATABASE_URL=${lib.escapeShellArg cfg.database.url} \
+            ${pkgs.coreutils}/bin/env KENA_DATABASE_URL=${lib.escapeShellArg cfg.database.url} \
                 KENA_LISTEN=${lib.escapeShellArg cfg.listen} \
                 KENA_PUBLIC_URL=${lib.escapeShellArg cfg.publicUrl} \
                 ${cfg.package}/bin/kena "$@"

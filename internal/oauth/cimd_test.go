@@ -50,6 +50,32 @@ func TestDefaultClientRefusesLoopback(t *testing.T) {
 	}
 }
 
+func TestFetchClientDocSetsUserAgent(t *testing.T) {
+	var gotUA string
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		w.Write([]byte(`{"client_id":"https://` + r.Host + `/client.json","redirect_uris":["https://a.example/cb"]}`))
+	}))
+	defer ts.Close()
+	clientID := ts.URL + "/client.json"
+
+	s := &Server{HTTP: ts.Client(), UserAgent: "kena/1.2.3"}
+	if _, err := s.fetchClientDoc(context.Background(), clientID); err != nil {
+		t.Fatalf("fetchClientDoc: %v", err)
+	}
+	if gotUA != "kena/1.2.3" {
+		t.Errorf("User-Agent = %q, want kena/1.2.3", gotUA)
+	}
+
+	s2 := &Server{HTTP: ts.Client()}
+	if _, err := s2.fetchClientDoc(context.Background(), clientID); err != nil {
+		t.Fatalf("fetchClientDoc (default UA): %v", err)
+	}
+	if gotUA != "kena" {
+		t.Errorf("default User-Agent = %q, want kena", gotUA)
+	}
+}
+
 func TestCIMDCheckRedirect(t *testing.T) {
 	via := []*http.Request{httptest.NewRequest("GET", "https://a.example/client.json", nil)}
 	if err := cimdCheckRedirect(httptest.NewRequest("GET", "http://a.example/x", nil), via); err == nil {
