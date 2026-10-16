@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -66,7 +67,8 @@ type TaskRef struct {
 }
 
 type ValidateIn struct {
-	Tasks []TaskIn `json:"tasks" jsonschema:"tasks to check"`
+	Tasks []TaskIn `json:"tasks" jsonschema:"1 to 50 tasks to check"`
+	Set   string   `json:"set,omitempty" jsonschema:"existing set id or slug; when given, tasks are also checked for duplicates against that set's tasks"`
 }
 
 type SetSummary struct {
@@ -117,6 +119,7 @@ type WriteResult struct {
 
 type TaskResult struct {
 	SetID    int64    `json:"set_id"`
+	URL      string   `json:"url"`
 	Task     TaskOut  `json:"task"`
 	Warnings []string `json:"warnings,omitempty"`
 }
@@ -231,6 +234,9 @@ func (s *server) addSetTools(srv *mcp.Server) {
 			"Run validate_tasks on each batch first. " + lintNote + " " + authoringRules,
 		Annotations: additive("Create set"),
 	}, handle(func(ctx context.Context, u store.User, in CreateSetIn) (WriteResult, error) {
+		if strings.TrimSpace(in.Title) == "" {
+			return WriteResult{}, fail("title is required")
+		}
 		if len(in.Tasks) > maxTasksPerCall {
 			return WriteResult{}, fail("max %d tasks per call; send batches (create_set with up to %d, then add_tasks)", maxTasksPerCall, maxTasksPerCall)
 		}
@@ -303,6 +309,9 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if err != nil {
 			return SetDetail{}, err
 		}
+		if in.Title != nil && strings.TrimSpace(*in.Title) == "" {
+			return SetDetail{}, fail("title cannot be empty")
+		}
 		nfc := func(p *string) *string {
 			if p == nil {
 				return nil
@@ -355,7 +364,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if err != nil {
 			return TaskResult{}, err
 		}
-		return TaskResult{SetID: st.ID, Task: taskOut(updated), Warnings: rep.Warnings}, nil
+		return TaskResult{SetID: st.ID, URL: s.url(st.Slug), Task: taskOut(updated), Warnings: rep.Warnings}, nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -396,11 +405,27 @@ func (s *server) addSetTools(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name: "validate_tasks",
 		Description: "Dry run: lint tasks exactly as create_set/add_tasks would, without saving anything. " +
-			"Returns errors (would reject the write) and warnings, each as task[i].field: message; duplicates within the batch are flagged. " +
+			"Checks: the 50-task-per-call cap; per-task lint (text, blanks, hints, Greek spelling and accents); " +
+			"duplicate sentence text within the batch; and, when set is given, duplicates against that set's existing tasks too. " +
+			"Returns errors (would reject the write) and warnings, each as task[i].field: message. " +
 			"Run it on every batch, fix all errors, review warnings, then upload. " + authoringRules,
 		Annotations: readOnly("Validate tasks"),
-	}, handle(func(_ context.Context, _ store.User, in ValidateIn) (LintReport, error) {
-		_, rep := prepare(in.Tasks, nil)
+	}, handle(func(ctx context.Context, _ store.User, in ValidateIn) (LintReport, error) {
+		if len(in.Tasks) > maxTasksPerCall {
+			return LintReport{}, fail("max %d tasks per call; send batches", maxTasksPerCall)
+		}
+		var existing []string
+		if in.Set != "" {
+			st, err := s.loadSet(ctx, in.Set)
+			if err != nil {
+				return LintReport{}, err
+			}
+			existing, err = s.existingTexts(ctx, st.ID, 0)
+			if err != nil {
+				return LintReport{}, err
+			}
+		}
+		_, rep := prepare(in.Tasks, existing)
 		return rep, nil
 	}))
 }

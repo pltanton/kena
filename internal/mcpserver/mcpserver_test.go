@@ -267,6 +267,16 @@ func TestBatchLimits(t *testing.T) {
 	fails(t, cs, "add_tasks", map[string]any{"set": "missing", "tasks": validTasks()}, `set "missing" not found`)
 }
 
+func TestCreateSetRequiresTitle(t *testing.T) {
+	e := newEnv(t)
+	cs := e.connect(t, "alice")
+	fails(t, cs, "create_set", setArgs("   ", nil), "title is required")
+	list := ok[SetList](t, cs, "list_sets", map[string]any{})
+	if len(list.Sets) != 0 {
+		t.Fatalf("sets = %+v", list.Sets)
+	}
+}
+
 func TestAddTasksDuplicateWarning(t *testing.T) {
 	e := newEnv(t)
 	cs := e.connect(t, "alice")
@@ -292,11 +302,16 @@ func TestEditPermissions(t *testing.T) {
 	fails(t, bob, "update_task", patch, "belongs to alice")
 	fails(t, bob, "add_tasks", map[string]any{"set": out.Slug, "tasks": validTasks()}, "belongs to alice")
 	fails(t, bob, "delete_set", map[string]any{"set": out.Slug}, "belongs to alice")
+	fails(t, bob, "delete_task", map[string]any{"task_id": taskID}, "belongs to alice")
+	fails(t, bob, "update_set", map[string]any{"set": out.Slug, "title": "Bob's title"}, "belongs to alice")
 
 	root := e.connect(t, "root")
 	upd := ok[TaskResult](t, root, "update_task", patch)
 	if !strings.HasPrefix(upd.Task.Text, "Χθες ο Νίκος") || upd.Task.Blanks[0].Answers[0] != "έγραψε" {
 		t.Fatalf("update_task = %+v", upd)
+	}
+	if upd.URL != out.URL {
+		t.Fatalf("update_task url = %q, want %q", upd.URL, out.URL)
 	}
 
 	fails(t, alice, "update_task", map[string]any{"task_id": taskID, "blanks": []map[string]any{}}, "task[0].text")
@@ -306,6 +321,8 @@ func TestEditPermissions(t *testing.T) {
 	if meta.Level != "A2" || meta.Title != "Alice set" {
 		t.Fatalf("update_set = %+v", meta)
 	}
+
+	fails(t, alice, "update_set", map[string]any{"set": out.Slug, "title": "   "}, "title cannot be empty")
 
 	ok[DeleteResult](t, alice, "delete_task", map[string]any{"task_id": taskID})
 	after := ok[SetDetail](t, alice, "get_set", map[string]any{"set": out.Slug})
@@ -336,6 +353,31 @@ func TestValidateTasks(t *testing.T) {
 	if len(list.Sets) != 0 {
 		t.Fatalf("validate_tasks wrote sets: %+v", list.Sets)
 	}
+}
+
+func TestValidateTasksAgainstSet(t *testing.T) {
+	e := newEnv(t)
+	cs := e.connect(t, "alice")
+	out := ok[WriteResult](t, cs, "create_set", setArgs("Set", validTasks()))
+
+	dupe := []map[string]any{validTasks()[0]}
+	rep := ok[LintReport](t, cs, "validate_tasks", map[string]any{"tasks": dupe, "set": out.Slug})
+	if joined := strings.Join(rep.Warnings, "\n"); !strings.Contains(joined, "task[0].text: duplicate") {
+		t.Fatalf("warnings = %v", rep.Warnings)
+	}
+
+	noSet := ok[LintReport](t, cs, "validate_tasks", map[string]any{"tasks": dupe})
+	if len(noSet.Warnings) != 0 {
+		t.Fatalf("warnings without set = %v", noSet.Warnings)
+	}
+
+	fails(t, cs, "validate_tasks", map[string]any{"tasks": dupe, "set": "missing"}, `set "missing" not found`)
+
+	many := make([]map[string]any, 51)
+	for i := range many {
+		many[i] = validTasks()[0]
+	}
+	fails(t, cs, "validate_tasks", map[string]any{"tasks": many}, "max 50")
 }
 
 func TestAdminTokens(t *testing.T) {
