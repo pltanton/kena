@@ -89,7 +89,7 @@ can say why the item is right (for example a monosyllabic answer has no tonos).
 ## 7. Upload
 
 - First batch: `create_set` with the set metadata and `tasks`. Keep the returned
-  id and slug. The set starts private (`shared` false): only the user sees it.
+  id and slug. The set starts private (`visibility` private): only the user sees it.
 - Every later batch: `add_tasks(set, tasks)`.
 - At most 50 tasks per `create_set` or `add_tasks` call. Two checked batches of 20
   may go in one call; more may not.
@@ -102,8 +102,10 @@ can say why the item is right (for example a monosyllabic answer has no tonos).
 Tell the user: the set URL from the `create_set` result, the title, the number of
 tasks, what the set covers (classes, slots), and any assumptions you made.
 
-Then ask whether to share the set with the other learners on the site. If yes,
-call `update_set(set, shared=true)`; `shared=false` makes it private again.
+Then ask the user who should see the set: only them (`private`), every
+logged-in user of the site (`friends`), or everyone, also without logging in
+(`public`). Call `update_set(set, visibility=...)` with the answer; they can
+change it later on the set page too.
 
 ## Set metadata conventions
 
@@ -115,7 +117,7 @@ call `update_set(set, shared=true)`; `shared=false` makes it private again.
 | `instructions` | one Greek line, imperative, ends with a full stop           | `Συμπληρώστε με τον αόριστο του ρήματος.` |
 | `source_ref`   | optional; "Book, unit, exercise", never book text           | `<Book title>, unit 5, ex. 3`             |
 | `slug`         | optional; omit it and the server derives one from the title |                                           |
-| `shared`       | optional; false (private) until the user agrees to share    | `true`                                    |
+| `visibility`   | optional; `private` until the user picks another level      | `friends`                                 |
 
 More instruction lines:
 

@@ -19,15 +19,33 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
 - MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
   press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
   You can only edit your own sets; admins can edit everything and manage users.
-- Sharing: a new set is private, only its author sees it. The author shares it
-  with everyone from the set page (Shared / Private) or by asking the agent
-  (`update_set` with `shared`); the agent asks after creating a set. Sets that
-  existed before sharing was added are shared.
-- Browse and star: logged in, the home page shows only your own decks and the
-  ones you starred. Header → Browse lists everyone else's shared decks; ☆ adds
-  one to your home page, ★ removes it (also on the set page). A starred deck
-  that its author makes private disappears from your list. Anonymous visitors
-  see all shared decks on the home page.
+- Visibility: every deck is 🔒 Private (only its author), 👥 Friends (anyone
+  logged in) or 🌍 Public (everyone, also without login). A new deck is
+  private. The author switches the level on the set page, in the editor, or
+  by asking the agent (`update_set` with `visibility`); the agent asks after
+  creating a set. Decks that were shared before the levels existed are public.
+- Browse and star: logged in, the home page shows only your own decks (with a
+  private / friends badge) and the ones you starred. Header → Browse lists
+  other authors' friends and public decks; ☆ adds one to your home page, ★
+  removes it (also on the set page). A starred deck that its author makes
+  private disappears from your list. Anonymous visitors see public decks on
+  the home page and in Browse.
+- Editing: the author edits a whole deck as text (set page → Edit deck) and
+  creates one from scratch with New deck on the home page. One task per
+  paragraph, blanks in braces, `>` lines for the explanation:
+
+  ```
+  Εσύ {γράφεις | γράφω} πολύ.
+  > Explanation, shown after a wrong answer.
+
+  Θα {πάω / θα πάω} αύριο στη θάλασσα.
+  ```
+
+  `{a / b}` accepts both answers, `| hint` is shown next to the blank. Saving
+  runs the same checks as the MCP tools: any error is listed as `line N: …`
+  and nothing is saved; warnings show after the save. Tasks are matched by
+  position, so unchanged tasks keep everyone's progress. Delete deck (bottom
+  of the editor) asks for confirmation first.
 
 ## Run locally
 
@@ -137,4 +155,5 @@ See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`,
 accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes:
 `docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
 `docs/superpowers/specs/2026-10-17-ui-sharing-design.md`, stars:
-`docs/superpowers/specs/2026-10-17-stars-design.md`.
+`docs/superpowers/specs/2026-10-17-stars-design.md`, visibility and editor:
+`docs/superpowers/specs/2026-10-17-visibility-editor-design.md`.

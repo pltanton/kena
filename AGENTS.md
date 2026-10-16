@@ -6,7 +6,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes report:
 `docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
 `docs/superpowers/specs/2026-10-17-ui-sharing-design.md`, stars:
-`docs/superpowers/specs/2026-10-17-stars-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-17-stars-design.md`, visibility and editor:
+`docs/superpowers/specs/2026-10-17-visibility-editor-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -24,13 +25,14 @@ nix flake check
 - `internal/app`: routing; `/mcp` behind `auth.RequireBearerToken`.
 - `internal/db`: pool, embedded SQL migrations; `dbtest` starts a throwaway cluster per test binary.
 - `internal/store`: all SQL. Does not lint.
-- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint.
+- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `Prepare` (NFC + lint + duplicate warnings for a batch).
+- `internal/deckfmt`: the editor's plain-text deck format; `Format` and `Parse` round-trip, parse errors carry line numbers.
 - `internal/guide`: authoring guide markdown served by `get_authoring_guide`, `skill://kena/<topic>` and server instructions.
-- `internal/mcpserver`: tools; every write goes through `prepare` (NFC + lint) before touching the store.
+- `internal/mcpserver`: tools; every write goes through `prepare` (`greek.Prepare`) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, `kena_device` cookie, cards/list modes, login, account and mistakes pages. Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, `kena_device` cookie, cards/list modes, login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
@@ -38,7 +40,8 @@ nix flake check
 - `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
 - MCP tool errors the model should see are returned as Go errors from handlers (the SDK then omits structuredContent).
-- Private sets (`shared` false) are visible only to the owner: web 404 for everyone else, MCP not found except for admins.
-- Stars only add shared sets to a user's home list; listings still filter by visibility, so a starred set that turns private disappears.
+- `sets.visibility`: `private` = owner only (web 404 for everyone else, admins included; MCP not found except for admins), `friends` = any logged-in user, `public` = everyone. `store.CanView` is the single rule; listings use the same SQL conditions.
+- Stars only add non-private sets to a user's home list; a starred set that turns private disappears and the star stays dormant.
+- Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).
