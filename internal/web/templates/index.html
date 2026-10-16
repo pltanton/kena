@@ -6,7 +6,7 @@
 {{- end}}
 </ul>
 {{- else}}
-<p class="empty">No decks yet — <a href="/browse">Browse shared decks</a></p>
+<p class="empty">{{template "motif"}}<span>No decks yet — <a href="/browse">Browse shared decks</a></span></p>
 {{- end}}
 {{- else}}<h1>Shared decks</h1>
 <p class="muted"><a href="{{.LoginURL}}">Log in</a> to keep your own list of decks.</p>
@@ -20,7 +20,7 @@
 </ul>
 </section>
 {{- else}}
-<p class="empty">No shared decks yet. Decks are created by their authors through the MCP connector.</p>
+<p class="empty">{{template "motif"}}<span>No shared decks yet. Decks are created by their authors through the MCP connector.</span></p>
 {{- end}}
 {{- end}}
 {{end}}

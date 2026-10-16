@@ -535,3 +535,22 @@ func TestAnswerFont(t *testing.T) {
 		}
 	}
 }
+
+func TestBrandAssets(t *testing.T) {
+	e := setup(t)
+	resp, body := e.get("/static/manifest.webmanifest")
+	wantStatus(t, resp, http.StatusOK)
+	if ct := resp.Header.Get("Content-Type"); ct != "application/manifest+json" || !strings.Contains(body, `"start_url": "/"`) {
+		t.Errorf("manifest: content-type %q", ct)
+	}
+	for _, f := range []string{"brand/icon.svg", "brand/icon-180.png", "brand/icon-192.png", "brand/icon-512.png", "brand/icon-maskable-512.png", "brand/strip.svg", "fonts/gfs-didot-greek.woff2", "fonts/OFL-GFS-Didot.txt"} {
+		resp, _ := e.get("/static/" + f)
+		wantStatus(t, resp, http.StatusOK)
+	}
+	_, page := e.get("/")
+	for _, want := range []string{`rel="manifest" href="/static/manifest.webmanifest"`, `rel="apple-touch-icon" href="/static/brand/icon-180.png"`, `name="theme-color"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page head missing %q", want)
+		}
+	}
+}

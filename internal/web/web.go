@@ -78,8 +78,11 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /account/apps/disconnect", h.requireUser(h.disconnectApp))
 	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
-		if strings.HasSuffix(r.URL.Path, ".woff2") {
+		switch {
+		case strings.HasSuffix(r.URL.Path, ".woff2"):
 			w.Header().Set("Content-Type", "font/woff2")
+		case strings.HasSuffix(r.URL.Path, ".webmanifest"):
+			w.Header().Set("Content-Type", "application/manifest+json")
 		}
 		files.ServeHTTP(w, r)
 	}))
@@ -490,6 +493,10 @@ type deckRow struct {
 	Private  bool
 	Starred  bool
 	Author   bool
+}
+
+func (r deckRow) Pct() int {
+	return progressBar{Index: r.Progress.Solved, Total: r.Progress.Total}.Pct()
 }
 
 func newDeckRow(s store.Set, progress map[int64]store.Progress) deckRow {

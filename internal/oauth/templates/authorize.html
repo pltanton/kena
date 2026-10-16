@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connect to kena</title>
+<link rel="icon" href="/static/brand/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/brand/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/static/brand/icon-180.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/static/app.css">
 <style>
-main.oauth-authorize{max-width:28rem;margin:2rem auto}
+main.oauth-authorize,header.site{max-width:28rem}
 .choices{display:flex;gap:8px;flex-wrap:wrap}
 .choices button{flex:1}
 </style>
 </head>
 <body>
+<header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a></header>
+<div class="strip" aria-hidden="true"></div>
 <main class="oauth-authorize">
 {{if .Fatal}}
 <h1>Authorization error</h1>

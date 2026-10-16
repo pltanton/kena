@@ -19,7 +19,7 @@
 </ul>
 </section>
 {{- else}}
-<p class="empty">No mistakes in the last {{.Days}} days.</p>
+<p class="empty">{{template "motif"}}<span>No mistakes in the last {{.Days}} days.</span></p>
 {{- end}}
 <script>
 (function () {
