@@ -1,0 +1,145 @@
+package app_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/pltanton/kena/internal/app"
+	"github.com/pltanton/kena/internal/config"
+	"github.com/pltanton/kena/internal/db/dbtest"
+	"github.com/pltanton/kena/internal/store"
+)
+
+func TestMain(m *testing.M) {
+	dbtest.Main(m)
+}
+
+func newServer(t *testing.T) (*httptest.Server, string, *store.Store) {
+	t.Helper()
+	st := store.New(dbtest.New(t))
+	ts := httptest.NewUnstartedServer(nil)
+	url := "http://" + ts.Listener.Addr().String()
+	ts.Config.Handler = app.New(config.Config{PublicURL: url}, st)
+	ts.Start()
+	t.Cleanup(ts.Close)
+	return ts, url, st
+}
+
+func TestIndexServesHTML(t *testing.T) {
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Get(url + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("Content-Type = %q, want text/html", ct)
+	}
+}
+
+func TestMCPWithoutTokenUnauthorized(t *testing.T) {
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Post(url+"/mcp", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", resp.StatusCode)
+	}
+	wa := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(wa, "resource_metadata=") {
+		t.Fatalf("WWW-Authenticate = %q, want resource_metadata=", wa)
+	}
+}
+
+func TestProtectedResourceMetadata(t *testing.T) {
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Get(url + "/.well-known/oauth-protected-resource/mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var body struct {
+		Resource string `json:"resource"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Resource != url+"/mcp" {
+		t.Fatalf("resource = %q, want %q", body.Resource, url+"/mcp")
+	}
+}
+
+func TestAuthorizationServerMetadata(t *testing.T) {
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Get(url + "/.well-known/oauth-authorization-server")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestStaticAsset(t *testing.T) {
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Get(url + "/static/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestMCPInitializeWithValidToken(t *testing.T) {
+	ts, url, st := newServer(t)
+	ctx := context.Background()
+	user, err := st.EnsureUser(ctx, "anton", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := st.IssueToken(ctx, user.ID, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`
+	req, err := http.NewRequest(http.MethodPost, url+"/mcp", bytes.NewReader([]byte(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(resp.Body); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "kena") {
+		t.Fatalf("response %q does not contain kena", buf.String())
+	}
+}
