@@ -1,0 +1,46 @@
+{{define "title"}}Account · kena{{end}}
+{{define "main"}}<h1>Account</h1>
+<p>Logged in as <strong>{{.User.Username}}</strong>.</p>
+<form method="post" action="/logout"><button type="submit" class="secondary">Log out</button></form>
+{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+{{with .Notice}}<p class="notice" role="status">{{.}}</p>{{end}}
+
+<h2>Personal tokens</h2>
+<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT don't need one: they ask you to log in here.</p>
+{{with .NewToken}}<div class="card secret">
+<p><strong>New token{{with .Label}} “{{.}}”{{end}}.</strong> Copy it now, it won't be shown again.</p>
+<code class="copy">{{.Secret}}</code>
+<p class="muted">Claude Code:</p>
+<code class="copy">claude mcp add --transport http kena {{.MCPURL}} --header "Authorization: Bearer {{.Secret}}"</code>
+</div>{{end}}
+{{if .Tokens}}<ul class="rows">
+{{- range .Tokens}}
+<li><span><strong>{{or .Label "unlabelled"}}</strong><span class="meta">created {{.Created}} · last used {{.LastUsed}}</span></span>
+<form method="post" action="/account/tokens/{{.ID}}/revoke"><button type="submit" class="secondary small">Revoke</button></form></li>
+{{- end}}
+</ul>{{else}}<p class="muted">No tokens.</p>{{end}}
+<form class="stack" method="post" action="/account/tokens">
+<label for="label">Label</label>
+<input id="label" name="label" placeholder="laptop claude code" maxlength="100">
+<button type="submit">New token</button>
+</form>
+
+<h2>Connected apps</h2>
+{{if .Apps}}<ul class="rows">
+{{- range .Apps}}
+<li><span><strong>{{.Name}}</strong><span class="meta">{{with .Host}}{{.}} · {{end}}since {{.Since}}</span></span>
+<form method="post" action="/account/apps/disconnect"><input type="hidden" name="client_id" value="{{.ClientID}}"><button type="submit" class="secondary small">Disconnect</button></form></li>
+{{- end}}
+</ul>{{else}}<p class="muted">No apps connected.</p>{{end}}
+
+<h2>Change passphrase</h2>
+<form class="card stack" method="post" action="/account/passphrase">
+<input type="text" name="username" value="{{.User.Username}}" autocomplete="username" hidden>
+<label for="current">Current passphrase</label>
+<input id="current" name="current" type="password" autocomplete="current-password" required>
+<label for="new">New passphrase</label>
+<input id="new" name="new" type="password" autocomplete="new-password" minlength="10" required>
+<p class="muted">At least 10 characters. Other devices and connected apps will be signed out.</p>
+<button type="submit">Change passphrase</button>
+</form>
+{{end}}

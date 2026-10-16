@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/pltanton/kena/internal/greek"
+	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
 
@@ -35,17 +36,18 @@ const (
 )
 
 type handler struct {
-	st    *store.Store
-	base  *template.Template
-	pages map[string]*template.Template
+	st        *store.Store
+	publicURL string
+	base      *template.Template
+	pages     map[string]*template.Template
 }
 
-func Handler(st *store.Store) http.Handler {
-	h := &handler{st: st, pages: map[string]*template.Template{}}
+func Handler(st *store.Store, publicURL string) http.Handler {
+	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html"))
-	for _, page := range []string{"index", "set", "404"} {
+	for _, page := range []string{"index", "set", "404", "login", "account"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -62,15 +64,37 @@ func Handler(st *store.Store) http.Handler {
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
 	mux.HandleFunc("POST /t/{id}/check", h.check)
 	mux.HandleFunc("GET /t/{id}/item", h.item)
+	mux.HandleFunc("GET /login", h.loginPage)
+	mux.HandleFunc("POST /login", h.login)
+	mux.HandleFunc("POST /logout", h.logout)
+	mux.HandleFunc("GET /account", h.requireUser(h.account))
+	mux.HandleFunc("POST /account/passphrase", h.requireUser(h.changePassphrase))
+	mux.HandleFunc("POST /account/tokens", h.requireUser(h.createToken))
+	mux.HandleFunc("POST /account/tokens/{id}/revoke", h.requireUser(h.revokeToken))
+	mux.HandleFunc("POST /account/apps/disconnect", h.requireUser(h.disconnectApp))
 	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		files.ServeHTTP(w, r)
 	}))
 	mux.HandleFunc("/", h.notFound)
-	return withDevice(mux)
+	return h.withDevice(h.sameOrigin(mux))
 }
 
-type deviceKey struct{}
+func (h *handler) sameOrigin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && !session.SameOrigin(r, h.publicURL) {
+			http.Error(w, "Cross-site request rejected.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type (
+	deviceKey   struct{}
+	progressKey struct{}
+	userKey     struct{}
+)
 
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
@@ -85,10 +109,6 @@ func newUUID() string {
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
 }
 
-func secure(r *http.Request) bool {
-	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
-}
-
 func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
@@ -97,11 +117,11 @@ func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 		MaxAge:   cookieMaxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   secure(r),
+		Secure:   session.Secure(r),
 	})
 }
 
-func withDevice(next http.Handler) http.Handler {
+func (h *handler) withDevice(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/static/") {
 			next.ServeHTTP(w, r)
@@ -114,13 +134,35 @@ func withDevice(next http.Handler) http.Handler {
 			id = newUUID()
 			setCookie(w, r, deviceCookie, id)
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), deviceKey{}, id)))
+		ctx := context.WithValue(r.Context(), deviceKey{}, id)
+		progress := id
+		u, ok, err := session.Current(r, h.st)
+		if err != nil {
+			h.serverError(w, r, err)
+			return
+		}
+		if ok {
+			progress = u.ProgressID
+			ctx = context.WithValue(ctx, userKey{}, u)
+		}
+		ctx = context.WithValue(ctx, progressKey{}, progress)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func deviceID(r *http.Request) string {
 	id, _ := r.Context().Value(deviceKey{}).(string)
 	return id
+}
+
+func progressID(r *http.Request) string {
+	id, _ := r.Context().Value(progressKey{}).(string)
+	return id
+}
+
+func currentUser(r *http.Request) (store.User, bool) {
+	u, ok := r.Context().Value(userKey{}).(store.User)
+	return u, ok
 }
 
 type params struct {
@@ -375,8 +417,21 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, status int, t *
 	_, _ = buf.WriteTo(w)
 }
 
+type layoutData struct {
+	User     *store.User
+	LoginURL string
+	Data     any
+}
+
 func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	h.render(w, r, status, h.pages[page], "layout", data)
+	ld := layoutData{Data: data, LoginURL: "/login"}
+	if u, ok := currentUser(r); ok {
+		ld.User = &u
+	}
+	if r.Method == http.MethodGet && r.URL.Path != "/" && r.URL.Path != "/login" {
+		ld.LoginURL = "/login?" + url.Values{"next": {r.URL.RequestURI()}}.Encode()
+	}
+	h.render(w, r, status, h.pages[page], "layout", ld)
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
@@ -420,7 +475,7 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	progress, err := h.st.ProgressBySet(ctx, deviceID(r))
+	progress, err := h.st.ProgressBySet(ctx, progressID(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -468,7 +523,7 @@ func (h *handler) loadSet(r *http.Request, slug string) (store.Set, []store.Task
 	if err != nil {
 		return set, nil, nil, err
 	}
-	last, err := h.st.LastResults(ctx, deviceID(r), set.ID)
+	last, err := h.st.LastResults(ctx, progressID(r), set.ID)
 	return set, tasks, last, err
 }
 
@@ -647,7 +702,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results, correct := greek.Check(task.Blanks, answers)
-	if err := h.st.RecordAttempt(ctx, deviceID(r), task.ID, answers, correct); err != nil {
+	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
 		h.fail(w, r, err)
 		return
 	}

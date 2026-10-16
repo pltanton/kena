@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{block "title" .}}kena{{end}}</title>
+<title>{{block "title" .Data}}kena{{end}}</title>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
-<header class="site"><a href="/" class="brand">kena</a></header>
+<header class="site"><a href="/" class="brand">kena</a>{{if .User}}<a href="/account" class="who">{{.User.Username}} · Account</a>{{else}}<a href="{{.LoginURL}}" class="who">Log in</a>{{end}}</header>
 <main>
-{{template "main" .}}
+{{template "main" .Data}}
 </main>
 <div id="flash" role="alert" hidden></div>
 <script>

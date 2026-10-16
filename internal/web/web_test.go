@@ -14,16 +14,19 @@ import (
 
 	"github.com/pltanton/kena/internal/db/dbtest"
 	"github.com/pltanton/kena/internal/greek"
+	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 	"github.com/pltanton/kena/internal/web"
 )
 
 func TestMain(m *testing.M) {
+	session.FailDelay = 0
 	dbtest.Main(m)
 }
 
 type env struct {
 	t      *testing.T
+	st     *store.Store
 	srv    *httptest.Server
 	client *http.Client
 	set    store.Set
@@ -57,20 +60,34 @@ func setup(t *testing.T) *env {
 		t.Fatalf("AddTasks: %v", err)
 	}
 
-	srv := httptest.NewServer(web.Handler(st))
+	srv := httptest.NewUnstartedServer(nil)
+	srv.Config.Handler = web.Handler(st, "http://"+srv.Listener.Addr().String())
+	srv.Start()
 	t.Cleanup(srv.Close)
 
+	e := &env{t: t, st: st, srv: srv, set: set, tasks: tasks}
+	e.client = e.newClient()
+	return e
+}
+
+func (e *env) newClient() *http.Client {
+	e.t.Helper()
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		t.Fatal(err)
+		e.t.Fatal(err)
 	}
-	client := &http.Client{
+	return &http.Client{
 		Jar: jar,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
-	return &env{t: t, srv: srv, client: client, set: set, tasks: tasks}
+}
+
+func (e *env) clone() *env {
+	c := *e
+	c.client = e.newClient()
+	return &c
 }
 
 func (e *env) do(req *http.Request) (*http.Response, string) {

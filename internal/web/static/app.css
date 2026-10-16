@@ -66,6 +66,19 @@ main {
 header.site {
   padding-top: 12px;
   padding-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .brand {
@@ -121,6 +134,68 @@ p {
 
 form {
   margin: 0;
+}
+
+.stack label:first-of-type {
+  margin-top: 0;
+}
+
+.stack button {
+  width: 100%;
+}
+
+.notice {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.rows {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.rows li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.rows li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rows .meta {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.rows button {
+  margin-top: 0;
+}
+
+button.small {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.95rem;
+}
+
+code.copy {
+  display: block;
+  padding: 10px 12px;
+  margin: 0.5rem 0;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  -webkit-user-select: all;
 }
 
 label {

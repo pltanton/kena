@@ -33,7 +33,7 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	mux.Handle("/mcp", mcpAuth(mcpserver.Handler(mcpserver.New(st, cfg.PublicURL))))
 	mux.Handle("/mcp/", http.RedirectHandler("/mcp", http.StatusPermanentRedirect))
 
-	mux.Handle("/", web.Handler(st))
+	mux.Handle("/", web.Handler(st, cfg.PublicURL))
 
 	return http.MaxBytesHandler(withLogging(mux), maxBodyBytes)
 }
