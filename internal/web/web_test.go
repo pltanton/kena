@@ -512,3 +512,25 @@ func TestCardsResumeAtFirstUnsolved(t *testing.T) {
 		t.Fatalf("all solved: expected the first task:\n%s", body)
 	}
 }
+
+func TestAnswerFont(t *testing.T) {
+	e := setup(t)
+	for _, f := range []string{"playpen-sans-greek.woff2", "playpen-sans-latin.woff2"} {
+		resp, body := e.get("/static/fonts/" + f)
+		wantStatus(t, resp, http.StatusOK)
+		if ct := resp.Header.Get("Content-Type"); ct != "font/woff2" || !strings.HasPrefix(body, "wOF2") {
+			t.Errorf("%s: content-type %q", f, ct)
+		}
+	}
+	resp, body := e.get("/static/fonts/OFL.txt")
+	wantStatus(t, resp, http.StatusOK)
+	if !strings.Contains(body, "SIL Open Font License") {
+		t.Error("OFL text missing")
+	}
+	_, css := e.get("/static/app.css")
+	for _, want := range []string{`font-family: "Playpen Sans"`, "font-display: swap", "/static/fonts/playpen-sans-greek.woff2", "var(--answer-font)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css missing %q", want)
+		}
+	}
+}
