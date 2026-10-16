@@ -172,10 +172,12 @@ func setArgs(title string, tasks any) map[string]any {
 	return a
 }
 
-func shared(a map[string]any) map[string]any {
-	a["shared"] = true
+func visibility(a map[string]any, v string) map[string]any {
+	a["visibility"] = v
 	return a
 }
+
+func public(a map[string]any) map[string]any { return visibility(a, "public") }
 
 func TestNoTokenIs401(t *testing.T) {
 	e := newEnv(t)
@@ -299,7 +301,7 @@ func TestAddTasksDuplicateWarning(t *testing.T) {
 func TestEditPermissions(t *testing.T) {
 	e := newEnv(t)
 	alice := e.connect(t, "alice")
-	out := ok[WriteResult](t, alice, "create_set", shared(setArgs("Alice set", validTasks())))
+	out := ok[WriteResult](t, alice, "create_set", public(setArgs("Alice set", validTasks())))
 	detail := ok[SetDetail](t, alice, "get_set", map[string]any{"set": out.Slug})
 	taskID := detail.Tasks[0].ID
 
@@ -484,7 +486,7 @@ func TestAdminResetPassword(t *testing.T) {
 
 func TestListSetsOwnerFilter(t *testing.T) {
 	e := newEnv(t)
-	ok[WriteResult](t, e.connect(t, "alice"), "create_set", shared(setArgs("A", validTasks())))
+	ok[WriteResult](t, e.connect(t, "alice"), "create_set", public(setArgs("A", validTasks())))
 	ok[WriteResult](t, e.connect(t, "bob"), "create_set", setArgs("B", nil))
 	cs := e.connect(t, "bob")
 	all := ok[SetList](t, cs, "list_sets", map[string]any{})

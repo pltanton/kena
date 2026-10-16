@@ -62,7 +62,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
-	mux.HandleFunc("POST /s/{slug}/share", h.requireUser(h.share))
+	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
 	mux.HandleFunc("POST /s/{slug}/star", h.requireUser(h.star))
 	mux.HandleFunc("GET /browse", h.browse)
 	mux.HandleFunc("POST /t/{id}/check", h.check)
@@ -490,7 +490,7 @@ func (h *handler) notFound(w http.ResponseWriter, r *http.Request) {
 type deckRow struct {
 	Set      store.Set
 	Progress store.Progress
-	Private  bool
+	Badge    string
 	Starred  bool
 	Author   bool
 }
@@ -536,7 +536,9 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 		v.LoggedIn = true
 		for _, d := range decks {
 			row := newDeckRow(d.Set, progress)
-			row.Private = d.OwnerID == u.ID && !d.Shared
+			if d.OwnerID == u.ID && d.Visibility != store.Public {
+				row.Badge = string(d.Visibility)
+			}
 			row.Starred = d.Starred
 			v.Mine = append(v.Mine, row)
 		}
@@ -598,20 +600,42 @@ type link struct {
 	Current bool
 }
 
+type visibilityOption struct {
+	Value   store.Visibility
+	Icon    string
+	Label   string
+	Current bool
+}
+
+var visibilityOptions = []visibilityOption{
+	{Value: store.Private, Icon: "🔒", Label: "Private"},
+	{Value: store.Friends, Icon: "👥", Label: "Friends"},
+	{Value: store.Public, Icon: "🌍", Label: "Public"},
+}
+
+func visibilityChoices(current store.Visibility) []visibilityOption {
+	out := append([]visibilityOption(nil), visibilityOptions...)
+	for i := range out {
+		out[i].Current = out[i].Value == current
+	}
+	return out
+}
+
 type setPage struct {
-	Set      store.Set
-	Owner    bool
-	CanStar  bool
-	Starred  bool
-	Here     string
-	Progress store.Progress
-	Params   params
-	Modes    []link
-	Filters  []link
-	Shuffle  link
-	Card     *cardView
-	Items    []itemView
-	Done     *doneView
+	Set        store.Set
+	Owner      bool
+	Visibility []visibilityOption
+	CanStar    bool
+	Starred    bool
+	Here       string
+	Progress   store.Progress
+	Params     params
+	Modes      []link
+	Filters    []link
+	Shuffle    link
+	Card       *cardView
+	Items      []itemView
+	Done       *doneView
 }
 
 type setData struct {
@@ -690,6 +714,9 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	pr := progressOf(tasks, last)
 
 	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p, Here: r.URL.RequestURI()}
+	if data.Owner {
+		data.Visibility = visibilityChoices(set.Visibility)
+	}
 	if u, ok := currentUser(r); ok && !data.Owner {
 		data.CanStar = true
 		if data.Starred, err = h.st.IsStarred(r.Context(), u.ID, set.ID); err != nil {
@@ -917,11 +944,16 @@ func (h *handler) item(w http.ResponseWriter, r *http.Request) {
 	h.fragment(w, r, "list_item", itemView{Task: newTaskView(task, false, nil), Params: p})
 }
 
-func (h *handler) share(w http.ResponseWriter, r *http.Request, u store.User) {
+func (h *handler) ownedSet(r *http.Request, u store.User) (store.Set, error) {
 	set, err := h.st.GetSet(r.Context(), r.PathValue("slug"))
 	if err == nil && set.OwnerID != u.ID {
 		err = store.ErrNotFound
 	}
+	return set, err
+}
+
+func (h *handler) visibility(w http.ResponseWriter, r *http.Request, u store.User) {
+	set, err := h.ownedSet(r, u)
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -930,16 +962,12 @@ func (h *handler) share(w http.ResponseWriter, r *http.Request, u store.User) {
 		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
 		return
 	}
-	var shared bool
-	switch v := r.PostForm.Get("shared"); v {
-	case "1":
-		shared = true
-	case "0":
-	default:
-		h.fail(w, r, fmt.Errorf("shared %q: %w", v, store.ErrInvalid))
+	vis, ok := store.ParseVisibility(r.PostForm.Get("visibility"))
+	if !ok {
+		h.fail(w, r, fmt.Errorf("visibility %q: %w", r.PostForm.Get("visibility"), store.ErrInvalid))
 		return
 	}
-	if _, err := h.st.UpdateSet(r.Context(), set.ID, store.SetPatch{Shared: &shared}); err != nil {
+	if _, err := h.st.UpdateSet(r.Context(), set.ID, store.SetPatch{Visibility: &vis}); err != nil {
 		h.fail(w, r, err)
 		return
 	}

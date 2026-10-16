@@ -38,7 +38,7 @@ type CreateSetIn struct {
 	Instructions string   `json:"instructions" jsonschema:"one Greek line telling the learner what to do"`
 	SourceRef    string   `json:"source_ref,omitempty" jsonschema:"book title, unit, exercise number the spec was taken from"`
 	Slug         string   `json:"slug,omitempty" jsonschema:"URL slug; derived from the title when omitted"`
-	Shared       bool     `json:"shared,omitempty" jsonschema:"true: listed for everyone on the site; default false: only you see it (ask the user)"`
+	Visibility   string   `json:"visibility,omitempty" jsonschema:"private (default: only you), friends (every logged-in user) or public (everyone, also without login); ask the user"`
 	Tasks        []TaskIn `json:"tasks,omitempty" jsonschema:"first tasks of the set, at most 50; add the rest with add_tasks"`
 }
 
@@ -54,7 +54,7 @@ type UpdateSetIn struct {
 	Level        *string `json:"level,omitempty" jsonschema:"new CEFR level"`
 	Instructions *string `json:"instructions,omitempty" jsonschema:"new Greek instruction line"`
 	SourceRef    *string `json:"source_ref,omitempty" jsonschema:"new source reference"`
-	Shared       *bool   `json:"shared,omitempty" jsonschema:"true: visible to everyone; false: only the owner"`
+	Visibility   *string `json:"visibility,omitempty" jsonschema:"private (only you), friends (every logged-in user) or public (everyone, also without login)"`
 }
 
 type UpdateTaskIn struct {
@@ -74,15 +74,15 @@ type ValidateIn struct {
 }
 
 type SetSummary struct {
-	ID        int64  `json:"id"`
-	Slug      string `json:"slug"`
-	Title     string `json:"title"`
-	Topic     string `json:"topic"`
-	Level     string `json:"level"`
-	Owner     string `json:"owner"`
-	TaskCount int    `json:"task_count"`
-	Shared    bool   `json:"shared"`
-	URL       string `json:"url"`
+	ID         int64  `json:"id"`
+	Slug       string `json:"slug"`
+	Title      string `json:"title"`
+	Topic      string `json:"topic"`
+	Level      string `json:"level"`
+	Owner      string `json:"owner"`
+	TaskCount  int    `json:"task_count"`
+	Visibility string `json:"visibility"`
+	URL        string `json:"url"`
 }
 
 type SetList struct {
@@ -107,19 +107,19 @@ type SetDetail struct {
 	SourceRef    string    `json:"source_ref,omitempty"`
 	Owner        string    `json:"owner"`
 	TaskCount    int       `json:"task_count"`
-	Shared       bool      `json:"shared"`
+	Visibility   string    `json:"visibility"`
 	URL          string    `json:"url"`
 	Tasks        []TaskOut `json:"tasks,omitempty"`
 }
 
 type WriteResult struct {
-	SetID    int64    `json:"set_id"`
-	Slug     string   `json:"slug"`
-	URL      string   `json:"url"`
-	Shared   bool     `json:"shared"`
-	Added    int      `json:"added"`
-	Total    int      `json:"total"`
-	Warnings []string `json:"warnings,omitempty"`
+	SetID      int64    `json:"set_id"`
+	Slug       string   `json:"slug"`
+	URL        string   `json:"url"`
+	Visibility string   `json:"visibility"`
+	Added      int      `json:"added"`
+	Total      int      `json:"total"`
+	Warnings   []string `json:"warnings,omitempty"`
 }
 
 type TaskResult struct {
@@ -133,17 +133,25 @@ type DeleteResult struct {
 	Deleted string `json:"deleted"`
 }
 
+func parseVisibility(v string) (store.Visibility, error) {
+	vis, ok := store.ParseVisibility(v)
+	if !ok {
+		return "", fail("visibility %q: use private, friends or public", v)
+	}
+	return vis, nil
+}
+
 func (s *server) url(slug string) string { return s.publicURL + "/s/" + slug }
 
 func (s *server) summary(st store.Set) SetSummary {
 	return SetSummary{ID: st.ID, Slug: st.Slug, Title: st.Title, Topic: st.Topic, Level: st.Level,
-		Owner: st.OwnerName, TaskCount: st.TaskCount, Shared: st.Shared, URL: s.url(st.Slug)}
+		Owner: st.OwnerName, TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug)}
 }
 
 func (s *server) detail(st store.Set, tasks []store.Task) SetDetail {
 	d := SetDetail{ID: st.ID, Slug: st.Slug, Title: st.Title, Topic: st.Topic, Level: st.Level,
 		Instructions: st.Instructions, SourceRef: st.SourceRef, Owner: st.OwnerName,
-		TaskCount: st.TaskCount, Shared: st.Shared, URL: s.url(st.Slug)}
+		TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug)}
 	for _, t := range tasks {
 		d.Tasks = append(d.Tasks, taskOut(t))
 	}
@@ -222,7 +230,7 @@ func (s *server) existingTexts(ctx context.Context, setID int64, skipTask int64)
 func (s *server) addSetTools(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "list_sets",
-		Description: "List task sets you can see: shared sets plus your own private ones (admins: all). Each has id, slug, title, topic, level, owner, task_count, shared and the learner-facing url. Filter by owner username.",
+		Description: "List task sets you can see: your own sets plus other users' friends and public sets (admins: all). Each has id, slug, title, topic, level, owner, task_count, visibility and the learner-facing url. Filter by owner username.",
 		Annotations: readOnly("List sets"),
 	}, handle(func(ctx context.Context, u store.User, in ListSetsIn) (SetList, error) {
 		sets, err := s.st.ListSets(ctx, store.ListFilter{Owner: in.Owner, ViewerID: u.ID, All: u.IsAdmin})
@@ -255,8 +263,8 @@ func (s *server) addSetTools(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name: "create_set",
 		Description: "Create a new set owned by you, optionally with its first tasks. " +
-			"Private by default (shared=false: only you see it); once it is complete, ask the user whether to share it and call update_set with shared=true. " +
-			"Returns set_id, slug, url (give the url to the user), shared, added, total and warnings. " +
+			"Private by default (only you see it); once it is complete, ask the user who should see it and call update_set with visibility=friends (every logged-in user) or public (everyone). " +
+			"Returns set_id, slug, url (give the url to the user), visibility, added, total and warnings. " +
 			"Run validate_tasks on each batch first. " + lintNote + " " + authoringRules,
 		Annotations: additive("Create set"),
 	}, handle(func(ctx context.Context, u store.User, in CreateSetIn) (WriteResult, error) {
@@ -266,6 +274,14 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if len(in.Tasks) > maxTasksPerCall {
 			return WriteResult{}, fail("max %d tasks per call; send batches (create_set with up to %d, then add_tasks)", maxTasksPerCall, maxTasksPerCall)
 		}
+		vis := store.Private
+		if in.Visibility != "" {
+			v, err := parseVisibility(in.Visibility)
+			if err != nil {
+				return WriteResult{}, err
+			}
+			vis = v
+		}
 		inputs, rep := prepare(in.Tasks, nil)
 		if len(rep.Errors) > 0 {
 			return WriteResult{}, rep.failure()
@@ -273,7 +289,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		st, err := s.st.CreateSet(ctx, u.ID, store.SetInput{
 			Title: greek.NFC(in.Title), Topic: greek.NFC(in.Topic), Level: in.Level,
 			Instructions: greek.NFC(in.Instructions), SourceRef: greek.NFC(in.SourceRef), Slug: in.Slug,
-			Shared: in.Shared,
+			Visibility: vis,
 		})
 		if errors.Is(err, store.ErrInvalid) || errors.Is(err, store.ErrConflict) {
 			return WriteResult{}, fail("cannot create set: %v", err)
@@ -289,7 +305,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 				return WriteResult{}, err
 			}
 		}
-		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Shared: st.Shared, Added: len(inputs), Total: len(inputs), Warnings: rep.Warnings}, nil
+		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Visibility: string(st.Visibility), Added: len(inputs), Total: len(inputs), Warnings: rep.Warnings}, nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -320,17 +336,17 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if _, err := s.st.AddTasks(ctx, st.ID, inputs); err != nil {
 			return WriteResult{}, err
 		}
-		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Shared: st.Shared, Added: len(inputs),
+		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Visibility: string(st.Visibility), Added: len(inputs),
 			Total: len(existing) + len(inputs), Warnings: rep.Warnings}, nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "update_set",
-		Description: "Change metadata of a set you own (admins: any set): title, topic, level, instructions, source_ref, shared (true: everyone sees it; false: only you). Only the fields you pass change. Returns the updated set without tasks.",
+		Description: "Change metadata of a set you own (admins: any set): title, topic, level, instructions, source_ref, visibility (private: only you; friends: every logged-in user; public: everyone). Only the fields you pass change. Returns the updated set without tasks.",
 		Annotations: destructive("Update set", true),
 	}, handle(func(ctx context.Context, u store.User, in UpdateSetIn) (SetDetail, error) {
-		if in.Title == nil && in.Topic == nil && in.Level == nil && in.Instructions == nil && in.SourceRef == nil && in.Shared == nil {
-			return SetDetail{}, fail("nothing to update; pass at least one of title, topic, level, instructions, source_ref, shared")
+		if in.Title == nil && in.Topic == nil && in.Level == nil && in.Instructions == nil && in.SourceRef == nil && in.Visibility == nil {
+			return SetDetail{}, fail("nothing to update; pass at least one of title, topic, level, instructions, source_ref, visibility")
 		}
 		st, err := s.editableSet(ctx, u, in.Set)
 		if err != nil {
@@ -338,6 +354,14 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		}
 		if in.Title != nil && strings.TrimSpace(*in.Title) == "" {
 			return SetDetail{}, fail("title cannot be empty")
+		}
+		var vis *store.Visibility
+		if in.Visibility != nil {
+			v, err := parseVisibility(*in.Visibility)
+			if err != nil {
+				return SetDetail{}, err
+			}
+			vis = &v
 		}
 		nfc := func(p *string) *string {
 			if p == nil {
@@ -347,7 +371,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		}
 		updated, err := s.st.UpdateSet(ctx, st.ID, store.SetPatch{
 			Title: nfc(in.Title), Topic: nfc(in.Topic), Level: in.Level,
-			Instructions: nfc(in.Instructions), SourceRef: nfc(in.SourceRef), Shared: in.Shared,
+			Instructions: nfc(in.Instructions), SourceRef: nfc(in.SourceRef), Visibility: vis,
 		})
 		if err != nil {
 			return SetDetail{}, err

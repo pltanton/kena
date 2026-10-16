@@ -28,6 +28,10 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	return migrate(ctx, pool, "")
+}
+
+func migrate(ctx context.Context, pool *pgxpool.Pool, last string) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("acquiring connection: %w", err)
@@ -59,6 +63,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	sort.Strings(names)
 
 	for _, name := range names {
+		if last != "" && name > last {
+			break
+		}
 		var applied bool
 		if err := conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)", name).Scan(&applied); err != nil {
 			return fmt.Errorf("checking migration %s: %w", name, err)

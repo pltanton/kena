@@ -11,9 +11,9 @@ import (
 	"github.com/pltanton/kena/internal/store"
 )
 
-func (e *env) sharedSet(owner store.User, title string, shared bool) store.Set {
+func (e *env) sharedSet(owner store.User, title string, v store.Visibility) store.Set {
 	e.t.Helper()
-	set, err := e.st.CreateSet(context.Background(), owner.ID, store.SetInput{Title: title, Shared: shared})
+	set, err := e.st.CreateSet(context.Background(), owner.ID, store.SetInput{Title: title, Visibility: v})
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestMyDecks(t *testing.T) {
 	e := setup(t)
 	private, _ := e.privateSet()
 	carl := e.user("carl")
-	carlShared := e.sharedSet(carl, "Carl shared", true)
+	carlShared := e.sharedSet(carl, "Carl shared", store.Public)
 
 	bob := e.clone()
 	bobUser := bob.user("bob")
@@ -65,14 +65,14 @@ func TestMyDecks(t *testing.T) {
 		t.Fatalf("empty my decks:\n%s", body)
 	}
 
-	bobOwn := e.sharedSet(bobUser, "Bob own", false)
+	bobOwn := e.sharedSet(bobUser, "Bob own", store.Private)
 	resp, _ := bob.post(starPath(e.set), url.Values{"star": {"1"}, "next": {"/browse"}}, e.srv.URL)
 	wantStatus(t, resp, http.StatusSeeOther)
 	if loc := resp.Header.Get("Location"); loc != "/browse" {
 		t.Fatalf("star redirects to %q", loc)
 	}
 	_, body = bob.get("/")
-	for _, want := range []string{"My decks", e.set.Title, bobOwn.Title, `class="badge private"`, `class="star-mark"`, "0/3"} {
+	for _, want := range []string{"My decks", e.set.Title, bobOwn.Title, `<span class="badge vis">private</span>`, `class="star-mark"`, "0/3"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("my decks missing %q:\n%s", want, body)
 		}
@@ -88,7 +88,7 @@ func TestMyDecks(t *testing.T) {
 		t.Errorf("owner's my decks:\n%s", body)
 	}
 
-	maria.post("/s/"+e.set.Slug+"/share", url.Values{"shared": {"0"}}, e.srv.URL)
+	maria.post("/s/"+e.set.Slug+"/visibility", url.Values{"visibility": {"private"}}, e.srv.URL)
 	if _, body := bob.get("/"); strings.Contains(body, e.set.Title) {
 		t.Error("private-again set still in my decks")
 	}
@@ -102,8 +102,8 @@ func TestBrowse(t *testing.T) {
 	e := setup(t)
 	private, _ := e.privateSet()
 	bobUser := e.user("bob")
-	bobShared := e.sharedSet(bobUser, "Bob shared", true)
-	bobPrivate := e.sharedSet(bobUser, "Bob private", false)
+	bobShared := e.sharedSet(bobUser, "Bob shared", store.Public)
+	bobPrivate := e.sharedSet(bobUser, "Bob private", store.Private)
 
 	resp, body := e.get("/browse")
 	wantStatus(t, resp, http.StatusOK)

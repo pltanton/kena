@@ -19,10 +19,14 @@
 </form>
 {{- end}}
 {{- if .Owner}}
-<form class="seg share" method="post" action="/s/{{.Set.Slug}}/share">
-<button type="submit" name="shared" value="1"{{if .Set.Shared}} aria-pressed="true"{{end}}>Shared</button>
-<button type="submit" name="shared" value="0"{{if not .Set.Shared}} aria-pressed="true"{{end}}>Private</button>
+<div class="owner-bar">
+<form class="seg visibility" method="post" action="/s/{{.Set.Slug}}/visibility" aria-label="Who can see this deck">
+{{- range .Visibility}}
+<button type="submit" name="visibility" value="{{.Value}}" aria-pressed="{{.Current}}"><span class="icon" aria-hidden="true">{{.Icon}}</span>{{.Label}}</button>
+{{- end}}
 </form>
+<a class="button secondary small" href="/s/{{.Set.Slug}}/edit">Edit</a>
+</div>
 {{- end}}
 </header>
 {{if eq .Params.Mode "cards"}}<div id="card">

@@ -48,11 +48,11 @@ func (s *Store) IsStarred(ctx context.Context, userID, setID int64) (bool, error
 }
 
 func (s *Store) MyDecks(ctx context.Context, userID int64) ([]Deck, error) {
-	return s.decks(ctx, `s.owner_id = $1 OR (st.set_id IS NOT NULL AND s.shared)`, userID)
+	return s.decks(ctx, `s.owner_id = $1 OR (st.set_id IS NOT NULL AND s.visibility <> 'private')`, userID)
 }
 
 func (s *Store) BrowseDecks(ctx context.Context, viewerID int64) ([]Deck, error) {
-	return s.decks(ctx, `s.shared AND s.owner_id <> $1`, viewerID)
+	return s.decks(ctx, `s.owner_id <> $1 AND (s.visibility = 'public' OR (s.visibility = 'friends' AND $1 <> 0))`, viewerID)
 }
 
 func (s *Store) decks(ctx context.Context, where string, userID int64) ([]Deck, error) {

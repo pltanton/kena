@@ -33,18 +33,19 @@ func TestStars(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mk := func(owner int64, title string, shared bool) store.Set {
+	mk := func(owner int64, title string, v store.Visibility) store.Set {
 		t.Helper()
-		set, err := s.CreateSet(ctx, owner, store.SetInput{Title: title, Shared: shared})
+		set, err := s.CreateSet(ctx, owner, store.SetInput{Title: title, Visibility: v})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return set
 	}
-	annPrivate := mk(ann.ID, "Ann private", false)
-	annShared := mk(ann.ID, "Ann shared", true)
-	annOther := mk(ann.ID, "Ann other", true)
-	bobOwn := mk(bob.ID, "Bob own", false)
+	annPrivate := mk(ann.ID, "Ann private", store.Private)
+	annShared := mk(ann.ID, "Ann shared", store.Public)
+	annOther := mk(ann.ID, "Ann other", store.Public)
+	annFriends := mk(ann.ID, "Ann friends", store.Friends)
+	bobOwn := mk(bob.ID, "Bob own", store.Private)
 
 	if err := s.Star(ctx, bob.ID, annPrivate.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("star private: %v, want not found", err)
@@ -85,8 +86,8 @@ func TestStars(t *testing.T) {
 	}
 	for _, c := range []struct{ name, got, want string }{
 		{"bob my", my(bob.ID), "[Ann shared* Bob own]"},
-		{"ann my", my(ann.ID), "[Ann other Ann private Ann shared]"},
-		{"bob browse", browse(bob.ID), "[Ann other Ann shared*]"},
+		{"ann my", my(ann.ID), "[Ann friends Ann other Ann private Ann shared]"},
+		{"bob browse", browse(bob.ID), "[Ann friends Ann other Ann shared*]"},
 		{"ann browse", browse(ann.ID), "[]"},
 		{"anon browse", browse(0), "[Ann other Ann shared]"},
 	} {
@@ -95,8 +96,18 @@ func TestStars(t *testing.T) {
 		}
 	}
 
-	off := false
-	if _, err := s.UpdateSet(ctx, annShared.ID, store.SetPatch{Shared: &off}); err != nil {
+	if err := s.Star(ctx, bob.ID, annFriends.ID); err != nil {
+		t.Fatalf("star friends deck: %v", err)
+	}
+	if got := my(bob.ID); got != "[Ann friends* Ann shared* Bob own]" {
+		t.Errorf("starred friends deck: %s", got)
+	}
+	if err := s.Unstar(ctx, bob.ID, annFriends.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	off := store.Private
+	if _, err := s.UpdateSet(ctx, annShared.ID, store.SetPatch{Visibility: &off}); err != nil {
 		t.Fatal(err)
 	}
 	if got := my(bob.ID); got != "[Bob own]" {
@@ -105,8 +116,8 @@ func TestStars(t *testing.T) {
 	if err := s.Star(ctx, bob.ID, annShared.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("star private-again: %v", err)
 	}
-	on := true
-	if _, err := s.UpdateSet(ctx, annShared.ID, store.SetPatch{Shared: &on}); err != nil {
+	on := store.Friends
+	if _, err := s.UpdateSet(ctx, annShared.ID, store.SetPatch{Visibility: &on}); err != nil {
 		t.Fatal(err)
 	}
 	if got := my(bob.ID); got != "[Ann shared* Bob own]" {

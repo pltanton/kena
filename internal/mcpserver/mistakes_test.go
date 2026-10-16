@@ -25,7 +25,7 @@ func TestMistakesReport(t *testing.T) {
 	out := ok[WriteResult](t, alice, "create_set", setArgs("Αόριστος", validTasks()))
 	detail := ok[SetDetail](t, alice, "get_set", map[string]any{"set": out.Slug})
 	t0, t1 := detail.Tasks[0].ID, detail.Tasks[1].ID
-	other := ok[WriteResult](t, bob, "create_set", shared(setArgs("Bob set", validTasks())))
+	other := ok[WriteResult](t, bob, "create_set", public(setArgs("Bob set", validTasks())))
 
 	e.attempt(t, "alice", t0, false, "εγραψε")
 	e.attempt(t, "alice", t0, false, "")

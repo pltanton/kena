@@ -47,7 +47,7 @@ func setup(t *testing.T) *env {
 		Topic:        "verbs",
 		Level:        "A1",
 		Instructions: "Συμπληρώστε το ρήμα.",
-		Shared:       true,
+		Visibility:   store.Public,
 	})
 	if err != nil {
 		t.Fatalf("CreateSet: %v", err)

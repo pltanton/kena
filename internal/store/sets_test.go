@@ -471,7 +471,7 @@ func TestListSetsOwnerNameAndTaskCount(t *testing.T) {
 	}
 }
 
-func TestSharing(t *testing.T) {
+func TestVisibility(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 	ann, err := s.CreateUser(ctx, "ann", false)
@@ -487,15 +487,22 @@ func TestSharing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if private.Shared {
-		t.Fatal("new set is shared by default")
+	if private.Visibility != store.Private {
+		t.Fatalf("new set visibility = %q, want private", private.Visibility)
 	}
-	shared, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann shared", Shared: true})
+	friends, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann friends", Visibility: store.Friends})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !shared.Shared {
-		t.Fatal("Shared input ignored")
+	public, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann public", Visibility: store.Public})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if friends.Visibility != store.Friends || public.Visibility != store.Public {
+		t.Fatalf("Visibility input ignored: %q %q", friends.Visibility, public.Visibility)
+	}
+	if _, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Bad", Visibility: "everyone"}); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("unknown visibility: %v, want invalid", err)
 	}
 	if _, err := s.CreateSet(ctx, bob.ID, store.SetInput{Title: "Bob private"}); err != nil {
 		t.Fatal(err)
@@ -519,28 +526,55 @@ func TestSharing(t *testing.T) {
 		f    store.ListFilter
 		want []string
 	}{
-		{"anonymous", store.ListFilter{}, []string{"Ann shared"}},
-		{"ann", store.ListFilter{ViewerID: ann.ID}, []string{"Ann private", "Ann shared"}},
-		{"bob", store.ListFilter{ViewerID: bob.ID}, []string{"Ann shared", "Bob private"}},
-		{"bob filtered to ann", store.ListFilter{ViewerID: bob.ID, Owner: "ann"}, []string{"Ann shared"}},
-		{"all", store.ListFilter{All: true}, []string{"Ann private", "Ann shared", "Bob private"}},
+		{"anonymous", store.ListFilter{}, []string{"Ann public"}},
+		{"ann", store.ListFilter{ViewerID: ann.ID}, []string{"Ann friends", "Ann private", "Ann public"}},
+		{"bob", store.ListFilter{ViewerID: bob.ID}, []string{"Ann friends", "Ann public", "Bob private"}},
+		{"bob filtered to ann", store.ListFilter{ViewerID: bob.ID, Owner: "ann"}, []string{"Ann friends", "Ann public"}},
+		{"all", store.ListFilter{All: true}, []string{"Ann friends", "Ann private", "Ann public", "Bob private"}},
 	} {
 		if got := titles(c.f); !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
 	}
 
-	if !store.CanView(ann.ID, private) || store.CanView(bob.ID, private) || store.CanView(0, private) || !store.CanView(0, shared) {
-		t.Error("CanView")
+	for _, c := range []struct {
+		set    store.Set
+		viewer int64
+		want   bool
+	}{
+		{private, ann.ID, true}, {private, bob.ID, false}, {private, 0, false},
+		{friends, ann.ID, true}, {friends, bob.ID, true}, {friends, 0, false},
+		{public, ann.ID, true}, {public, bob.ID, true}, {public, 0, true},
+	} {
+		if got := store.CanView(c.viewer, c.set); got != c.want {
+			t.Errorf("CanView(%d, %s) = %v", c.viewer, c.set.Title, got)
+		}
 	}
 
-	on := true
-	updated, err := s.UpdateSet(ctx, private.ID, store.SetPatch{Shared: &on})
-	if err != nil || !updated.Shared || updated.Title != "Ann private" {
-		t.Fatalf("UpdateSet shared: %+v, %v", updated, err)
+	pub := store.Public
+	updated, err := s.UpdateSet(ctx, private.ID, store.SetPatch{Visibility: &pub})
+	if err != nil || updated.Visibility != store.Public || updated.Title != "Ann private" {
+		t.Fatalf("UpdateSet visibility: %+v, %v", updated, err)
 	}
 	got, err := s.GetSet(ctx, private.Slug)
-	if err != nil || !got.Shared {
+	if err != nil || got.Visibility != store.Public {
 		t.Fatalf("GetSet: %+v, %v", got, err)
+	}
+	bad := store.Visibility("nope")
+	if _, err := s.UpdateSet(ctx, private.ID, store.SetPatch{Visibility: &bad}); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("UpdateSet unknown visibility: %v", err)
+	}
+}
+
+func TestParseVisibility(t *testing.T) {
+	for _, s := range []string{"private", "friends", "public"} {
+		if v, ok := store.ParseVisibility(s); !ok || string(v) != s {
+			t.Errorf("ParseVisibility(%q) = %q, %v", s, v, ok)
+		}
+	}
+	for _, s := range []string{"", "Public", "shared"} {
+		if _, ok := store.ParseVisibility(s); ok {
+			t.Errorf("ParseVisibility(%q) accepted", s)
+		}
 	}
 }
