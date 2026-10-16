@@ -96,6 +96,21 @@ Example prompt with a photo attached:
 The agent reads the guide, writes new sentences in batches, validates them and
 returns the set URL.
 
+## Mistakes and analysis
+
+Logged in, `/mistakes` (header → Mistakes) lists the tasks you got wrong in the
+last 30 days: your answer → the expected one, with a badge for accent, final ς
+or near-miss slips, and a ✓ once you solved the task later. Practising
+anonymously does not count until you log in.
+
+A connected agent can read the same data with `get_mistakes_report` (only your
+own) and turn it into practice:
+
+> Analyze my kena mistakes and make a practice set for my weak spots.
+
+It groups the mistakes by grammar point, separates spelling slips from wrong
+forms, explains the main patterns and offers a "Practice: …" set of new tasks.
+
 ## Revoking access
 
 - Users revoke their own tokens and disconnect apps on the Account page.
@@ -108,4 +123,5 @@ returns the set URL.
 ## Development
 
 See `AGENTS.md`. Design: `docs/superpowers/specs/2026-10-16-kena-design.md`,
-accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`.
+accounts: `docs/superpowers/specs/2026-10-16-accounts-design.md`, mistakes:
+`docs/superpowers/specs/2026-10-17-mistakes-report-design.md`.
