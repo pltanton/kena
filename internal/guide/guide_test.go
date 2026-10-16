@@ -9,7 +9,7 @@ import (
 )
 
 func TestTopicsLoad(t *testing.T) {
-	want := []string{"workflow", "item-rules", "greek-pitfalls", "self-check", "format"}
+	want := []string{"workflow", "item-rules", "greek-pitfalls", "self-check", "analyze-mistakes", "format"}
 	topics := Topics()
 	if len(topics) != len(want) {
 		t.Fatalf("got %d topics, want %d", len(topics), len(want))

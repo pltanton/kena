@@ -13,7 +13,7 @@ type Topic struct {
 	Name, Title, Summary string
 }
 
-var topics = loadTopics("workflow", "item-rules", "greek-pitfalls", "self-check", "format")
+var topics = loadTopics("workflow", "item-rules", "greek-pitfalls", "self-check", "analyze-mistakes", "format")
 
 func loadTopics(names ...string) []Topic {
 	out := make([]Topic, 0, len(names))
@@ -98,4 +98,5 @@ More rules:
 - Write in batches of 20 and self-check each one (blind re-solve, derive forms from the paradigm).
 - Default 100 tasks: ~30 blocked, then ~70 interleaved.
 - Set: Greek/English title, one Greek instruction line, source_ref = book, unit, exercise.
-- Report the set URL to the user.`
+- Report the set URL to the user.
+Mistakes analysis: read topic analyze-mistakes, then call get_mistakes_report.`
