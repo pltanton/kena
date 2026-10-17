@@ -5,93 +5,36 @@ import (
 	"testing"
 )
 
-func TestFromEnvMissingDatabaseURL(t *testing.T) {
-	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org")
-	_, err := FromEnv()
-	if err == nil {
-		t.Fatal("expected error for missing KENA_DATABASE_URL")
-	}
-	if got := err.Error(); !strings.Contains(got, "KENA_DATABASE_URL") {
-		t.Fatalf("error %q does not name KENA_DATABASE_URL", got)
-	}
-}
-
-func TestFromEnvMissingPublicURL(t *testing.T) {
-	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	_, err := FromEnv()
-	if err == nil {
-		t.Fatal("expected error for missing KENA_PUBLIC_URL")
-	}
-	if got := err.Error(); !strings.Contains(got, "KENA_PUBLIC_URL") {
-		t.Fatalf("error %q does not name KENA_PUBLIC_URL", got)
+func TestFromEnvErrorsNameTheVariable(t *testing.T) {
+	for _, c := range []struct{ db, public, want string }{
+		{"", "https://kena.example.org", "KENA_DATABASE_URL"},
+		{"postgres://localhost/kena", "", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "not a url", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "ftp://kena.example.org", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "https://", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "https://kena.example.org/path", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "https://kena.example.org?q=1", "KENA_PUBLIC_URL"},
+		{"postgres://localhost/kena", "https://kena.example.org#frag", "KENA_PUBLIC_URL"},
+	} {
+		t.Setenv("KENA_DATABASE_URL", c.db)
+		t.Setenv("KENA_PUBLIC_URL", c.public)
+		if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("db=%q public=%q: err = %v, want one naming %s", c.db, c.public, err, c.want)
+		}
 	}
 }
 
-func TestFromEnvDefaultListen(t *testing.T) {
+func TestFromEnv(t *testing.T) {
 	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org")
-	cfg, err := FromEnv()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Listen != "127.0.0.1:8080" {
-		t.Fatalf("Listen = %q, want default", cfg.Listen)
-	}
-}
-
-func TestFromEnvTrailingSlashTrimmed(t *testing.T) {
-	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org/")
-	cfg, err := FromEnv()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.PublicURL != "https://kena.example.org" {
-		t.Fatalf("PublicURL = %q, want trailing slash trimmed", cfg.PublicURL)
-	}
-}
-
-func TestFromEnvPublicURLInvalid(t *testing.T) {
-	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	cases := []string{
-		"not a url",
-		"ftp://kena.example.org",
-		"https://",
-		"https://kena.example.org/path",
-		"https://kena.example.org?q=1",
-		"https://kena.example.org#frag",
-	}
-	for _, v := range cases {
-		t.Run(v, func(t *testing.T) {
-			t.Setenv("KENA_PUBLIC_URL", v)
-			_, err := FromEnv()
-			if err == nil {
-				t.Fatalf("expected error for KENA_PUBLIC_URL=%q", v)
-			}
-			if got := err.Error(); !strings.Contains(got, "KENA_PUBLIC_URL") {
-				t.Fatalf("error %q does not name KENA_PUBLIC_URL", got)
-			}
-		})
-	}
-}
-
-func TestFromEnvPublicURLHTTPAllowed(t *testing.T) {
-	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	t.Setenv("KENA_PUBLIC_URL", "http://127.0.0.1:8080")
-	if _, err := FromEnv(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestFromEnvCustomListen(t *testing.T) {
-	t.Setenv("KENA_DATABASE_URL", "postgres://localhost/kena")
-	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org")
-	t.Setenv("KENA_LISTEN", "0.0.0.0:9090")
-	cfg, err := FromEnv()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Listen != "0.0.0.0:9090" {
-		t.Fatalf("Listen = %q, want custom value", cfg.Listen)
+	for _, c := range []struct{ public, listen, wantPublic, wantListen string }{
+		{"https://kena.example.org/", "", "https://kena.example.org", "127.0.0.1:8080"},
+		{"http://127.0.0.1:8080", "0.0.0.0:9090", "http://127.0.0.1:8080", "0.0.0.0:9090"},
+	} {
+		t.Setenv("KENA_PUBLIC_URL", c.public)
+		t.Setenv("KENA_LISTEN", c.listen)
+		cfg, err := FromEnv()
+		if err != nil || cfg.PublicURL != c.wantPublic || cfg.Listen != c.wantListen {
+			t.Errorf("%+v: got %+v, %v", c, cfg, err)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"net/url"
 	"os"
@@ -49,14 +50,9 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 
-	listen := os.Getenv("KENA_LISTEN")
-	if listen == "" {
-		listen = "127.0.0.1:8080"
-	}
-
 	return Config{
 		DatabaseURL: databaseURL,
-		Listen:      listen,
+		Listen:      cmp.Or(os.Getenv("KENA_LISTEN"), "127.0.0.1:8080"),
 		PublicURL:   publicURL,
 	}, nil
 }
