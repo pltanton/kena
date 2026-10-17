@@ -1,5 +1,16 @@
 {{define "title"}}{{.Set.Title}} · kena{{end}}
-{{define "main"}}<header class="set-head">
+{{define "main"}}{{template "deck_head" .}}
+<div class="start">
+<a class="button start-button" href="{{.StartURL}}">{{.StartLabel}}</a>
+<p class="start-alt">{{with .MistakesURL}}<a href="{{.}}">Only mistakes ({{$.Progress.Mistakes}})</a> · {{end}}{{with .AllURL}}<a href="{{.}}">All tasks</a> · {{end}}<a href="{{.ShuffledURL}}">Shuffled</a></p>
+</div>
+<p class="see-all"><a href="{{.ListURL}}">See all tasks</a></p>
+{{- if or .Progress.Solved .Progress.Mistakes}}
+<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
+{{- end}}
+{{end}}
+
+{{define "deck_head"}}<header class="set-head">
 <h1>{{.Set.Title}}</h1>
 {{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
 <div class="meta deck-meta"><span>{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}
@@ -26,27 +37,4 @@
 {{- end}}
 </div>
 {{- end}}
-</header>
-{{if eq .Params.Mode "cards"}}<div class="start">
-<a class="button start-button" href="{{.StartURL}}">{{if not .Left}}Practise again{{else if .Started}}Continue · {{.Left}} left{{else}}Start{{end}}</a>
-</div>
-<section class="options">
-<h2 class="options-title">Options</h2>
-{{template "deck_controls" .}}
-</section>
-{{- else}}
-{{template "deck_controls" .}}
-{{- if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
-{{range .Items}}{{template "list_item" .}}
-{{end}}</ol>
-{{- else}}{{template "done" .Done}}{{end}}
-{{- end}}
-{{- if or .Progress.Solved .Progress.Mistakes}}
-<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
-{{- end}}
-{{end}}
-
-{{define "deck_controls"}}<nav class="controls" aria-label="Practice options">
-<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-</nav>{{end}}
+</header>{{end}}

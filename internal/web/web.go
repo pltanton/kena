@@ -31,7 +31,6 @@ var staticFS embed.FS
 
 const (
 	deviceCookie = "kena_device"
-	modeCookie   = "kena_mode"
 	cookieMaxAge = 365 * 24 * 60 * 60
 )
 
@@ -47,7 +46,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -63,6 +62,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
 	mux.HandleFunc("GET /s/{slug}/play", h.play)
+	mux.HandleFunc("GET /s/{slug}/list", h.list)
 	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
 	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
@@ -271,8 +271,13 @@ func (p params) query() url.Values {
 }
 
 func setURL(slug string, p params) string {
+	v := p.query()
+	v.Del("mode")
 	u := "/s/" + url.PathEscape(slug)
-	if q := p.query().Encode(); q != "" {
+	if p.Mode == "list" {
+		u += "/list"
+	}
+	if q := v.Encode(); q != "" {
 		u += "?" + q
 	}
 	return u
@@ -728,27 +733,6 @@ func visibilityChoices(current store.Visibility) []visibilityOption {
 	return out
 }
 
-type setPage struct {
-	Set      store.Set
-	Owner    bool
-	Saved    bool
-	Warnings []string
-	CanStar  bool
-	Starred  bool
-	Here     string
-	Progress store.Progress
-	Params   params
-	Modes    []link
-	Filters  []link
-	Shuffle  link
-	StartURL string
-	Left     int
-	Started  bool
-	Items    []itemView
-	First    int64
-	Done     *doneView
-}
-
 type setData struct {
 	set      store.Set
 	tasks    []store.Task
@@ -796,13 +780,97 @@ func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) item
 	}
 }
 
+type deckPage struct {
+	Set         store.Set
+	Owner       bool
+	Saved       bool
+	Warnings    []string
+	CanStar     bool
+	Starred     bool
+	Here        string
+	Progress    store.Progress
+	StartURL    string
+	StartLabel  string
+	MistakesURL string
+	AllURL      string
+	ShuffledURL string
+	ListURL     string
+}
+
+func (h *handler) deckHead(w http.ResponseWriter, r *http.Request, d setData) (deckPage, bool) {
+	set := d.set
+	data := deckPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: progressOf(d.tasks, d.last), Here: r.URL.RequestURI()}
+	if data.Owner && r.URL.Query().Get("saved") == "1" {
+		data.Saved = true
+		data.Warnings = deckWarnings(d.tasks)
+	}
+	if u, ok := currentUser(r); ok && !data.Owner {
+		data.CanStar = true
+		var err error
+		if data.Starred, err = h.st.IsStarred(r.Context(), u.ID, set.ID); err != nil {
+			h.fail(w, r, err)
+			return data, false
+		}
+	}
+	return data, true
+}
+
 func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	defaultMode := "cards"
-	if c, err := r.Cookie(modeCookie); err == nil && (c.Value == "cards" || c.Value == "list") {
-		defaultMode = c.Value
+	if q.Get("mode") == "list" {
+		q.Del("mode")
+		u := "/s/" + url.PathEscape(r.PathValue("slug")) + "/list"
+		if e := q.Encode(); e != "" {
+			u += "?" + e
+		}
+		http.Redirect(w, r, u, http.StatusMovedPermanently)
+		return
 	}
-	p, err := parseParams(q, defaultMode)
+	d, err := h.loadSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	data, ok := h.deckHead(w, r, d)
+	if !ok {
+		return
+	}
+	slug, pr := d.set.Slug, data.Progress
+	all := params{Mode: "cards", Filter: "all"}
+	unsolved, mistakes := all, all
+	unsolved.Filter, mistakes.Filter = "unsolved", "mistakes"
+	switch left := pr.Total - pr.Solved; {
+	case pr.Solved+pr.Mistakes == 0:
+		data.StartURL, data.StartLabel = playURL(slug, all), "Start"
+	case left > 0:
+		data.StartURL, data.StartLabel = playURL(slug, unsolved), fmt.Sprintf("Continue · %d left", left)
+	default:
+		data.StartURL, data.StartLabel = playURL(slug, all), "Practise again"
+	}
+	if pr.Mistakes > 0 {
+		data.MistakesURL = playURL(slug, mistakes)
+	}
+	if all := playURL(slug, all); all != data.StartURL {
+		data.AllURL = all
+	}
+	data.ShuffledURL = playURL(slug, all) + "?shuffle=1"
+	data.ListURL = "/s/" + url.PathEscape(slug) + "/list"
+	h.page(w, r, http.StatusOK, "set", data)
+}
+
+type listPage struct {
+	deckPage
+	Params  params
+	Filters []link
+	PlayURL string
+	Items   []itemView
+	First   int64
+	Done    *doneView
+}
+
+func (h *handler) list(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	p, err := parseParams(q, "list")
 	if errors.Is(err, errMissingSeed) {
 		q.Set("seed", strconv.FormatUint(uint64(mrand.Uint32()), 10))
 		http.Redirect(w, r, r.URL.Path+"?"+q.Encode(), http.StatusFound)
@@ -812,73 +880,38 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	p.Mode = "list"
 	p.I, p.N = 0, 0
-
 	d, err := h.loadSet(r, r.PathValue("slug"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	set, tasks, last := d.set, d.tasks, d.last
-	if q.Get("mode") != "" {
-		setCookie(w, r, modeCookie, p.Mode)
+	head, ok := h.deckHead(w, r, d)
+	if !ok {
+		return
 	}
-
-	order := ordered(tasks, p)
-	todo := filtered(order, p.Filter, last)
-	pr := progressOf(tasks, last)
-
-	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p, Here: r.URL.RequestURI()}
-	if data.Owner {
-		if q.Get("saved") == "1" {
-			data.Saved = true
-			data.Warnings = deckWarnings(tasks)
-		}
-	}
-	if u, ok := currentUser(r); ok && !data.Owner {
-		data.CanStar = true
-		if data.Starred, err = h.st.IsStarred(r.Context(), u.ID, set.ID); err != nil {
-			h.fail(w, r, err)
-			return
-		}
-	}
-	for _, m := range []string{"cards", "list"} {
-		lp := p
-		lp.Mode = m
-		data.Modes = append(data.Modes, link{strings.ToUpper(m[:1]) + m[1:], setURL(set.Slug, lp), m == p.Mode})
-	}
+	data := listPage{deckPage: head, Params: p}
+	slug, last := d.set.Slug, d.last
 	for _, f := range []string{"all", "unsolved", "mistakes"} {
 		lp := p
 		lp.Filter = f
-		data.Filters = append(data.Filters, link{strings.ToUpper(f[:1]) + f[1:], setURL(set.Slug, lp), f == p.Filter})
+		data.Filters = append(data.Filters, link{strings.ToUpper(f[:1]) + f[1:], setURL(slug, lp), f == p.Filter})
 	}
-	sv := p.query()
-	if p.Shuffle {
-		sv.Del("shuffle")
-		sv.Del("seed")
-	} else {
-		sv.Set("shuffle", "1")
-	}
-	shuffleURL := "/s/" + url.PathEscape(set.Slug) + "?" + sv.Encode()
-	data.Shuffle = link{"Shuffle", shuffleURL, p.Shuffle}
-
-	if p.Mode == "cards" {
-		data.StartURL = playURL(set.Slug, p)
-		data.Left = countUnsolved(todo, last)
-		data.Started = pr.Solved+pr.Mistakes > 0
-		h.page(w, r, http.StatusOK, "set", data)
-		return
-	}
+	pp := p
+	pp.Mode = "cards"
+	data.PlayURL = playURL(slug, pp)
+	todo := filtered(ordered(d.tasks, p), p.Filter, last)
 	if len(todo) == 0 {
-		data.Done = newDone(r, set.Slug, true, pr)
+		data.Done = newDone(r, slug, true, head.Progress)
 	}
 	for _, t := range todo {
 		data.Items = append(data.Items, listItem(t, p, d.attempts))
 	}
-	if id, ok := firstUnsolved(todo, last); ok && len(todo) > 0 && id != todo[0].ID {
+	if id, ok := firstUnsolved(todo, last); ok && id != todo[0].ID {
 		data.First = id
 	}
-	h.page(w, r, http.StatusOK, "set", data)
+	h.page(w, r, http.StatusOK, "list", data)
 }
 
 func countUnsolved(tasks []store.Task, last map[int64]bool) int {

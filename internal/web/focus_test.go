@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -14,23 +13,21 @@ func TestDeckOverview(t *testing.T) {
 	path := "/s/" + e.set.Slug
 	resp, body := e.get(path)
 	wantStatus(t, resp, http.StatusOK)
-	wantAll(t, "overview", body, e.set.Title, `href="`+path+`/play"`, ">Start<", "Options", ">Cards<", ">List<", ">Shuffle<", ">Unsolved<", `<header class="site"`)
-	wantNone(t, "overview", body, `id="card"`, `<input name="a"`, "kbd-keeper", "Reset progress")
+	wantAll(t, "overview", body, e.set.Title, `class="button start-button" href="`+path+`/play">Start<`,
+		`href="`+path+`/play?shuffle=1">Shuffled<`, `href="`+path+`/list">See all tasks<`, `<header class="site"`)
+	wantNone(t, "overview", body, "All tasks<", `id="card"`, `<input name="a"`, "kbd-keeper", "Reset progress", "Only mistakes", "Options", ">Cards<", ">List<", `class="seg"`)
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
+	e.check(e.tasks[1].ID, url.Values{"a": {"λάθος"}, "mode": {"cards"}, "giveup": {"1"}}, true)
 	_, body = e.get(path)
-	wantAll(t, "overview after one", body, "Continue · 2 left", "Reset progress")
+	wantAll(t, "overview after two", body, `href="`+path+`/play?filter=unsolved">Continue · 2 left<`,
+		`href="`+path+`/play?filter=mistakes">Only mistakes (1)<`, `href="`+path+`/play">All tasks<`, "Reset progress")
 
-	resp, _ = e.get(path + "?filter=unsolved&shuffle=1")
-	wantStatus(t, resp, http.StatusFound)
-	_, body = e.get(resp.Header.Get("Location"))
-	start := regexp.MustCompile(`class="button start-button" href="([^"]+)"`).FindStringSubmatch(body)
-	if start == nil {
-		t.Fatalf("no start link:\n%s", body)
-	}
-	if href := strings.ReplaceAll(start[1], "&amp;", "&"); !strings.HasPrefix(href, path+"/play?") || !strings.Contains(href, "filter=unsolved") || !strings.Contains(href, "shuffle=1") || !strings.Contains(href, "seed=") {
-		t.Errorf("start link %q loses the options", href)
-	}
+	e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}, "mode": {"cards"}}, true)
+	e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}, "mode": {"cards"}}, true)
+	_, body = e.get(path)
+	wantAll(t, "overview all solved", body, `href="`+path+`/play">Practise again<`)
+	wantNone(t, "overview all solved", body, "Only mistakes")
 
 	for _, page := range []string{"/", "/browse"} {
 		_, body := e.get(page)
@@ -48,7 +45,7 @@ func TestPlayIsFocusMode(t *testing.T) {
 	wantAll(t, "play", body,
 		`class="focus"`, "interactive-widget=resizes-content", `class="focus-bar"`, `href="`+path+`" aria-label="Back to deck"`,
 		`id="focus-pos"`, "1/3", `id="card"`, `id="kbd-keeper"`, "Εσύ", "pointerdown", "visualViewport",
-		`class="focus-menu"`, "Mode", `href="`+path+`?mode=list"`, `href="`+path+`/play?filter=mistakes"`, ">In order<", ">Shuffled<", "shuffle=1", "Back to deck")
+		`class="focus-menu"`, "See all tasks", `href="`+path+`/list"`, `href="`+path+`/play?filter=mistakes"`, ">In order<", ">Shuffled<", "shuffle=1", "Back to deck")
 	wantNone(t, "play", body, `<header class="site"`, "site-foot", `class="theme-switch"`, `class="controls"`, `class="strip"`, "Reset progress", "γράφεις")
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)

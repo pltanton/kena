@@ -228,12 +228,12 @@ func TestPracticePageHasNoVisibilityToggle(t *testing.T) {
 	e := setup(t)
 	set, _ := e.privateSet()
 	maria := e.as("maria", false)
-	for _, mode := range []string{"cards", "list"} {
-		_, body := maria.get("/s/" + set.Slug + "?mode=" + mode)
+	for _, mode := range []string{"", "/list"} {
+		_, body := maria.get("/s/" + set.Slug + mode)
 		if strings.Contains(body, `action="/s/`+set.Slug+`/visibility"`) || strings.Contains(body, `name="visibility"`) {
 			t.Errorf("%s mode renders a visibility toggle:\n%s", mode, body)
 		}
-		if !strings.Contains(body, `href="/s/`+set.Slug+`/edit">Edit deck</a>`) {
+		if mode == "" && !strings.Contains(body, `href="/s/`+set.Slug+`/edit">Edit deck</a>`) {
 			t.Errorf("%s mode has no Edit deck link", mode)
 		}
 	}

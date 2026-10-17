@@ -1,0 +1,11 @@
+{{define "title"}}All tasks · {{.Set.Title}} · kena{{end}}
+{{define "main"}}<p class="crumb"><a href="/s/{{.Set.Slug}}">← {{.Set.Title}}</a></p>
+<div class="page-head"><h1>All tasks</h1><a class="button secondary small" href="{{.PlayURL}}">Practise</a></div>
+<nav class="controls" aria-label="Filter">
+<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+</nav>
+{{- if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
+{{range .Items}}{{template "list_item" .}}
+{{end}}</ol>
+{{- else}}{{template "done" .Done}}{{end}}
+{{end}}

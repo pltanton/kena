@@ -113,7 +113,7 @@ func TestListRetryAndReload(t *testing.T) {
 	wantAll(t, "list retry", body, `id="t-`, `value="τρεχει"`, "Almost — check the accent", "Give up")
 	wantNone(t, "list retry", body, "τρέχει", "third person singular")
 
-	_, body = e.get("/s/" + e.set.Slug + "?mode=list")
+	_, body = e.get("/s/" + e.set.Slug + "/list")
 	wantAll(t, "list reload", body, `value="τρεχει"`, `aria-invalid="true"`)
 	wantNone(t, "list reload", body, "τρέχει", "third person singular")
 
@@ -123,7 +123,7 @@ func TestListRetryAndReload(t *testing.T) {
 
 func TestCorrectResultHasWhy(t *testing.T) {
 	e := setup(t)
-	_, body := e.get("/s/" + e.set.Slug + "?mode=list")
+	_, body := e.get("/s/" + e.set.Slug + "/list")
 	wantNone(t, "untried list", body, "third person singular", "<details")
 
 	for _, mode := range []string{"cards", "list"} {

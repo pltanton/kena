@@ -16,10 +16,9 @@
 <summary aria-label="Options" title="Options"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary>
 <div class="sheet" role="group" aria-label="Practice options">
 <p class="sheet-title">{{.Set.Title}}</p>
-<div class="sheet-row"><span class="sheet-label">Mode</span><span class="seg"><a aria-current="true">Cards</a><a href="{{.ListURL}}">List</a></span></div>
 <div class="sheet-row"><span class="sheet-label">Practise</span><span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
 <div class="sheet-row"><span class="sheet-label">Order</span><span class="seg">{{range .Order}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
-<div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">First unsolved</a>{{end}}{{with .ResetURL}}<a href="{{.}}">Reset progress</a>{{end}}<a href="{{.DeckURL}}">Back to deck</a></div>
+<div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">First unsolved</a>{{end}}<a href="{{.ListURL}}">See all tasks</a>{{with .ResetURL}}<a href="{{.}}">Reset progress</a>{{end}}<a href="{{.DeckURL}}">Back to deck</a></div>
 <button type="button" class="secondary sheet-close" data-close>Close</button>
 </div>
 </details>

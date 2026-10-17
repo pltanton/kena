@@ -269,7 +269,7 @@ func TestProgressAndMistakesFilter(t *testing.T) {
 		t.Fatalf("index progress:\n%s", body)
 	}
 
-	_, body = e.get("/s/" + e.set.Slug + "?mode=list&filter=mistakes")
+	_, body = e.get("/s/" + e.set.Slug + "/list?filter=mistakes")
 	if n := strings.Count(body, `<li id="t-`); n != 1 {
 		t.Fatalf("mistakes filter shows %d tasks:\n%s", n, body)
 	}
@@ -277,7 +277,7 @@ func TestProgressAndMistakesFilter(t *testing.T) {
 		t.Fatal("mistakes filter does not show the wrong task")
 	}
 
-	_, body = e.get("/s/" + e.set.Slug + "?mode=list&filter=unsolved")
+	_, body = e.get("/s/" + e.set.Slug + "/list?filter=unsolved")
 	if n := strings.Count(body, `<li id="t-`); n != 2 {
 		t.Fatalf("unsolved filter shows %d tasks", n)
 	}
@@ -314,9 +314,9 @@ func TestNextSkipsTasksSolvedSinceUnderUnsolved(t *testing.T) {
 	}
 }
 
-func TestListModeAndModeCookie(t *testing.T) {
+func TestListView(t *testing.T) {
 	e := setup(t)
-	resp, body := e.get("/s/" + e.set.Slug + "?mode=list")
+	resp, body := e.get("/s/" + e.set.Slug + "/list")
 	wantStatus(t, resp, http.StatusOK)
 	if n := strings.Count(body, `<li id="t-`); n != 3 {
 		t.Fatalf("list mode shows %d items", n)
@@ -324,19 +324,22 @@ func TestListModeAndModeCookie(t *testing.T) {
 	if n := answerInputs(body); n != 3 {
 		t.Fatalf("list mode has %d answer inputs", n)
 	}
-	var mode *http.Cookie
 	for _, c := range resp.Cookies() {
 		if c.Name == "kena_mode" {
-			mode = c
+			t.Fatalf("kena_mode cookie still set: %+v", c)
 		}
 	}
-	if mode == nil || mode.Value != "list" {
-		t.Fatalf("kena_mode cookie: %+v", mode)
-	}
+	wantAll(t, "list view", body, `href="/s/`+e.set.Slug+`"`, "All tasks", `href="/s/`+e.set.Slug+`/play"`, ">Unsolved<")
+	wantNone(t, "list view", body, ">Cards<", ">Shuffle<")
 
+	resp, _ = e.get("/s/" + e.set.Slug + "?mode=list&filter=unsolved")
+	wantStatus(t, resp, http.StatusMovedPermanently)
+	if loc := resp.Header.Get("Location"); loc != "/s/"+e.set.Slug+"/list?filter=unsolved" {
+		t.Fatalf("old list URL redirects to %q", loc)
+	}
 	_, body = e.get("/s/" + e.set.Slug)
-	if n := strings.Count(body, `<li id="t-`); n != 3 {
-		t.Fatalf("remembered list mode shows %d items", n)
+	if n := strings.Count(body, `<li id="t-`); n != 0 {
+		t.Fatalf("overview shows %d list items", n)
 	}
 }
 
@@ -346,7 +349,7 @@ func TestKeyboardKeeperOnlyInCards(t *testing.T) {
 	if !strings.Contains(body, `id="kbd-keeper"`) || !strings.Contains(body, "htmx:beforeRequest") {
 		t.Fatalf("cards mode lacks keyboard keeper:\n%s", body)
 	}
-	_, body = e.get("/s/" + e.set.Slug + "?mode=list")
+	_, body = e.get("/s/" + e.set.Slug + "/list")
 	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "htmx:beforeRequest") {
 		t.Fatal("list mode renders keyboard keeper")
 	}
@@ -376,15 +379,15 @@ func TestCheckListModeAndItem(t *testing.T) {
 
 func TestShuffle(t *testing.T) {
 	e := setup(t)
-	resp, _ := e.get("/s/" + e.set.Slug + "?shuffle=1&mode=list")
+	resp, _ := e.get("/s/" + e.set.Slug + "/list?shuffle=1")
 	wantStatus(t, resp, http.StatusFound)
 	loc := resp.Header.Get("Location")
-	if !strings.Contains(loc, "seed=") || !strings.Contains(loc, "mode=list") {
+	if !strings.Contains(loc, "seed=") || !strings.HasPrefix(loc, "/s/"+e.set.Slug+"/list?") {
 		t.Fatalf("redirect location %q", loc)
 	}
 
 	order := func(seed int) string {
-		_, body := e.get(fmt.Sprintf("/s/%s?shuffle=1&seed=%d&mode=list", e.set.Slug, seed))
+		_, body := e.get(fmt.Sprintf("/s/%s/list?shuffle=1&seed=%d", e.set.Slug, seed))
 		return strings.Join(regexp.MustCompile(`<li id="t-\d+"`).FindAllString(body, -1), ",")
 	}
 	first := order(42)
@@ -431,7 +434,7 @@ func TestCheckWithoutHtmxRedirects(t *testing.T) {
 	resp, _ := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}, "filter": {"unsolved"}}, false)
 	wantStatus(t, resp, http.StatusSeeOther)
 	loc := resp.Header.Get("Location")
-	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"?") || !strings.Contains(loc, "filter=unsolved") || !strings.Contains(loc, "mode=list") {
+	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"/list?") || !strings.Contains(loc, "filter=unsolved") {
 		t.Fatalf("redirect location %q", loc)
 	}
 }
@@ -483,7 +486,7 @@ func TestListShowsLatestResults(t *testing.T) {
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}}, true)
 	e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"list"}}, true)
 
-	_, body := e.get("/s/" + e.set.Slug + "?mode=list")
+	_, body := e.get("/s/" + e.set.Slug + "/list")
 	for _, want := range []string{
 		fmt.Sprintf(`<li id="t-%d" class="item ok">`, e.tasks[0].ID), `<span class="filled ok">γράφεις</span>`,
 		fmt.Sprintf(`<li id="t-%d" class="item">`, e.tasks[1].ID), `value="τρεχει"`, "Give up",

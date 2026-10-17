@@ -1417,22 +1417,35 @@ button.quiet:hover {
   margin-top: 0;
 }
 
-.options {
-  margin-top: 1.25rem;
-}
-
-.options-title {
-  margin: 0;
-  font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.start-alt {
+  margin: 0.6rem 0 0;
+  text-align: center;
+  font-size: 0.925rem;
   color: var(--muted);
 }
 
-.options .controls {
-  border-bottom: 0;
+.start-alt a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+}
+
+.see-all {
+  margin: 1.25rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.925rem;
+}
+
+.crumb {
+  margin: 0.75rem 0 -0.5rem;
+  font-size: 0.9rem;
+}
+
+.crumb a {
+  color: var(--muted);
+  text-decoration: none;
 }
 
 html.focus,
