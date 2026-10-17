@@ -146,7 +146,7 @@
   }
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    var el = window.kenaBlank(card) || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
     main.scrollTop = 0;
     var p = pending;

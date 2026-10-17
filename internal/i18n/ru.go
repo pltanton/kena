@@ -240,6 +240,7 @@ var ru = catalog{
 		"play.give_up":        "Сдаюсь",
 		"play.next":           "Дальше",
 		"play.not_quite":      "Не совсем, попробуйте ещё раз.",
+		"play.right_so_far":   "Пока всё верно.",
 		"play.options":        "Настройки",
 		"play.options_label":  "Настройки тренировки",
 		"play.prev":           "Предыдущая карточка",

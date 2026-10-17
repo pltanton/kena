@@ -240,6 +240,7 @@ var en = catalog{
 		"play.give_up":        "Give up",
 		"play.next":           "Next",
 		"play.not_quite":      "Not quite, try again.",
+		"play.right_so_far":   "Right so far.",
 		"play.options":        "Options",
 		"play.options_label":  "Practice options",
 		"play.prev":           "Previous card",

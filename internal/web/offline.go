@@ -33,7 +33,7 @@ const (
 
 var (
 	packMsgs = []string{
-		"play.correct", "play.next", "play.check", "play.give_up", "play.not_quite", "play.why", "play.back_to_deck",
+		"play.correct", "play.next", "play.check", "play.give_up", "play.not_quite", "play.right_so_far", "play.why", "play.back_to_deck",
 		"play.prev", "play.skip", "play.skip_long", "play.card_of", "rule.label", "rule.show", "task.blank",
 		"nudge.accent", "nudge.final_sigma", "nudge.near_miss", "done.all_solved", "done.empty", "done.done",
 		"done.again", "done.mistakes_only", "done.review_mistakes", "progress.solved", "filter.all", "filter.unsolved",

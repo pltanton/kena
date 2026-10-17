@@ -383,11 +383,16 @@
     return v;
   }
 
+  function blankEmpty(s) {
+    return normalize(s) === "";
+  }
+
   function retryTaskView(t, results) {
     var v = newTaskView(t, null);
     v.segments.forEach(function (s) {
       if (!s.blank || s.index - 1 >= results.length) return;
       var res = results[s.index - 1];
+      if (blankEmpty(res.given)) return;
       s.value = trimSpace(res.given);
       s.locked = res.correct;
       s.wrong = !res.correct;
@@ -401,7 +406,7 @@
   function nudge(t, results) {
     var worst = "";
     for (var i = 0; i < results.length; i++) {
-      if (results[i].correct || i >= t.blanks.length) continue;
+      if (results[i].correct || i >= t.blanks.length || blankEmpty(results[i].given)) continue;
       var k = classify(results[i].given, t.blanks[i].answers);
       if (!nudges[k]) return "";
       if (nudgeRank[k] > (nudgeRank[worst] || 0)) worst = k;
@@ -433,13 +438,14 @@
   }
 
   function newCardView(deck, t, p, results, reveal, correct) {
-    var v = {info: infoFor(deck, t), params: copy(p), inPage: false, retry: false, nudge: "", checked: false, correct: false, streak: 0, notes: {explanation: "", rule: null}, nextURL: "", bar: {index: 0, total: 0, nav: null}};
+    var v = {info: infoFor(deck, t), params: copy(p), inPage: false, retry: false, soFar: false, nudge: "", checked: false, correct: false, streak: 0, notes: {explanation: "", rule: null}, nextURL: "", bar: {index: 0, total: 0, nav: null}};
     if (!results) {
       v.task = newTaskView(t, null);
     } else if (!reveal) {
       v.task = retryTaskView(t, results);
       v.retry = true;
       v.nudge = nudge(t, results);
+      v.soFar = !v.task.segments.some(function (s) { return s.wrong; });
     } else {
       v.task = newTaskView(t, results);
       v.checked = true;
@@ -554,6 +560,7 @@
     function checkActions(v) {
       var h = "";
       if (v.nudge) h = '<p class="nudge" role="status">' + esc(t(v.nudge)) + "</p>";
+      else if (v.soFar) h = '<p class="visually-hidden" role="status">' + esc(t("play.right_so_far")) + "</p>";
       else if (v.retry) h = '<p class="visually-hidden" role="status">' + esc(t("play.not_quite")) + "</p>";
       return h + '\n<div class="check-actions"><button type="submit">' + esc(t("play.check")) + '</button><button type="submit" name="giveup" value="1" class="quiet">' + esc(t("play.give_up")) + "</button></div>";
     }
@@ -702,6 +709,15 @@
       var answers = form.getAll("a").map(String);
       if (answers.length !== task.blanks.length) throw invalid("answers", answers.length);
       var res = check(answersOf(task), answers);
+      if (form.get("giveup") !== "1" && answers.some(blankEmpty)) {
+        if (res.results.some(function (r) { return !r.correct && !blankEmpty(r.given); })) {
+          p.streak = 0;
+          p.tries++;
+        }
+        var pv = newCardView(deck, task, p, res.results, false, false);
+        pv.bar = {index: p.i, total: p.n, nav: newNav(deck.slug, id, 0, p)};
+        return {html: render.card(pv), attempt: null};
+      }
       var giveUp = !res.all && form.get("giveup") === "1";
       if (!res.all) p.streak = 0;
       else if (p.tries === 0) p.streak++;
@@ -862,7 +878,8 @@
     var m = new URL(cfg.path, location.href).pathname.match(/^\/t\/(\d+)\/check$/);
     if (!m) return;
     try {
-      sync.record(attemptOf(eng.check(parseInt(m[1], 10), cfg.formData).attempt, cfg), true);
+      var a = eng.check(parseInt(m[1], 10), cfg.formData).attempt;
+      if (a) sync.record(attemptOf(a, cfg), true);
     } catch (err) {}
   });
 

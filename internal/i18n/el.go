@@ -240,6 +240,7 @@ var el = catalog{
 		"play.give_up":        "Λύση",
 		"play.next":           "Επόμενο",
 		"play.not_quite":      "Όχι ακριβώς, δοκιμάστε ξανά.",
+		"play.right_so_far":   "Σωστά ως εδώ.",
 		"play.options":        "Επιλογές",
 		"play.options_label":  "Επιλογές εξάσκησης",
 		"play.prev":           "Προηγούμενη κάρτα",

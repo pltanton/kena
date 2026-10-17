@@ -93,3 +93,21 @@ test("local attempts newer than the pack override its state", () => {
     "3": {answers: ["z"], correct: true, gaveUp: false},
   });
 });
+
+test("a partial check queues no attempt and leaves the state alone", () => {
+  const g = read("../testdata/offline_golden.json");
+  const state = {};
+  const eng = core.engine(core.deckOf(g.pack), state);
+  const two = g.pack.tasks.find((t) => t.hints.length === 2).id;
+  const right = eng.check(two, new URLSearchParams("mode=cards&a=πίνεις&a=&streak=2"));
+  assert.equal(right.attempt, null);
+  assert.match(right.html, /name="streak" value="2"/);
+  assert.doesNotMatch(right.html, /name="tries"|aria-invalid|Πίνω/);
+  const wrong = eng.check(two, new URLSearchParams("mode=cards&a=&a=λαθος&streak=2"));
+  assert.equal(wrong.attempt, null);
+  assert.match(wrong.html, /name="tries" value="1"/);
+  assert.doesNotMatch(wrong.html, /name="streak"|πίνεις|Πίνω/);
+  assert.deepEqual(state, {});
+  assert.equal(eng.check(two, new URLSearchParams("mode=cards&a=πίνεις&a=πίνω&tries=1")).attempt.correct, true);
+  assert.equal(state[two].correct, true);
+});

@@ -14,7 +14,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-swipe-nav-design.md`, admin:
 `docs/superpowers/specs/2026-10-17-admin-design.md`, UI languages, theme button and CSP:
 `docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`, offline practice and sync:
-`docs/superpowers/specs/2026-10-18-offline-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-18-offline-design.md`, partial check:
+`docs/superpowers/specs/2026-10-18-partial-check-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -48,7 +49,7 @@ nix flake check
 
 ## Rules
 
-- Answers never reach the practice page before Give up or a correct check: a wrong check re-renders the form with the typed text and right blanks locked; checking is server-side. `/mistakes` shows expected answers, but only for tasks already attempted. A revisited card (`/play/card`, `?at=`) shows the answer only when the viewer's last attempt is correct or a real give-up (`attempts.gave_up`); a wrong check comes back as the retry form.
+- Answers never reach the practice page before Give up or a correct check: a wrong check re-renders the form with the typed text and right blanks locked; a check with an empty blank (not Give up) is partial: it marks only the filled blanks and records nothing; checking is server-side. `/mistakes` shows expected answers, but only for tasks already attempted. A revisited card (`/play/card`, `?at=`) shows the answer only when the viewer's last attempt is correct or a real give-up (`attempts.gave_up`); a wrong check comes back as the retry form.
 - QR login codes (`login_codes`) are hashed, one-time, 5 minutes, one unused code per user; the GET page never consumes a code, only the POST does. kena's logs redact `/login/qr/<secret>` (`session.RedactPath`); a reverse proxy's own access log still records full paths, so keep that log private or redact there too.
 - `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts. The report (MCP and `/mistakes`) leaves out other users' private sets.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).

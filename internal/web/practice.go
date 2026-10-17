@@ -7,6 +7,7 @@ import (
 	mrand "math/rand/v2"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -189,6 +190,10 @@ func newTaskView(t store.Task, results []greek.BlankResult) taskView {
 	return v
 }
 
+func blankEmpty(s string) bool { return greek.NormalizeAnswer(s) == "" }
+
+func someEmpty(answers []string) bool { return slices.ContainsFunc(answers, blankEmpty) }
+
 func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
 	v := newTaskView(t, nil)
 	for i := range v.Segments {
@@ -197,6 +202,9 @@ func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
 			continue
 		}
 		res := results[s.Index-1]
+		if blankEmpty(res.Given) {
+			continue
+		}
 		s.Value = strings.TrimSpace(res.Given)
 		s.Locked = res.Correct
 		s.Wrong = !res.Correct
@@ -215,7 +223,7 @@ var nudgeRank = map[greek.ErrorKind]int{greek.KindAccent: 1, greek.KindFinalSigm
 func nudge(t store.Task, results []greek.BlankResult) string {
 	worst := greek.ErrorKind("")
 	for i, res := range results {
-		if res.Correct || i >= len(t.Blanks) {
+		if res.Correct || i >= len(t.Blanks) || blankEmpty(res.Given) {
 			continue
 		}
 		k := greek.Classify(res.Given, t.Blanks[i].Answers)
@@ -302,6 +310,7 @@ type cardView struct {
 	InPage  bool
 	Params  params
 	Retry   bool
+	SoFar   bool
 	Nudge   string
 	Checked bool
 	Correct bool
@@ -318,6 +327,7 @@ func newCardView(set store.Set, t store.Task, p params, results []greek.BlankRes
 		v.Task = newTaskView(t, nil)
 	case !reveal:
 		v.Task, v.Retry, v.Nudge = retryTaskView(t, results), true, nudge(t, results)
+		v.SoFar = !slices.ContainsFunc(v.Task.Segments, func(s segment) bool { return s.Wrong })
 	default:
 		v.Task, v.Checked, v.Correct = newTaskView(t, results), true, correct
 		v.Notes = notes{Explanation: t.Explanation, Rule: ruleFor(set, t.Rule)}
@@ -538,17 +548,23 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p.I, p.N = 0, 0
 	d, err := h.loadSet(r, r.PathValue("slug"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	head, ok := h.deckHead(w, r, d, "/list", r.URL.Query().Get("filter"), p.Shuffle)
-	if !ok {
-		return
+	if data, ok := h.listData(w, r, d, p, r.URL.Query().Get("filter")); ok {
+		h.page(w, r, http.StatusOK, "list", data)
 	}
-	p.Filter = pickFilter(r.URL.Query().Get("filter"), head.Progress)
+}
+
+func (h *handler) listData(w http.ResponseWriter, r *http.Request, d setData, p params, filter string) (listPage, bool) {
+	p.I, p.N = 0, 0
+	head, ok := h.deckHead(w, r, d, "/list", filter, p.Shuffle)
+	if !ok {
+		return listPage{}, false
+	}
+	p.Filter = pickFilter(filter, head.Progress)
 	data := listPage{deckPage: head, Params: p}
 	data.General = ruleViews(d.set, true)
 	todo := filtered(ordered(d.tasks, p), p.Filter, d.last)
@@ -562,7 +578,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	if id, ok := firstUnsolved(todo, d.last); ok && id != todo[0].ID {
 		data.First = id
 	}
-	h.page(w, r, http.StatusOK, "list", data)
+	return data, true
 }
 
 type playPage struct {
@@ -608,12 +624,21 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p.I, p.N, p.Tries = 0, 0, 0
 	d, err := h.loadSet(r, r.PathValue("slug"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
+	data, err := newPlayPage(r, d, p, r.URL.Query())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.pageAs(w, r, http.StatusOK, "play", "focus", data)
+}
+
+func newPlayPage(r *http.Request, d setData, p params, q url.Values) (playPage, error) {
+	p.I, p.N, p.Tries = 0, 0, 0
 	set, last := d.set, d.last
 	order := ordered(d.tasks, p)
 	todo := filtered(order, p.Filter, last)
@@ -640,7 +665,6 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 		data.ResetURL = deckPath(set.Slug) + "/reset"
 	}
 
-	q := r.URL.Query()
 	rest := todo
 	if id, ok := firstUnsolved(todo, last); ok {
 		rest = todo[indexOf(todo, id):]
@@ -652,8 +676,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 			data.Card, err = playState(d, order, p, id, len(todo))
 		}
 		if err != nil {
-			h.fail(w, r, err)
-			return
+			return data, err
 		}
 		data.Card.inPage()
 	case len(todo) == 0:
@@ -661,8 +684,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	case q.Get("after") != "":
 		after, err := parseInt("after", q.Get("after"))
 		if err != nil {
-			h.fail(w, r, err)
-			return
+			return data, err
 		}
 		rest = filtered(order[indexOf(order, after)+1:], p.Filter, last)
 	}
@@ -679,7 +701,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data.Done.InPage = true
 	}
-	h.pageAs(w, r, http.StatusOK, "play", "focus", data)
+	return data, nil
 }
 
 func (h *handler) next(w http.ResponseWriter, r *http.Request) {
@@ -799,6 +821,10 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results, correct := greek.Check(task.Blanks, answers)
+	if r.PostForm.Get("giveup") != "1" && someEmpty(answers) {
+		h.partial(w, r, set, task, p, results)
+		return
+	}
 	giveUp := !correct && r.PostForm.Get("giveup") == "1"
 	switch {
 	case !correct:
@@ -834,6 +860,56 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	v.Streak = p.Streak
 	v.Bar = progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)}
 	h.fragment(w, r, "card", v)
+}
+
+func (h *handler) partial(w http.ResponseWriter, r *http.Request, set store.Set, task store.Task, p params, results []greek.BlankResult) {
+	for _, res := range results {
+		if !res.Correct && !blankEmpty(res.Given) {
+			p.Streak = 0
+			p.Tries++
+			break
+		}
+	}
+	v := newCardView(set, task, p, results, false, false)
+	if r.Header.Get("HX-Request") != "" {
+		if p.Mode == "list" {
+			h.fragment(w, r, "list_item", v)
+			return
+		}
+		v.Bar = progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)}
+		h.fragment(w, r, "card", v)
+		return
+	}
+
+	d, err := h.loadSet(r, set.Slug)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	at := r.Clone(r.Context())
+	if p.Mode == "list" {
+		at.URL, _ = url.Parse(deckURL(set.Slug, "/list", p))
+		data, ok := h.listData(w, at, d, p, p.Filter)
+		if !ok {
+			return
+		}
+		for i, item := range data.Items {
+			if item.Task.ID == task.ID {
+				data.Items[i] = v
+			}
+		}
+		h.page(w, at, http.StatusOK, "list", data)
+		return
+	}
+	at.URL, _ = url.Parse(deckURL(set.Slug, "/play", p, "at", itoa(task.ID), "streak", itoa(p.Streak)))
+	data, err := newPlayPage(at, d, p, at.URL.Query())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	v.Bar = data.Card.Bar
+	data.Card, data.Bar = v.inPage(), v.Bar
+	h.pageAs(w, at, http.StatusOK, "play", "focus", data)
 }
 
 func (h *handler) item(w http.ResponseWriter, r *http.Request) {
