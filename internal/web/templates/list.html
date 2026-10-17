@@ -1,9 +1,9 @@
-{{define "title"}}Worksheet · {{.Set.Title}} · kena{{end}}
+{{define "title"}}{{t "worksheet.title"}} · {{.Set.Title}} · kena{{end}}
 {{define "main"}}<p class="crumb"><a href="/s/{{.Set.Slug}}">← {{.Set.Title}}</a></p>
-<p class="eyebrow">Worksheet</p>
-<div class="page-head worksheet-head"><h1>{{.Set.Title}}</h1><a class="button small" href="{{.PracticeURL}}">Practise</a></div>
+<p class="eyebrow">{{t "worksheet.title"}}</p>
+<div class="page-head worksheet-head"><h1>{{.Set.Title}}</h1><a class="button small" href="{{.PracticeURL}}">{{t "deck.practise"}}</a></div>
 {{template "chooser" .Chooser}}
-{{- if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
+{{- if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">{{t "play.first_unsolved"}}</a></p>{{end}}<ol class="items">
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
 {{- else}}{{template "done" .Done}}{{end}}

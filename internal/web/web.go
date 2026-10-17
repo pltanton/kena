@@ -19,7 +19,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pltanton/kena/internal/csp"
 	"github.com/pltanton/kena/internal/greek"
+	"github.com/pltanton/kena/internal/i18n"
 	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
@@ -35,21 +37,35 @@ const (
 	cookieMaxAge = 365 * 24 * 60 * 60
 )
 
+type templates struct {
+	base  *template.Template
+	pages map[string]*template.Template
+}
+
 type handler struct {
 	st        *store.Store
 	publicURL string
-	base      *template.Template
-	pages     map[string]*template.Template
+	tmpl      map[i18n.Lang]templates
+}
+
+var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules"}
+
+func parseTemplates(l i18n.Lang) templates {
+	ts := templates{pages: map[string]*template.Template{}}
+	ts.base = template.Must(template.New("").Funcs(i18n.Funcs(l)).ParseFS(templateFS,
+		"templates/layout.html", "templates/card.html", "templates/card_result.html",
+		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
+	for _, page := range pageNames {
+		t := template.Must(ts.base.Clone())
+		ts.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
+	}
+	return ts
 }
 
 func Handler(st *store.Store, publicURL string) http.Handler {
-	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
-	h.base = template.Must(template.New("").ParseFS(templateFS,
-		"templates/layout.html", "templates/card.html", "templates/card_result.html",
-		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules"} {
-		t := template.Must(h.base.Clone())
-		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
+	h := &handler{st: st, publicURL: publicURL, tmpl: map[i18n.Lang]templates{}}
+	for _, l := range i18n.Langs {
+		h.tmpl[l] = parseTemplates(l)
 	}
 
 	static, err := fs.Sub(staticFS, "static")
@@ -85,6 +101,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /theme", h.setTheme)
+	mux.HandleFunc("POST /lang", h.setLang)
 	mux.HandleFunc("GET /admin", h.requireAdmin(h.adminList))
 	mux.HandleFunc("POST /admin/users", h.requireAdmin(h.adminCreate))
 	mux.HandleFunc("GET /admin/users/{name}", h.requireAdmin(h.adminUser))
@@ -122,6 +139,7 @@ type (
 	deviceKey   struct{}
 	progressKey struct{}
 	userKey     struct{}
+	langKey     struct{}
 )
 
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -163,6 +181,7 @@ func (h *handler) withDevice(next http.Handler) http.Handler {
 			setCookie(w, r, deviceCookie, id)
 		}
 		ctx := context.WithValue(r.Context(), deviceKey{}, id)
+		ctx = context.WithValue(ctx, langKey{}, i18n.FromRequest(r))
 		progress := id
 		u, ok, err := session.Current(r, h.st)
 		if err != nil {
@@ -181,6 +200,23 @@ func (h *handler) withDevice(next http.Handler) http.Handler {
 func deviceID(r *http.Request) string {
 	id, _ := r.Context().Value(deviceKey{}).(string)
 	return id
+}
+
+func langOf(r *http.Request) i18n.Lang {
+	if l, ok := r.Context().Value(langKey{}).(i18n.Lang); ok {
+		return l
+	}
+	return i18n.FromRequest(r)
+}
+
+func msg(key string) string { return key }
+
+func tr(r *http.Request, key string, args ...any) string {
+	return i18n.T(langOf(r), key, args...)
+}
+
+func trn(r *http.Request, key string, n int, args ...any) string {
+	return i18n.N(langOf(r), key, n, args...)
 }
 
 func progressID(r *http.Request) string {
@@ -450,9 +486,9 @@ func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
 }
 
 var nudges = map[greek.ErrorKind]string{
-	greek.KindAccent:     "Almost — check the accent",
-	greek.KindFinalSigma: "Almost — final ς",
-	greek.KindNearMiss:   "Close — a letter or two off",
+	greek.KindAccent:     msg("nudge.accent"),
+	greek.KindFinalSigma: msg("nudge.final_sigma"),
+	greek.KindNearMiss:   msg("nudge.near_miss"),
 }
 
 var nudgeRank = map[greek.ErrorKind]int{greek.KindAccent: 1, greek.KindFinalSigma: 2, greek.KindNearMiss: 3}
@@ -643,49 +679,47 @@ type layoutData struct {
 	LoginURL string
 	Page     string
 	Theme    string
-	Switch   themeSwitch
+	Prefs    prefs
 	Data     any
 }
 
-func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	here := "/"
-	if r.Method == http.MethodGet {
-		q := r.URL.Query()
-		q.Del("next")
-		here = r.URL.Path
-		if len(q) > 0 {
-			here += "?" + q.Encode()
-		}
+func here(r *http.Request) string {
+	if r.Method != http.MethodGet {
+		return "/"
 	}
-	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Switch: newThemeSwitch(r, here)}
+	q := r.URL.Query()
+	q.Del("next")
+	u := r.URL.Path
+	if len(q) > 0 {
+		u += "?" + q.Encode()
+	}
+	return u
+}
+
+func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
+	h.pageAs(w, r, status, page, "layout", data)
+}
+
+func (h *handler) pageAs(w http.ResponseWriter, r *http.Request, status int, page, layout string, data any) {
+	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Prefs: newPrefs(r, here(r))}
 	if u, ok := currentUser(r); ok {
 		ld.User = &u
 	}
 	if r.Method == http.MethodGet && r.URL.Path != "/" && r.URL.Path != "/login" {
 		ld.LoginURL = "/login?" + url.Values{"next": {r.URL.RequestURI()}}.Encode()
 	}
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
-	h.render(w, r, status, h.pages[page], "layout", ld)
-}
-
-func (h *handler) pageAs(w http.ResponseWriter, r *http.Request, status int, page, layout string, data any) {
-	ld := layoutData{Data: data, Page: page, Theme: themeOf(r)}
-	if u, ok := currentUser(r); ok {
-		ld.User = &u
-	}
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
-	h.render(w, r, status, h.pages[page], layout, ld)
+	csp.Set(w.Header())
+	w.Header().Add("Vary", "Accept-Language")
+	h.render(w, r, status, h.tmpl[langOf(r)].pages[page], layout, ld)
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
-	h.render(w, r, http.StatusOK, h.base, name, data)
+	h.render(w, r, http.StatusOK, h.tmpl[langOf(r)].base, name, data)
 }
 
 func (h *handler) serverError(w http.ResponseWriter, r *http.Request, err error) {
 	slog.Error("web request failed", "method", r.Method, "path", session.RedactPath(r.URL.Path), "err", err)
-	http.Error(w, "Something went wrong.", http.StatusInternalServerError)
+	http.Error(w, tr(r, "error.server"), http.StatusInternalServerError)
 }
 
 func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -693,7 +727,7 @@ func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, store.ErrNotFound):
 		h.notFound(w, r)
 	case errors.Is(err, store.ErrInvalid), errors.Is(err, errMissingSeed):
-		http.Error(w, "Bad request.", http.StatusBadRequest)
+		http.Error(w, tr(r, "error.bad_request"), http.StatusBadRequest)
 	default:
 		h.serverError(w, r, err)
 	}
@@ -753,7 +787,7 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 		for _, d := range decks {
 			row := newDeckRow(d.Set, progress)
 			if d.OwnerID == u.ID && d.Visibility != store.Public {
-				row.Badge = string(d.Visibility)
+				row.Badge = visibilityBadges[d.Visibility]
 			}
 			row.Starred = d.Starred
 			v.Mine = append(v.Mine, row)
@@ -824,10 +858,12 @@ type visibilityOption struct {
 }
 
 var visibilityOptions = []visibilityOption{
-	{Value: store.Private, Label: "Private", Hint: "only you"},
-	{Value: store.Friends, Label: "Friends", Hint: "anyone logged in"},
-	{Value: store.Public, Label: "Public", Hint: "everyone, also without login"},
+	{Value: store.Private, Label: msg("vis.private"), Hint: msg("vis.private_hint")},
+	{Value: store.Friends, Label: msg("vis.friends"), Hint: msg("vis.friends_hint")},
+	{Value: store.Public, Label: msg("vis.public"), Hint: msg("vis.public_hint")},
 }
+
+var visibilityBadges = map[store.Visibility]string{store.Private: msg("vis.private_badge"), store.Friends: msg("vis.friends_badge")}
 
 func visibilityChoices(current store.Visibility) []visibilityOption {
 	out := append([]visibilityOption(nil), visibilityOptions...)
@@ -946,13 +982,13 @@ func newChooser(base string, pr store.Progress, filter string, shuffle bool) cho
 	for _, o := range []struct {
 		filter, label string
 		count         int
-	}{{"unsolved", "Unsolved", pr.Total - pr.Solved}, {"mistakes", "Mistakes", pr.Mistakes}, {"all", "All", pr.Total}} {
+	}{{"unsolved", msg("filter.unsolved"), pr.Total - pr.Solved}, {"mistakes", msg("filter.mistakes"), pr.Mistakes}, {"all", msg("filter.all"), pr.Total}} {
 		if o.count == 0 && o.filter != "all" {
 			continue
 		}
 		c.Choices = append(c.Choices, choice{o.label, o.count, pickURL(base, o.filter, shuffle), o.filter == filter})
 	}
-	c.Shuffle = link{"Shuffle", pickURL(base, filter, !shuffle), shuffle}
+	c.Shuffle = link{msg("filter.shuffle"), pickURL(base, filter, !shuffle), shuffle}
 	return c
 }
 
@@ -1105,10 +1141,10 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	pr := progressOf(tasks, last)
 
 	data := playPage{Set: set, DeckURL: "/s/" + url.PathEscape(set.Slug), General: generalRules(set)}
-	for _, f := range []string{"all", "unsolved", "mistakes"} {
+	for _, f := range []struct{ filter, label string }{{"all", msg("filter.all")}, {"unsolved", msg("filter.unsolved")}, {"mistakes", msg("filter.mistakes")}} {
 		lp := p
-		lp.Filter = f
-		data.Filters = append(data.Filters, link{strings.ToUpper(f[:1]) + f[1:], playURL(set.Slug, lp), f == p.Filter})
+		lp.Filter = f.filter
+		data.Filters = append(data.Filters, link{f.label, playURL(set.Slug, lp), f.filter == p.Filter})
 	}
 	ordered, shuffled := p, p
 	ordered.Shuffle, ordered.Seed = false, 0
@@ -1116,7 +1152,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	if !p.Shuffle {
 		shuffled.Seed = uint64(mrand.Uint32())
 	}
-	data.Order = []link{{"In order", playURL(set.Slug, ordered), !p.Shuffle}, {"Shuffled", playURL(set.Slug, shuffled), p.Shuffle}}
+	data.Order = []link{{msg("order.in_order"), playURL(set.Slug, ordered), !p.Shuffle}, {msg("order.shuffled"), playURL(set.Slug, shuffled), p.Shuffle}}
 	lp := p
 	lp.Mode = "list"
 	data.ListURL = setURL(set.Slug, lp)

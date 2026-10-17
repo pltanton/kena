@@ -1,12 +1,12 @@
 {{define "done"}}{{if not .InPage}}{{with .Bar}}{{template "bar_oob" .}}{{end}}{{end}}{{$all := and .Progress.Total (eq .Progress.Solved .Progress.Total)}}<div class="card done{{if or $all (not .Empty)}} complete{{end}}">
 {{template "motif"}}
-<h2>{{if $all}}All solved{{else if .Empty}}Nothing to practise here{{else}}Done{{end}}</h2>
-{{if not $all}}<p class="muted">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</p>{{end}}
+<h2>{{if $all}}{{t "done.all_solved"}}{{else if .Empty}}{{t "done.empty"}}{{else}}{{t "done.done"}}{{end}}</h2>
+{{if not $all}}<p class="muted">{{tf "progress.solved" .Progress.Solved .Progress.Total}}{{with .Progress.Mistakes}} · <span class="bad">{{tn "count.mistakes" .}}</span>{{end}}</p>{{end}}
 <div class="actions">
-<a class="button" href="{{.AgainURL}}">Practise again</a>
+<a class="button" href="{{.AgainURL}}">{{t "done.again"}}</a>
 {{- if .Progress.Mistakes}}
-<a class="button secondary" href="{{.MistakesURL}}">Mistakes only</a>
+<a class="button secondary" href="{{.MistakesURL}}">{{t "done.mistakes_only"}}</a>
 {{- end}}
 </div>
-<p class="links"><a href="{{.DeckURL}}">Back to deck</a>{{if .LoggedIn}} · <a href="/mistakes">Review mistakes</a>{{end}}</p>
+<p class="links"><a href="{{.DeckURL}}">{{t "play.back_to_deck"}}</a>{{if .LoggedIn}} · <a href="/mistakes">{{t "done.review_mistakes"}}</a>{{end}}</p>
 </div>{{end}}

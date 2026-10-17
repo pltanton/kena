@@ -1,12 +1,12 @@
-{{define "title"}}Log in · kena{{end}}
-{{define "main"}}{{if .Username}}<h1>Log in on this device</h1>
-<p class="lede">Log in as <strong>{{.Username}}</strong> on this device?
-{{- if .Current}} You’re logged in as <strong>{{.Current}}</strong> here — you’ll switch to <strong>{{.Username}}</strong>.
-{{- else}} Your anonymous progress on this phone moves to that account.{{end}}</p>
+{{define "title"}}{{t "login.title"}} · kena{{end}}
+{{define "main"}}{{if .Username}}<h1>{{t "qrlogin.title"}}</h1>
+<p class="lede">{{th "qrlogin.ask" .Username}}
+{{- if .Current}} {{th "qrlogin.switch" .Current .Username}}
+{{- else}} {{t "qrlogin.merge"}}{{end}}</p>
 <form method="post" action="{{.Action}}">
-<button type="submit">Log in as {{.Username}}</button>
+<button type="submit">{{tf "qrlogin.submit" .Username}}</button>
 </form>
-{{else}}<h1>Code expired</h1>
-<p class="lede">This code expired — make a new one on your computer: Account → Log in on your phone.</p>
-<p><a href="/login">Log in with your passphrase instead</a></p>
+{{else}}<h1>{{t "qrlogin.expired"}}</h1>
+<p class="lede">{{t "qrlogin.expired_lede"}}</p>
+<p><a href="/login">{{t "qrlogin.use_pass"}}</a></p>
 {{end}}{{end}}

@@ -1,10 +1,10 @@
-{{define "title"}}Delete {{.Title}} · kena{{end}}
-{{define "main"}}<h1>Delete deck</h1>
+{{define "title"}}{{tf "delete.title_named" .Title}} · kena{{end}}
+{{define "main"}}<h1>{{t "delete.title"}}</h1>
 <div class="card confirm">
-<p>Delete <strong>{{.Title}}</strong> and its {{.TaskCount}} {{if eq .TaskCount 1}}task{{else}}tasks{{end}}? This removes everyone's progress on it.</p>
+<p>{{th "delete.message" .Title (tn "count.tasks" .TaskCount)}}</p>
 <form method="post" action="/s/{{.Slug}}/delete">
-<button type="submit" class="danger">Delete deck</button>
+<button type="submit" class="danger">{{t "delete.title"}}</button>
 </form>
-<a class="button secondary" href="/s/{{.Slug}}">Cancel</a>
+<a class="button secondary" href="/s/{{.Slug}}">{{t "common.cancel"}}</a>
 </div>
 {{end}}

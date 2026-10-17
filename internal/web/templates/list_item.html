@@ -6,7 +6,7 @@
 {{template "why" .Notes}}
 {{- else}}
 {{template "notes_body" .Notes}}
-<button type="button" class="secondary" hx-get="{{.ItemURL}}" hx-target="#t-{{.Task.ID}}" hx-swap="outerHTML">Try again</button>
+<button type="button" class="secondary" hx-get="{{.ItemURL}}" hx-target="#t-{{.Task.ID}}" hx-swap="outerHTML">{{t "worksheet.try_again"}}</button>
 {{- end}}
 {{- else}}
 <form action="/t/{{.Task.ID}}/check" method="post" hx-post="/t/{{.Task.ID}}/check" hx-target="#t-{{.Task.ID}}" hx-swap="outerHTML">

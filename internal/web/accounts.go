@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pltanton/kena/internal/i18n"
 	"github.com/pltanton/kena/internal/passphrase"
 	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
@@ -52,7 +53,7 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 	username, next := strings.TrimSpace(r.PostForm.Get("username")), safeNext(r.PostForm.Get("next"))
 	u, err := session.Login(w, r, h.st, username, r.PostForm.Get("passphrase"))
 	if errors.Is(err, store.ErrNotFound) {
-		h.page(w, r, http.StatusUnauthorized, "login", loginView{Username: username, Next: next, Error: "Wrong username or passphrase."})
+		h.page(w, r, http.StatusUnauthorized, "login", loginView{Username: username, Next: next, Error: tr(r, "login.wrong")})
 		return
 	}
 	if err != nil {
@@ -119,15 +120,15 @@ type accountView struct {
 	Apps     []appRow
 	NewToken *newToken
 	QR       template.HTML
-	Theme    themeSwitch
+	Prefs    prefs
 	Notice   string
 	Error    string
 }
 
-func day(t time.Time) string { return t.Format("2 Jan 2006") }
+func day(r *http.Request, t time.Time) string { return i18n.Date(langOf(r), t) }
 
-func appName(a store.ConnectedApp) appRow {
-	row := appRow{ClientID: a.ClientID, Name: a.ClientName, Since: day(a.ConnectedAt)}
+func appName(r *http.Request, a store.ConnectedApp) appRow {
+	row := appRow{ClientID: a.ClientID, Name: a.ClientName, Since: day(r, a.ConnectedAt)}
 	if strings.HasPrefix(a.ClientID, "https://") {
 		if u, err := url.Parse(a.ClientID); err == nil {
 			row.Host = u.Host
@@ -158,19 +159,19 @@ func (h *handler) renderAccount(w http.ResponseWriter, r *http.Request, status i
 		return
 	}
 	v.User = u
-	v.Theme = newThemeSwitch(r, "/account")
+	v.Prefs = newPrefs(r, "/account")
 	for _, t := range tokens {
 		if t.RevokedAt != nil {
 			continue
 		}
-		row := tokenRow{ID: t.ID, Label: t.Label, Created: day(t.CreatedAt), LastUsed: "never"}
+		row := tokenRow{ID: t.ID, Label: t.Label, Created: day(r, t.CreatedAt), LastUsed: tr(r, "date.never")}
 		if t.LastUsedAt != nil {
-			row.LastUsed = day(*t.LastUsedAt)
+			row.LastUsed = day(r, *t.LastUsedAt)
 		}
 		v.Tokens = append(v.Tokens, row)
 	}
 	for _, a := range apps {
-		v.Apps = append(v.Apps, appName(a))
+		v.Apps = append(v.Apps, appName(r, a))
 	}
 	h.page(w, r, status, "account", v)
 }
@@ -191,19 +192,19 @@ func (h *handler) changePassphrase(w http.ResponseWriter, r *http.Request, u sto
 			return
 		}
 		session.Sleep(ctx, session.FailDelay)
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: "Current passphrase is wrong."})
+		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: tr(r, "account.pass_wrong")})
 		return
 	}
 	err := h.st.SetPassword(ctx, u.ID, r.PostForm.Get("new"), session.Secret(r))
 	if errors.Is(err, store.ErrInvalid) {
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: fmt.Sprintf("The new passphrase must be at least %d characters.", passphrase.MinLength)})
+		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: tr(r, "account.pass_short", passphrase.MinLength)})
 		return
 	}
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	h.renderAccount(w, r, http.StatusOK, u, accountView{Notice: "Passphrase changed. Other devices and connected apps were signed out."})
+	h.renderAccount(w, r, http.StatusOK, u, accountView{Notice: tr(r, "account.pass_changed")})
 }
 
 func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.User) {
@@ -215,7 +216,7 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.Us
 	label := strings.TrimSpace(r.PostForm.Get("label"))
 	toConnect := r.PostForm.Get("return") == "connect"
 	if utf8.RuneCountInString(label) > maxTokenLabelRunes {
-		msg := fmt.Sprintf("The label must be at most %d characters.", maxTokenLabelRunes)
+		msg := tr(r, "account.label_long", maxTokenLabelRunes)
 		if toConnect {
 			h.renderConnect(w, r, http.StatusOK, connectView{Error: msg})
 			return

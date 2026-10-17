@@ -24,8 +24,11 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   Logging in (username + passphrase) keeps progress in the account, so every
   device sees the same; what you solved before logging in moves to the account.
 - Account page (`/account`): log in on your phone by scanning a one-time QR
-  code (5 minutes), theme (Auto, Light, Dark; also in the page footer), change
-  passphrase, personal tokens, connected apps.
+  code (5 minutes), theme (Auto, Light, Dark; the header button cycles them),
+  language, change passphrase, personal tokens, connected apps.
+- The UI speaks English, Russian and Greek: picked from the browser's
+  Accept-Language, switchable on the Account page, in the header menu when
+  logged out and in the practice ⋯ menu. Deck content stays as written.
 - MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
   press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
   You can only edit your own sets; admins can edit everything and manage users.

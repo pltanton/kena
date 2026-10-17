@@ -2,42 +2,42 @@
 {{define "main"}}{{template "deck_head" .}}
 {{template "chooser" .Chooser}}
 <div class="go">
-<a class="button go-practise" href="{{.PracticeURL}}"><span>Practise</span><small>one at a time</small></a>
-<a class="button secondary go-sheet" href="{{.WorksheetURL}}"><span>Worksheet</span><small>all on one page</small></a>
+<a class="button go-practise" href="{{.PracticeURL}}"><span>{{t "deck.practise"}}</span><small>{{t "deck.practise_hint"}}</small></a>
+<a class="button secondary go-sheet" href="{{.WorksheetURL}}"><span>{{t "worksheet.title"}}</span><small>{{t "deck.worksheet_hint"}}</small></a>
 </div>
 {{- with .Rules}}
 <section class="deck-rules" id="rules" aria-labelledby="rules-h">
-<h2 id="rules-h" class="eyebrow">Rules</h2>
+<h2 id="rules-h" class="eyebrow">{{t "rules.title"}}</h2>
 {{- range .}}
-<details class="rule-item"><summary>{{.Label}}{{if .General}} <span class="badge vis">whole deck</span>{{end}}</summary><div class="md">{{.HTML}}</div></details>
+<details class="rule-item"><summary>{{.Label}}{{if .General}} <span class="badge vis">{{t "rule.whole_deck_badge"}}</span>{{end}}</summary><div class="md">{{.HTML}}</div></details>
 {{- end}}
 </section>
 {{- end}}
 {{- if or .Progress.Solved .Progress.Mistakes}}
-<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
+<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">{{t "reset.title"}}</a></p>
 {{- end}}
 {{end}}
 
 {{define "deck_head"}}<header class="set-head">
 <h1>{{.Set.Title}}</h1>
 {{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
-<div class="meta deck-meta"><span>{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}
-{{- if and .Progress.Total (eq .Progress.Solved .Progress.Total)}} · <span class="ok">All solved ✓</span>{{end}}
-{{- if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">Edit deck</a> · <a href="/s/{{.Set.Slug}}/rules">Rules</a>{{end}}</span>
+<div class="meta deck-meta"><span>{{tf "progress.solved" .Progress.Solved .Progress.Total}}{{with .Progress.Mistakes}} · <span class="bad">{{tn "count.mistakes" .}}</span>{{end}}
+{{- if and .Progress.Total (eq .Progress.Solved .Progress.Total)}} · <span class="ok">{{t "done.all_solved"}} ✓</span>{{end}}
+{{- if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">{{t "deck.edit_link"}}</a> · <a href="/s/{{.Set.Slug}}/rules">{{t "rules.title"}}</a>{{end}}</span>
 {{- if .CanStar}}
 <form class="star-toggle" method="post" action="/s/{{.Set.Slug}}/star">
 <input type="hidden" name="next" value="{{.Here}}">
 {{- if .Starred}}
-<button type="submit" name="star" value="0" aria-pressed="true" title="Remove from My decks"><span aria-hidden="true">★</span> Starred</button>
+<button type="submit" name="star" value="0" aria-pressed="true" title="{{t "star.remove"}}"><span aria-hidden="true">★</span> {{t "star.starred"}}</button>
 {{- else}}
-<button type="submit" name="star" value="1" aria-pressed="false" title="Add to My decks"><span aria-hidden="true">☆</span> Star</button>
+<button type="submit" name="star" value="1" aria-pressed="false" title="{{t "star.add"}}"><span aria-hidden="true">☆</span> {{t "star.star"}}</button>
 {{- end}}
 </form>
 {{- end}}</div>
 {{- if .Saved}}
-<div class="notice" role="status"><p>Saved.</p>
+<div class="notice" role="status"><p>{{t "common.saved"}}</p>
 {{- with .Warnings}}
-<p>Warnings, worth a look in the <a href="/s/{{$.Set.Slug}}/edit">editor</a>:</p>
+<p>{{th "deck.warnings" (print "/s/" $.Set.Slug "/edit")}}</p>
 <ul class="issues">
 {{- range .}}
 <li>{{.}}</li>

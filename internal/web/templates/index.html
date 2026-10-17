@@ -1,16 +1,16 @@
-{{define "main"}}{{if .LoggedIn}}<div class="page-head"><h1>My decks</h1><a class="button secondary small" href="/new">New deck</a></div>
+{{define "main"}}{{if .LoggedIn}}<div class="page-head"><h1>{{t "index.my_decks"}}</h1><a class="button secondary small" href="/new">{{t "deck.new"}}</a></div>
 {{- with .Mine}}
 <ul class="sets">
 {{- range .}}
 <li>{{template "deck_row" .}}</li>
 {{- end}}
 </ul>
-<p class="foot muted">Want an agent to turn a textbook page into a deck? <a href="/connect">Connect one</a>.</p>
+<p class="foot muted">{{th "index.agent_hint"}}</p>
 {{- else}}
-<p class="empty">{{template "motif"}}<span>No decks yet — <a href="/new">make a new one</a>, <a href="/browse">discover shared ones</a>, or <a href="/connect">connect an agent</a> to make some for you.</span></p>
+<p class="empty">{{template "motif"}}<span>{{th "index.empty"}}</span></p>
 {{- end}}
-{{- else}}<h1>Public decks</h1>
-<p class="lede">Greek gap-fill practice. <a href="{{.LoginURL}}">Log in</a> to keep your own decks and progress.</p>
+{{- else}}<h1>{{t "index.public"}}</h1>
+<p class="lede">{{th "index.lede" .LoginURL}}</p>
 {{- range .Groups}}
 <section class="group">
 <h2>{{.Owner}}</h2>
@@ -21,7 +21,7 @@
 </ul>
 </section>
 {{- else}}
-<p class="empty">{{template "motif"}}<span>No public decks yet.</span></p>
+<p class="empty">{{template "motif"}}<span>{{t "index.no_public"}}</span></p>
 {{- end}}
 {{- end}}
 {{end}}

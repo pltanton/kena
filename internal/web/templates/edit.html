@@ -1,8 +1,8 @@
-{{define "title"}}{{if .New}}New deck{{else}}Edit {{.Title}}{{end}} · kena{{end}}
-{{define "main"}}<h1>{{if .New}}New deck{{else}}Edit deck{{end}}</h1>
+{{define "title"}}{{if .New}}{{t "deck.new"}}{{else}}{{tf "edit.title_named" .Title}}{{end}} · kena{{end}}
+{{define "main"}}<h1>{{if .New}}{{t "deck.new"}}{{else}}{{t "deck.edit"}}{{end}}</h1>
 {{- with .Errors}}
 <div class="error" role="alert">
-<p><strong>Nothing was saved.</strong> Fix {{if eq (len .) 1}}this{{else}}these{{end}} and save again:</p>
+<p><strong>{{t "edit.not_saved"}}</strong> {{tn "edit.fix" (len .)}}</p>
 <ul class="issues">
 {{- range .}}
 <li>{{.}}</li>
@@ -11,58 +11,58 @@
 </div>
 {{- end}}
 {{- with .Lossy}}
-<div class="warning" role="status"><p>The text on {{.}} can't show its task exactly (it has characters the format doesn't support). Saving will change it, so check those lines first.</p></div>
+<div class="warning" role="status"><p>{{tn "edit.lossy" .N .Lines}}</p></div>
 {{- end}}
 <form class="editor" method="post" action="{{.Action}}">
 {{- if .Version}}
 <input type="hidden" name="version" value="{{.Version}}">
 {{- end}}
 <div class="card fields">
-<label for="title">Title</label>
+<label for="title">{{t "edit.field_title"}}</label>
 <input id="title" name="title" value="{{.Title}}" required maxlength="200" placeholder="Αόριστος ρημάτων / Simple past">
 <div class="pair">
-<div><label for="topic">Topic</label>
+<div><label for="topic">{{t "edit.field_topic"}}</label>
 <input id="topic" name="topic" value="{{.Topic}}" maxlength="100" placeholder="aorist"></div>
-<div><label for="level">Level</label>
+<div><label for="level">{{t "edit.field_level"}}</label>
 <input id="level" name="level" value="{{.Level}}" maxlength="10" placeholder="B1"></div>
 </div>
-<label for="instructions">Instructions</label>
+<label for="instructions">{{t "edit.field_instructions"}}</label>
 <input id="instructions" name="instructions" value="{{.Instructions}}" lang="el" maxlength="300" placeholder="Συμπληρώστε με τον αόριστο.">
-<label for="source_ref">Source</label>
-<input id="source_ref" name="source_ref" value="{{.SourceRef}}" maxlength="200" placeholder="Book, unit 5, ex. 3">
-<label for="visibility">Who can see it</label>
+<label for="source_ref">{{t "edit.field_source"}}</label>
+<input id="source_ref" name="source_ref" value="{{.SourceRef}}" maxlength="200" placeholder="{{t "edit.source_placeholder"}}">
+<label for="visibility">{{t "edit.field_visibility"}}</label>
 <select id="visibility" name="visibility">
 {{- range .Visibility}}
-<option value="{{.Value}}"{{if .Current}} selected{{end}}>{{.Label}} — {{.Hint}}</option>
+<option value="{{.Value}}"{{if .Current}} selected{{end}}>{{t .Label}} — {{t .Hint}}</option>
 {{- end}}
 </select>
 </div>
-<label for="source">Tasks</label>
+<label for="source">{{t "edit.field_tasks"}}</label>
 {{- if not .New}}
-<p class="meta editor-rules"><a href="/s/{{.Slug}}/rules">Rules{{with .RuleCount}} ({{.}}){{end}}</a>: theory and tables for the deck; point a task at one with <code>@key</code>.</p>
+<p class="meta editor-rules"><a href="/s/{{.Slug}}/rules">{{t "rules.title"}}{{with .RuleCount}} ({{.}}){{end}}</a>: {{th "edit.rules_hint"}}</p>
 {{- end}}
 <details class="cheat">
-<summary>Format</summary>
-<p>One task per paragraph, an empty line between tasks. Write each blank in braces. A task may span several lines, e.g. one dialogue turn per line.</p>
+<summary>{{t "edit.format"}}</summary>
+<p>{{t "edit.format_lede"}}</p>
 <pre lang="el">Εσύ {γράφεις | γράφω} πολύ.
-> Explanation, shown after a wrong answer.
+> {{t "edit.format_example_explanation"}}
 
 Θα {πάω / θα πάω} αύριο στη θάλασσα.</pre>
 <ul>
-<li><code>{answer}</code>: a blank; <code>{a / b}</code>: two accepted answers.</li>
-<li><code>| hint</code> after the answers: shown next to the blank.</li>
-<li>Lines starting with <code>&gt;</code>: the explanation, only for what is specific to this task.</li>
-<li><code>@key</code> under a task's sentence: that task's rule. Rules themselves (theory, tables) live on the {{if .New}}Rules page, once the deck exists{{else}}<a href="/s/{{.Slug}}/rules">Rules page</a>{{end}}.</li>
-<li>Braces and <code>|</code> can't be used as plain text in a sentence.</li>
+<li>{{th "edit.format_blank"}}</li>
+<li>{{th "edit.format_hint"}}</li>
+<li>{{th "edit.format_explanation"}}</li>
+<li>{{if .New}}{{th "edit.format_rule_new"}}{{else}}{{th "edit.format_rule" (print "/s/" .Slug "/rules")}}{{end}}</li>
+<li>{{th "edit.format_braces"}}</li>
 </ul>
 </details>
 <textarea id="source" name="source" class="deck-source" lang="el" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="Εσύ {γράφεις | γράφω} πολύ.">{{.Source}}</textarea>
 <div class="form-actions">
-<button type="submit">{{if .New}}Create deck{{else}}Save{{end}}</button>
-<a class="button secondary" href="{{if .New}}/{{else}}/s/{{.Slug}}{{end}}">Cancel</a>
+<button type="submit">{{if .New}}{{t "edit.create"}}{{else}}{{t "common.save"}}{{end}}</button>
+<a class="button secondary" href="{{if .New}}/{{else}}/s/{{.Slug}}{{end}}">{{t "common.cancel"}}</a>
 </div>
 </form>
 {{- if not .New}}
-<p class="danger-zone"><a href="/s/{{.Slug}}/delete">Delete this deck…</a></p>
+<p class="danger-zone"><a href="/s/{{.Slug}}/delete">{{t "delete.link"}}</a></p>
 {{- end}}
 {{end}}

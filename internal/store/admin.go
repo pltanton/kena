@@ -77,9 +77,15 @@ func lockAdmins(ctx context.Context, tx pgx.Tx, userID int64) (target bool, admi
 	return target, admins, nil
 }
 
+var (
+	ErrOwnAdmin   = fmt.Errorf("you cannot change your own admin rights: %w", ErrForbidden)
+	ErrLastAdmin  = fmt.Errorf("this is the last admin; make someone else admin first: %w", ErrForbidden)
+	ErrSelfDelete = fmt.Errorf("you cannot delete yourself: %w", ErrForbidden)
+)
+
 func (s *Store) SetAdmin(ctx context.Context, actorID, userID int64, isAdmin bool) error {
 	if actorID == userID {
-		return fmt.Errorf("you cannot change your own admin rights: %w", ErrForbidden)
+		return ErrOwnAdmin
 	}
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		was, admins, err := lockAdmins(ctx, tx, userID)
@@ -87,7 +93,7 @@ func (s *Store) SetAdmin(ctx context.Context, actorID, userID int64, isAdmin boo
 			return err
 		}
 		if was && !isAdmin && admins <= 1 {
-			return fmt.Errorf("this is the last admin; make someone else admin first: %w", ErrForbidden)
+			return ErrLastAdmin
 		}
 		if _, err := tx.Exec(ctx, `UPDATE users SET is_admin = $2 WHERE id = $1`, userID, isAdmin); err != nil {
 			return fmt.Errorf("setting admin: %w", err)
@@ -119,7 +125,7 @@ func (s *Store) LogoutEverywhere(ctx context.Context, userID int64) error {
 
 func (s *Store) DeleteUser(ctx context.Context, actorID, userID int64) error {
 	if actorID == userID {
-		return fmt.Errorf("you cannot delete yourself: %w", ErrForbidden)
+		return ErrSelfDelete
 	}
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		was, admins, err := lockAdmins(ctx, tx, userID)
@@ -127,7 +133,7 @@ func (s *Store) DeleteUser(ctx context.Context, actorID, userID int64) error {
 			return err
 		}
 		if was && admins <= 1 {
-			return fmt.Errorf("this is the last admin; make someone else admin first: %w", ErrForbidden)
+			return ErrLastAdmin
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM attempts WHERE device_id = (SELECT progress_id FROM users WHERE id = $1)`, userID); err != nil {
 			return fmt.Errorf("deleting progress: %w", err)

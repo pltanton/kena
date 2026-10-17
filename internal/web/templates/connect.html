@@ -1,79 +1,78 @@
-{{define "title"}}Connect · kena{{end}}
-{{define "main"}}<h1>Connect</h1>
-<p class="lede">Let an AI agent read your mistakes and make decks for you, for example from a photo of your textbook.</p>
+{{define "title"}}{{t "connect.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "connect.title"}}</h1>
+<p class="lede">{{t "connect.lede"}}</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 
 <div class="card">
 <h2>Claude</h2>
-<p class="muted">Web, desktop and mobile app.</p>
-<a id="claude-add-link" class="button" href="{{.ClaudeURL}}" target="_blank" rel="noopener">Add to Claude</a>
+<p class="muted">{{t "connect.claude_where"}}</p>
+<a id="claude-add-link" class="button" href="{{.ClaudeURL}}" target="_blank" rel="noopener">{{t "connect.add_claude"}}</a>
 <ol class="steps">
-<li>Confirm the dialog in Claude.</li>
-<li>Log in on the kena page and press Allow.</li>
+<li>{{t "connect.claude_step1"}}</li>
+<li>{{t "connect.step_allow"}}</li>
 </ol>
-<p class="muted">Add it on web or desktop; it then shows up in the mobile app too.</p>
+<p class="muted">{{t "connect.claude_mobile"}}</p>
 </div>
 
 <div class="card">
 <h2>ChatGPT</h2>
 <code class="copy" id="chatgpt-url">{{.MCPURL}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="chatgpt-url" hidden>Copy URL</button>
+<button type="button" class="secondary small copy-btn" data-copy="chatgpt-url" hidden>{{t "connect.copy_url"}}</button>
 <ol class="steps">
-<li>Settings → Plugins (or Apps &amp; Connectors) → + → Add custom MCP server.</li>
-<li>Paste the URL and choose OAuth.</li>
-<li>Log in on kena and press Allow.</li>
+<li>{{t "connect.chatgpt_step1"}}</li>
+<li>{{t "connect.chatgpt_step2"}}</li>
+<li>{{t "connect.step_allow"}}</li>
 </ol>
-<p class="muted">Needs developer mode on Plus/Pro, or a Business/Enterprise plan.</p>
-<p><a href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt" target="_blank" rel="noopener">OpenAI help</a></p>
+<p class="muted">{{t "connect.chatgpt_plan"}}</p>
+<p><a href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt" target="_blank" rel="noopener">{{t "connect.openai_help"}}</a></p>
 </div>
 
 <div class="card">
 <h2>Claude Code</h2>
 <code class="copy" id="claude-code-cmd">claude mcp add --transport http kena {{.MCPURL}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="claude-code-cmd" hidden>Copy</button>
-<p class="muted">Logs in with OAuth on first use.</p>
+<button type="button" class="secondary small copy-btn" data-copy="claude-code-cmd" hidden>{{t "common.copy"}}</button>
+<p class="muted">{{t "connect.cc_oauth"}}</p>
 {{if .LoggedIn}}
 {{with .NewToken}}
-<p><strong>New token{{with .Label}} “{{.}}”{{end}}.</strong> Copy it now, it won't be shown again.</p>
+<p><strong>{{if .Label}}{{tf "tokens.new_named" .Label}}{{else}}{{t "tokens.new"}}{{end}}</strong> {{t "tokens.copy_now"}}</p>
 <code class="copy">{{.Secret}}</code>
 <code class="copy" id="claude-code-bearer-cmd">claude mcp add --transport http kena {{.MCPURL}} --header "Authorization: Bearer {{.Secret}}"</code>
-<button type="button" class="secondary small copy-btn" data-copy="claude-code-bearer-cmd" hidden>Copy</button>
+<button type="button" class="secondary small copy-btn" data-copy="claude-code-bearer-cmd" hidden>{{t "common.copy"}}</button>
 {{else}}
 <details>
-<summary>Use a bearer token instead</summary>
+<summary>{{t "connect.use_token"}}</summary>
 <form class="stack" method="post" action="/account/tokens">
 <input type="hidden" name="return" value="connect">
-<label for="connect-token-label">Label</label>
-<input id="connect-token-label" name="label" placeholder="laptop claude code" maxlength="100">
-<button type="submit" class="small">Create token</button>
+<label for="connect-token-label">{{t "tokens.label"}}</label>
+<input id="connect-token-label" name="label" placeholder="{{t "tokens.label_placeholder"}}" maxlength="100">
+<button type="submit" class="small">{{t "tokens.create"}}</button>
 </form>
-<p class="muted">Manage existing tokens on <a href="/account#tokens">your account page</a>.</p>
+<p class="muted">{{th "connect.manage_tokens"}}</p>
 </details>
 {{end}}
 {{else}}
-<p class="muted"><a href="{{.LoginURL}}">Log in</a> to create a bearer token for Claude Code, Hermes or other agents.</p>
+<p class="muted">{{th "connect.login_for_token" .LoginURL}}</p>
 {{end}}
 </div>
 
 <details class="cheat">
-<summary>More apps</summary>
+<summary>{{t "connect.more"}}</summary>
 <p><strong>Cursor</strong></p>
-<a id="cursor-add-link" class="button secondary small" href="{{.CursorURL}}">Add to Cursor</a>
+<a id="cursor-add-link" class="button secondary small" href="{{.CursorURL}}">{{t "connect.add_cursor"}}</a>
 <p><strong>VS Code</strong></p>
-<a id="vscode-add-link" class="button secondary small" href="{{.VSCodeURL}}">Add to VS Code</a>
-<p class="muted">Tools need GitHub Copilot agent mode.</p>
-<p><strong>Hermes and other agents</strong></p>
+<a id="vscode-add-link" class="button secondary small" href="{{.VSCodeURL}}">{{t "connect.add_vscode"}}</a>
+<p class="muted">{{t "connect.vscode_note"}}</p>
+<p><strong>{{t "connect.others"}}</strong></p>
 <code class="copy" id="other-url">{{.MCPURL}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="other-url" hidden>Copy URL</button>
-<p class="muted">Header: <code>Authorization: Bearer &lt;token&gt;</code>{{if .LoggedIn}} from <a href="/account#tokens">your account page</a>.{{else}}; <a href="{{.LoginURL}}">log in</a> to create one.{{end}}</p>
+<button type="button" class="secondary small copy-btn" data-copy="other-url" hidden>{{t "connect.copy_url"}}</button>
+<p class="muted">{{t "connect.header"}} <code>Authorization: Bearer &lt;token&gt;</code>{{if .LoggedIn}} {{th "connect.header_from_account"}}{{else}}; {{th "connect.header_login" .LoginURL}}{{end}}</p>
 </details>
 
-<h2>What to say</h2>
+<h2>{{t "connect.what_to_say"}}</h2>
 <div class="card">
 <code class="copy" id="prompt-photo">{{.PromptPhoto}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="prompt-photo" hidden>Copy</button>
+<button type="button" class="secondary small copy-btn" data-copy="prompt-photo" hidden>{{t "common.copy"}}</button>
 <code class="copy" id="prompt-mistakes">{{.PromptMistakes}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="prompt-mistakes" hidden>Copy</button>
+<button type="button" class="secondary small copy-btn" data-copy="prompt-mistakes" hidden>{{t "common.copy"}}</button>
 </div>
-{{template "copy_script"}}
 {{end}}

@@ -11,13 +11,13 @@ import (
 
 const (
 	mistakesDays = 30
-	askPrompt    = "Analyze my kena mistakes and make a practice set for my weak spots."
+	askPrompt    = "prompt.mistakes"
 )
 
 var kindLabels = map[greek.ErrorKind]string{
-	greek.KindAccent:     "accent",
-	greek.KindFinalSigma: "ς",
-	greek.KindNearMiss:   "near miss",
+	greek.KindAccent:     msg("kind.accent"),
+	greek.KindFinalSigma: msg("kind.final_sigma"),
+	greek.KindNearMiss:   msg("kind.near_miss"),
 }
 
 type mistakeRow struct {
@@ -70,7 +70,7 @@ func (h *handler) mistakes(w http.ResponseWriter, r *http.Request, u store.User)
 		h.serverError(w, r, err)
 		return
 	}
-	v := mistakesView{Days: mistakesDays, Prompt: askPrompt}
+	v := mistakesView{Days: mistakesDays, Prompt: tr(r, askPrompt)}
 	for _, sm := range rep.Sets {
 		ms := mistakeSet{Title: sm.Set.Title, URL: "/s/" + url.PathEscape(sm.Set.Slug)}
 		for _, tm := range sm.Tasks {

@@ -1,10 +1,10 @@
-{{define "title"}}Reset progress · kena{{end}}
-{{define "main"}}<h1>Reset progress</h1>
+{{define "title"}}{{t "reset.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "reset.title"}}</h1>
 <div class="card confirm">
-<p>Reset your progress on <strong>{{.Title}}</strong>? Your answers here will be cleared (mistakes history too).</p>
+<p>{{th "reset.message" .Title}}</p>
 <form method="post" action="/s/{{.Slug}}/reset">
-<button type="submit" class="danger">Reset progress</button>
+<button type="submit" class="danger">{{t "reset.title"}}</button>
 </form>
-<a class="button secondary" href="/s/{{.Slug}}">Cancel</a>
+<a class="button secondary" href="/s/{{.Slug}}">{{t "common.cancel"}}</a>
 </div>
 {{end}}

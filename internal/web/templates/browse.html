@@ -1,6 +1,6 @@
-{{define "title"}}Discover decks · kena{{end}}
-{{define "main"}}<h1>Discover decks</h1>
-<p class="lede">Decks other people share. {{if .LoggedIn}}Star one to add it to My decks.{{else}}<a href="{{.LoginURL}}">Log in</a> to star one and add it to My decks.{{end}}</p>
+{{define "title"}}{{t "browse.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "browse.title"}}</h1>
+<p class="lede">{{t "browse.lede"}} {{if .LoggedIn}}{{t "browse.star_hint"}}{{else}}{{th "browse.login_hint" .LoginURL}}{{end}}</p>
 {{- with .Rows}}
 <ul class="sets">
 {{- range .}}
@@ -9,9 +9,9 @@
 <form class="star" method="post" action="/s/{{.Row.Set.Slug}}/star">
 <input type="hidden" name="next" value="/browse">
 {{- if .Starred}}
-<button type="submit" name="star" value="0" aria-pressed="true" aria-label="Unstar {{.Row.Set.Title}}" title="Remove from My decks">★</button>
+<button type="submit" name="star" value="0" aria-pressed="true" aria-label="{{tf "star.unstar_named" .Row.Set.Title}}" title="{{t "star.remove"}}">★</button>
 {{- else}}
-<button type="submit" name="star" value="1" aria-pressed="false" aria-label="Star {{.Row.Set.Title}}" title="Add to My decks">☆</button>
+<button type="submit" name="star" value="1" aria-pressed="false" aria-label="{{tf "star.star_named" .Row.Set.Title}}" title="{{t "star.add"}}">☆</button>
 {{- end}}
 </form>
 {{- end}}
@@ -19,6 +19,6 @@
 {{- end}}
 </ul>
 {{- else}}
-<p class="empty">{{template "motif"}}<span>No decks from other authors yet.</span></p>
+<p class="empty">{{template "motif"}}<span>{{t "browse.empty"}}</span></p>
 {{- end}}
 {{end}}

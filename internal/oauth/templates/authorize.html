@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect to kena</title>
+<title>{{t "oauth.page_title"}}</title>
 <link rel="icon" href="/static/brand/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/static/brand/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/static/brand/icon-180.png">
@@ -12,46 +12,41 @@
 <meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/reveal.js" defer></script>
-<style>
-main.oauth-authorize,header.site{max-width:28rem}
-.choices{display:flex;gap:8px;flex-wrap:wrap}
-.choices button{flex:1}
-</style>
 </head>
-<body>
+<body class="oauth" data-msg-show="{{t "pass.show"}}" data-msg-hide="{{t "pass.hide"}}">
 <header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a></header>
 <div class="strip" aria-hidden="true"></div>
 <main class="oauth-authorize">
 {{if .Fatal}}
-<h1>Authorization error</h1>
-<p class="error">{{.Fatal}}</p>
+<h1>{{t "oauth.error"}}</h1>
+<p class="error">{{t .Fatal}}</p>
 {{else}}
-<h1>Connect an app</h1>
+<h1>{{t "oauth.title"}}</h1>
 <ul class="facts">
-{{if .ClientName}}<li><strong>{{.ClientName}}</strong> <span class="muted">(name provided by the app)</span></li>{{end}}
-{{if .ClientHost}}<li>Published by <strong>{{.ClientHost}}</strong></li>{{end}}
-<li>Sends you back to <strong>{{.RedirectHost}}</strong></li>
+{{if .ClientName}}<li><strong>{{.ClientName}}</strong> <span class="muted">{{t "oauth.name_note"}}</span></li>{{end}}
+{{if .ClientHost}}<li>{{th "oauth.published_by" .ClientHost}}</li>{{end}}
+<li>{{th "oauth.sends_back" .RedirectHost}}</li>
 </ul>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+{{if .Error}}<p class="error" role="alert">{{t .Error}}</p>{{end}}
 {{if .User}}
-<p class="ask-allow">Allow {{if .ClientName}}<strong>{{.ClientName}}</strong>{{else}}this app{{end}} to read, create and edit <strong>{{.User}}</strong>'s decks?</p>
+<p class="ask-allow">{{if .ClientName}}{{th "oauth.ask" .ClientName .User}}{{else}}{{th "oauth.ask_unnamed" .User}}{{end}}</p>
 <form method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
 {{end}}<div class="choices">
-<button type="submit" name="action" value="allow" autofocus>Allow</button>
-<button type="submit" name="action" value="cancel" class="secondary">Cancel</button>
+<button type="submit" name="action" value="allow" autofocus>{{t "oauth.allow"}}</button>
+<button type="submit" name="action" value="cancel" class="secondary">{{t "common.cancel"}}</button>
 </div>
 </form>
 {{else}}
-<p class="ask-allow">Log in to kena to let this app read, create and edit your decks.</p>
+<p class="ask-allow">{{t "oauth.ask_login"}}</p>
 <form class="card stack" method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
 {{end}}<input type="hidden" name="action" value="login">
-<label for="username">Username</label>
+<label for="username">{{t "login.username"}}</label>
 <input id="username" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if not .Username}} autofocus{{end}}>
-<label for="passphrase">Passphrase</label>
-<div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
-<button type="submit">Log in</button>
+<label for="passphrase">{{t "login.passphrase"}}</label>
+<div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="{{t "pass.show_label"}}" hidden>{{t "pass.show"}}</button></div>
+<button type="submit">{{t "login.submit"}}</button>
 </form>
 {{end}}
 {{end}}

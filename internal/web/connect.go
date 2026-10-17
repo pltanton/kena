@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-const connectPromptPhoto = "Here is a photo of an exercise from my Greek book. Make 100 more like it and upload them to kena."
+const connectPromptPhoto = "prompt.photo"
 
 type connectView struct {
 	LoggedIn       bool
@@ -53,7 +53,7 @@ func connectLinks(publicURL string) (mcpURL, claudeURL, cursorURL, vscodeURL str
 func (h *handler) renderConnect(w http.ResponseWriter, r *http.Request, status int, v connectView) {
 	mcpURL, claudeURL, cursorURL, vscodeURL := connectLinks(h.publicURL)
 	v.MCPURL, v.ClaudeURL, v.CursorURL, v.VSCodeURL = mcpURL, template.URL(claudeURL), template.URL(cursorURL), template.URL(vscodeURL)
-	v.PromptPhoto, v.PromptMistakes = connectPromptPhoto, askPrompt
+	v.PromptPhoto, v.PromptMistakes = tr(r, connectPromptPhoto), tr(r, askPrompt)
 	if _, ok := currentUser(r); ok {
 		v.LoggedIn = true
 	} else {

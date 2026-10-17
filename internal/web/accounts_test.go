@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pltanton/kena/internal/csp"
 	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
@@ -404,7 +405,7 @@ func TestPagesDenyFraming(t *testing.T) {
 
 func wantNoFraming(t *testing.T, resp *http.Response) {
 	t.Helper()
-	if resp.Header.Get("X-Frame-Options") != "DENY" || resp.Header.Get("Content-Security-Policy") != "frame-ancestors 'none'" {
+	if resp.Header.Get("X-Frame-Options") != "DENY" || resp.Header.Get("Content-Security-Policy") != csp.Policy() {
 		t.Errorf("%s: framing headers %v", resp.Request.URL.Path, resp.Header)
 	}
 }

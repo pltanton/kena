@@ -56,9 +56,12 @@ func TestPlayIsFocusMode(t *testing.T) {
 	wantStatus(t, resp, http.StatusOK)
 	wantAll(t, "play", body,
 		`class="focus"`, "interactive-widget=resizes-content", `class="focus-bar"`, `href="`+path+`" aria-label="Back to deck"`,
-		`id="focus-pos"`, "1/3", `id="card"`, `id="kbd-keeper"`, "Εσύ", "pointerdown", "visualViewport",
+		`id="focus-pos"`, "1/3", `id="card"`, `id="kbd-keeper"`, "Εσύ", `src="/static/play.js"`,
 		`class="focus-menu"`, "Switch to worksheet", `href="`+path+`/list"`, `href="`+path+`/play?filter=mistakes"`, ">In order<", ">Shuffled<", "shuffle=1", "Back to deck")
-	wantNone(t, "play", body, `<header class="site"`, "site-foot", `class="theme-switch"`, `class="controls"`, `class="strip"`, "Reset progress", "γράφεις")
+	_, js := e.get("/static/play.js")
+	wantAll(t, "play.js", js, "pointerdown", "visualViewport")
+	wantAll(t, "play menu", body, `class="theme-switch"`, `class="lang-switch"`)
+	wantNone(t, "play", body, `<header class="site"`, "site-foot", "theme-btn", `class="controls"`, `class="strip"`, "Reset progress", "γράφεις")
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
 	_, body = e.get(path + "/play")

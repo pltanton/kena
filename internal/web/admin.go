@@ -59,10 +59,10 @@ func (h *handler) requireAdmin(fn func(http.ResponseWriter, *http.Request, store
 	}
 }
 
-func adminRowOf(s store.UserSummary) adminRow {
-	row := adminRow{UserSummary: s, LastActive: "never"}
+func adminRowOf(r *http.Request, s store.UserSummary) adminRow {
+	row := adminRow{UserSummary: s, LastActive: tr(r, "date.never")}
 	if s.LastActive != nil {
-		row.LastActive = day(*s.LastActive)
+		row.LastActive = day(r, *s.LastActive)
 	}
 	return row
 }
@@ -74,7 +74,7 @@ func (h *handler) adminRows(r *http.Request) ([]adminRow, error) {
 	}
 	rows := make([]adminRow, len(sums))
 	for i, s := range sums {
-		rows[i] = adminRowOf(s)
+		rows[i] = adminRowOf(r, s)
 	}
 	return rows, nil
 }
@@ -111,10 +111,10 @@ func (h *handler) adminCreate(w http.ResponseWriter, r *http.Request, _ store.Us
 	u, err := h.st.CreateUser(r.Context(), name, isAdmin)
 	switch {
 	case errors.Is(err, store.ErrConflict):
-		h.renderAdmin(w, r, http.StatusConflict, adminView{Username: name, IsAdmin: isAdmin, Error: fmt.Sprintf("User %q already exists.", name)})
+		h.renderAdmin(w, r, http.StatusConflict, adminView{Username: name, IsAdmin: isAdmin, Error: tr(r, "admin.user_exists", name)})
 		return
 	case errors.Is(err, store.ErrInvalid):
-		h.renderAdmin(w, r, http.StatusUnprocessableEntity, adminView{Username: name, IsAdmin: isAdmin, Error: "Use 2–32 lowercase latin letters, digits, _ or -, starting with a letter or digit."})
+		h.renderAdmin(w, r, http.StatusUnprocessableEntity, adminView{Username: name, IsAdmin: isAdmin, Error: tr(r, "admin.bad_username")})
 		return
 	case err != nil:
 		h.serverError(w, r, err)
@@ -159,13 +159,28 @@ func (h *handler) adminUser(w http.ResponseWriter, r *http.Request, me store.Use
 
 func userPath(name string) string { return "/admin/users/" + url.PathEscape(name) }
 
+var guardMessages = map[error]string{
+	store.ErrOwnAdmin:   msg("admin.guard_own_admin"),
+	store.ErrLastAdmin:  msg("admin.guard_last_admin"),
+	store.ErrSelfDelete: msg("admin.guard_self_delete"),
+}
+
 func (h *handler) guardError(w http.ResponseWriter, r *http.Request, me store.User, err error) {
 	if errors.Is(err, store.ErrForbidden) {
-		msg := strings.TrimSuffix(err.Error(), ": "+store.ErrForbidden.Error())
-		h.renderAdminUser(w, r, http.StatusForbidden, me, adminUserView{Error: strings.ToUpper(msg[:1]) + msg[1:] + "."})
+		text := tr(r, "error.forbidden")
+		for e, key := range guardMessages {
+			if errors.Is(err, e) {
+				text = tr(r, key)
+			}
+		}
+		h.renderAdminUser(w, r, http.StatusForbidden, me, adminUserView{Error: text})
 		return
 	}
 	h.fail(w, r, err)
+}
+
+func deleteUserMessage(r *http.Request, row adminRow) string {
+	return tr(r, "admin.delete_message", row.User.Username, trn(r, "count.decks", row.Decks))
 }
 
 func (h *handler) adminConfirm(w http.ResponseWriter, r *http.Request, _ store.User) {
@@ -177,24 +192,20 @@ func (h *handler) adminConfirm(w http.ResponseWriter, r *http.Request, _ store.U
 	v := adminConfirmView{Back: userPath(name), Username: name}
 	switch {
 	case strings.HasSuffix(r.URL.Path, "/passphrase"):
-		v.Title, v.Button = "Reset passphrase", "Reset passphrase"
-		v.Message = "Give " + name + " a new passphrase? They are logged out everywhere and their connected apps are disconnected; personal tokens keep working."
+		v.Title = tr(r, "admin.reset_pass")
+		v.Button = v.Title
+		v.Message = tr(r, "admin.reset_pass_message", name)
 	case strings.HasSuffix(r.URL.Path, "/logout"):
-		v.Title, v.Button = "Log out everywhere", "Log out everywhere"
-		v.Message = "Log " + name + " out on every device and disconnect their apps? Personal tokens keep working."
+		v.Title = tr(r, "admin.logout_all")
+		v.Button = v.Title
+		v.Message = tr(r, "admin.logout_all_message", name)
 	default:
-		v.Title, v.Button, v.Typed = "Delete user", "Delete user", true
-		v.Message = fmt.Sprintf("Delete %s with their %d %s and all their progress? This cannot be undone.", name, row.Decks, plural(row.Decks, "deck", "decks"))
+		v.Title = tr(r, "admin.delete_user")
+		v.Button, v.Typed = v.Title, true
+		v.Message = deleteUserMessage(r, row)
 	}
 	v.Action = r.URL.Path
 	h.page(w, r, http.StatusOK, "admin_confirm", v)
-}
-
-func plural(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-	return many
 }
 
 func (h *handler) adminResetPassphrase(w http.ResponseWriter, r *http.Request, me store.User) {
@@ -249,10 +260,11 @@ func (h *handler) adminDelete(w http.ResponseWriter, r *http.Request, me store.U
 	}
 	name := row.User.Username
 	if strings.TrimSpace(r.PostForm.Get("confirm")) != name {
+		title := tr(r, "admin.delete_user")
 		h.page(w, r, http.StatusUnprocessableEntity, "admin_confirm", adminConfirmView{
-			Title: "Delete user", Button: "Delete user", Typed: true, Username: name, Action: r.URL.Path, Back: userPath(name),
-			Message: fmt.Sprintf("Delete %s with their %d %s and all their progress? This cannot be undone.", name, row.Decks, plural(row.Decks, "deck", "decks")),
-			Error:   "The username does not match; nothing was deleted.",
+			Title: title, Button: title, Typed: true, Username: name, Action: r.URL.Path, Back: userPath(name),
+			Message: deleteUserMessage(r, row),
+			Error:   tr(r, "admin.confirm_mismatch"),
 		})
 		return
 	}

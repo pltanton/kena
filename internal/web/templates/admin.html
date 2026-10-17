@@ -1,22 +1,23 @@
-{{define "title"}}Admin · kena{{end}}
-{{define "main"}}<h1>Users</h1>
+{{define "title"}}{{t "admin.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "admin.users"}}</h1>
 {{with .New}}<div class="card secret" role="status">
-<p><strong>{{.Username}}</strong> created. Send them the username and this passphrase; it won't be shown again.</p>
+<p>{{th "admin.created" .Username}}</p>
 <code class="copy" id="new-pass">{{.Passphrase}}</code>
-<button type="button" class="secondary small copy-btn" data-copy="new-pass" hidden>Copy</button>
+<button type="button" class="secondary small copy-btn" data-copy="new-pass" hidden>{{t "common.copy"}}</button>
 </div>{{end}}
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 <form class="inline-form admin-new" method="post" action="/admin/users">
-<label for="new-username" class="visually-hidden">Username</label>
-<input id="new-username" name="username" value="{{.Username}}" placeholder="new username" autocapitalize="off" autocorrect="off" spellcheck="false" required maxlength="32">
-<label class="check"><input type="checkbox" name="is_admin" value="1"{{if .IsAdmin}} checked{{end}}> admin</label>
-<button type="submit" class="secondary small">Create</button>
+<label for="new-username" class="visually-hidden">{{t "login.username"}}</label>
+<input id="new-username" name="username" value="{{.Username}}" placeholder="{{t "admin.new_username"}}" autocapitalize="off" autocorrect="off" spellcheck="false" required maxlength="32">
+<label class="check"><input type="checkbox" name="is_admin" value="1"{{if .IsAdmin}} checked{{end}}> {{t "admin.badge"}}</label>
+<button type="submit" class="secondary small">{{t "admin.create"}}</button>
 </form>
 <ul class="rows admin-users">
 {{- range .Users}}
-<li><a href="/admin/users/{{.User.Username}}"><span class="who-name">{{.User.Username}}{{if .User.IsAdmin}} <span class="badge vis">admin</span>{{end}}</span>
-<span class="meta">{{.Decks}} {{if eq .Decks 1}}deck{{else}}decks{{end}} · active {{.LastActive}} · {{.Sessions}} {{if eq .Sessions 1}}session{{else}}sessions{{end}} · {{.Tokens}} {{if eq .Tokens 1}}token{{else}}tokens{{end}}</span></a></li>
+<li><a href="/admin/users/{{.User.Username}}"><span class="who-name">{{.User.Username}}{{if .User.IsAdmin}} <span class="badge vis">{{t "admin.badge"}}</span>{{end}}</span>
+<span class="meta">{{template "admin_meta" .}}</span></a></li>
 {{- end}}
 </ul>
-{{template "copy_script"}}
 {{end}}
+
+{{define "admin_meta"}}{{tn "count.decks" .Decks}} · {{tf "admin.active" .LastActive}} · {{tn "count.sessions" .Sessions}} · {{tn "count.tokens" .Tokens}}{{end}}

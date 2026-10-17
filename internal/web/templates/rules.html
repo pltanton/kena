@@ -1,12 +1,12 @@
-{{define "title"}}Rules · {{.Set.Title}} · kena{{end}}
+{{define "title"}}{{t "rules.title"}} · {{.Set.Title}} · kena{{end}}
 {{define "main"}}<p class="crumb"><a href="/s/{{.Set.Slug}}">← {{.Set.Title}}</a></p>
-<div class="page-head"><h1>Rules</h1><a class="button small secondary" href="/s/{{.Set.Slug}}/edit">Edit tasks</a></div>
-<p class="lede">Theory for the deck, in short Markdown. A task shows its rule (<code>@key</code> in the editor) behind the ⓘ on its card and after a wrong answer. Deck-wide rules show on every card and first on the deck page.</p>
+<div class="page-head"><h1>{{t "rules.title"}}</h1><a class="button small secondary" href="/s/{{.Set.Slug}}/edit">{{t "rules.edit_tasks"}}</a></div>
+<p class="lede">{{th "rules.lede"}}</p>
 {{- with .Errors}}
 <div class="error" role="alert"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
 {{- end}}
 <details class="cheat">
-<summary>Markdown</summary>
+<summary>{{t "rules.markdown"}}</summary>
 <pre lang="el">**πόσος** συμφωνεί με το ουσιαστικό: *πόσους φίλους;*
 
 - ονομαστική: υποκείμενο
@@ -17,24 +17,24 @@
 | ονομ.  | πόσοι  | πόσες | πόσα  |
 | αιτ.   | πόσους | πόσες | πόσα  |</pre>
 <ul>
-<li><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>~~struck~~</code>, <code>[link](https://…)</code>.</li>
-<li>Lines starting with <code>-</code> or <code>1.</code>: a list. An empty line starts a new paragraph.</li>
-<li>A table: a header row, a <code>|---|</code> row, then one row per line. The columns don't have to line up. At most 12 columns and 400 cells.</li>
-<li>No HTML and no images; they are not shown.</li>
+<li>{{th "rules.md_inline"}}</li>
+<li>{{th "rules.md_list"}}</li>
+<li>{{th "rules.md_table"}}</li>
+<li>{{t "rules.md_no_html"}}</li>
 </ul>
 </details>
 {{- if .Rules}}
 <div class="rule-list">
 {{- range .Rules}}
 <details class="rule-edit" id="rule-{{.Orig}}"{{if or .Saved .Errors .Preview}} open{{end}}>
-<summary><span class="rule-edit-name">{{.Label}}</span><span class="meta">{{if .General}}<span class="badge vis">whole deck</span> {{end}}@{{.Orig}} · {{.Uses}} {{if eq .Uses 1}}task{{else}}tasks{{end}}</span></summary>
+<summary><span class="rule-edit-name">{{.Label}}</span><span class="meta">{{if .General}}<span class="badge vis">{{t "rule.whole_deck_badge"}}</span> {{end}}@{{.Orig}} · {{tn "count.tasks" .Uses}}</span></summary>
 {{template "rule_form" .}}
 </details>
 {{- end}}
 </div>
 {{- end}}
 <details class="rule-edit rule-new" id="rule-new"{{if or (not .Rules) .New.Errors .New.Preview}} open{{end}}>
-<summary><span class="rule-edit-name">Add a rule</span></summary>
+<summary><span class="rule-edit-name">{{t "rules.add"}}</span></summary>
 {{template "rule_form" .New}}
 </details>
 {{end}}
@@ -43,40 +43,34 @@
 <input type="hidden" name="version" value="{{.Version}}">
 <input type="hidden" name="orig" value="{{$f.Orig}}">
 {{- if $f.Saved}}
-<p class="notice" role="status">Saved.</p>
+<p class="notice" role="status">{{t "common.saved"}}</p>
 {{- end}}
 {{- with $f.Errors}}
-<div class="error" role="alert"><p><strong>Not saved.</strong></p><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+<div class="error" role="alert"><p><strong>{{t "rules.not_saved"}}</strong></p><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
 {{- end}}
 {{- with $f.Warnings}}
 <div class="warning" role="status"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
 {{- end}}
-<label for="title-{{$f.Orig}}">Title</label>
+<label for="title-{{$f.Orig}}">{{t "rules.field_title"}}</label>
 <input id="title-{{$f.Orig}}" name="title" value="{{$f.Title}}" maxlength="80" lang="el" placeholder="Πόσος: γένος, αριθμός, πτώση">
 <div class="rule-head">
-<div><label for="key-{{$f.Orig}}">Key</label>
+<div><label for="key-{{$f.Orig}}">{{t "rules.field_key"}}</label>
 <input id="key-{{$f.Orig}}" name="key" value="{{$f.Key}}" required maxlength="32" pattern="[a-z0-9\-]{1,32}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="agree"></div>
-<label class="check"><input type="checkbox" name="general" value="1"{{if $f.General}} checked{{end}}> Whole deck</label>
+<label class="check"><input type="checkbox" name="general" value="1"{{if $f.General}} checked{{end}}> {{t "rule.whole_deck"}}</label>
 </div>
-<label for="body-{{$f.Orig}}">Rule</label>
+<label for="body-{{$f.Orig}}">{{t "rule.label"}}</label>
 <textarea id="body-{{$f.Orig}}" name="body" class="rule-body" lang="el" rows="7" maxlength="4000" required spellcheck="false">{{$f.Body}}</textarea>
 {{- if $f.Orig}}
-<p class="meta rule-uses">{{if $f.Uses}}Used by {{$f.Uses}} {{if eq $f.Uses 1}}task{{else}}tasks{{end}}{{else}}Not used by any task yet{{end}}: <code>@{{$f.Orig}}</code> under a sentence in the editor</p>
+<p class="meta rule-uses">{{if $f.Uses}}{{tn "rules.used_by" $f.Uses}}{{else}}{{t "rules.unused"}}{{end}}: {{th "rules.how_to_use" $f.Orig}}</p>
 {{- end}}
 {{- with $f.Preview}}
-<div class="rule-preview"><p class="info-label">Preview</p><div class="md">{{.}}</div></div>
+<div class="rule-preview"><p class="info-label">{{t "rules.preview"}}</p><div class="md">{{.}}</div></div>
 {{- end}}
 <div class="form-actions">
-<button type="submit" name="op" value="save">{{if $f.Orig}}Save{{else}}Add rule{{end}}</button>
-<button type="submit" name="op" value="preview" class="secondary">Preview</button>
+<button type="submit" name="op" value="save">{{if $f.Orig}}{{t "common.save"}}{{else}}{{t "rules.add_rule"}}{{end}}</button>
+<button type="submit" name="op" value="preview" class="secondary">{{t "rules.preview"}}</button>
 {{- if $f.Orig}}
-<button type="submit" name="op" value="delete" class="quiet danger-link" formnovalidate data-confirm="Delete the rule {{$f.Orig}}?">Delete</button>
+<button type="submit" name="op" value="delete" class="quiet danger-link" formnovalidate data-confirm="{{tf "rules.confirm_delete" $f.Orig}}">{{t "common.delete"}}</button>
 {{- end}}
 </div>
-</form>
-<script>
-document.currentScript.previousElementSibling.addEventListener("submit", function (e) {
-  var b = e.submitter;
-  if (b && b.dataset.confirm && !confirm(b.dataset.confirm)) e.preventDefault();
-});
-</script>{{end}}
+</form>{{end}}

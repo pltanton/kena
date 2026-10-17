@@ -3,7 +3,7 @@ document.querySelectorAll(".pass").forEach(function (box) {
   var button = box.querySelector(".reveal");
   function set(show) {
     input.type = show ? "text" : "password";
-    button.textContent = show ? "Hide" : "Show";
+    button.textContent = show ? document.body.dataset.msgHide : document.body.dataset.msgShow;
     button.setAttribute("aria-pressed", String(show));
   }
   button.hidden = false;

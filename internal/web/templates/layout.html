@@ -1,36 +1,42 @@
 {{define "layout"}}<!doctype html>
-<html lang="en" data-theme="{{.Theme}}">
+<html lang="{{lang}}" data-theme="{{.Theme}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{block "title" .Data}}kena{{end}}</title>
 {{template "head_links" .}}
 </head>
-<body>
+<body{{template "body_strings"}}>
 <header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a>
-<nav class="nav" aria-label="Main">
+<div class="site-right">
+<nav class="nav" aria-label="{{t "nav.main"}}">
 {{- if .User}}
-<a href="/"{{if eq .Page "index"}} aria-current="page"{{end}}>My decks</a>
-<a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>Discover</a>
-<a href="/mistakes"{{if eq .Page "mistakes"}} aria-current="page"{{end}}>Mistakes</a>
-<a href="/account" class="acct"{{if eq .Page "account"}} aria-current="page"{{end}} aria-label="Account ({{.User.Username}})" title="{{.User.Username}}"><svg class="icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.75"/><path d="M4.75 19.5c1.2-3.4 4-5.25 7.25-5.25s6.05 1.85 7.25 5.25"/></svg></a>
+<a href="/"{{if eq .Page "index"}} aria-current="page"{{end}}>{{t "nav.my_decks"}}</a>
+<a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>{{t "nav.discover"}}</a>
+<a href="/mistakes"{{if eq .Page "mistakes"}} aria-current="page"{{end}}>{{t "nav.mistakes"}}</a>
 {{- else}}
-<a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>Discover</a>
-<a href="/connect"{{if eq .Page "connect"}} aria-current="page"{{end}}>Connect</a>
-<a href="{{.LoginURL}}"{{if eq .Page "login"}} aria-current="page"{{end}}>Log in</a>
+<a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>{{t "nav.discover"}}</a>
+<a href="/connect"{{if eq .Page "connect"}} aria-current="page"{{end}}>{{t "nav.connect"}}</a>
+<a href="{{.LoginURL}}"{{if eq .Page "login"}} aria-current="page"{{end}}>{{t "nav.login"}}</a>
 {{- end}}
-</nav></header>
+</nav>
+{{template "theme_button" .Prefs}}
+{{- if .User}}
+<a href="/account" class="icon-btn acct"{{if eq .Page "account"}} aria-current="page"{{end}} aria-label="{{tf "nav.account" .User.Username}}" title="{{.User.Username}}"><svg class="icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.75"/><path d="M4.75 19.5c1.2-3.4 4-5.25 7.25-5.25s6.05 1.85 7.25 5.25"/></svg></a>
+{{- else}}
+{{template "lang_menu" .Prefs}}
+{{- end}}
+</div></header>
 <div class="strip" aria-hidden="true"></div>
 <main>
 {{template "main" .Data}}
 </main>
-<footer class="site-foot">{{template "theme_switch" .Switch}}</footer>
 {{template "flash"}}
 </body>
 </html>
 {{end}}
 
-{{define "sentence"}}{{range .Segments}}{{if not .Blank}}{{.Text}}{{else if .Checked}}{{if .Correct}}<span class="filled ok">{{.Given}}</span>{{else}}<span class="fix"><s class="given bad">{{or .Given "—"}}</s> → <span class="expected ok">{{.Expected}}</span></span>{{end}}{{else}}<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Blank {{.Index}}"{{with .Hint}} placeholder="{{.}}"{{end}}{{with .Value}} value="{{.}}"{{end}}{{if .Locked}} readonly tabindex="-1" class="locked"{{else if .Wrong}} class="wrong" aria-invalid="true"{{end}}{{if .Autofocus}} autofocus{{end}}>{{with .Hint}} <span class="hint">({{.}})</span>{{end}}</span>{{end}}{{end}}{{end}}
+{{define "sentence"}}{{range .Segments}}{{if not .Blank}}{{.Text}}{{else if .Checked}}{{if .Correct}}<span class="filled ok">{{.Given}}</span>{{else}}<span class="fix"><s class="given bad">{{or .Given "—"}}</s> → <span class="expected ok">{{.Expected}}</span></span>{{end}}{{else}}<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="{{tf "task.blank" .Index}}"{{with .Hint}} placeholder="{{.}}"{{end}}{{with .Value}} value="{{.}}"{{end}}{{if .Locked}} readonly tabindex="-1" class="locked"{{else if .Wrong}} class="wrong" aria-invalid="true"{{end}}{{if .Autofocus}} autofocus{{end}}>{{with .Hint}} <span class="hint">({{.}})</span>{{end}}</span>{{end}}{{end}}{{end}}
 
 {{define "motif"}}<svg class="motif" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><rect x="0" y="0" width="6" height="6" rx="0.6"/><rect x="7" y="0" width="6" height="6" rx="0.6" class="slate"/><rect x="14" y="0" width="6" height="6" rx="0.6"/><rect x="0" y="7" width="6" height="6" rx="0.6" class="slate"/><rect x="7" y="7" width="6" height="6" rx="0.6"/><rect x="14.5" y="7.5" width="5" height="5" class="hole"/><rect x="0" y="14" width="6" height="6" rx="0.6"/><rect x="7" y="14" width="6" height="6" rx="0.6" class="slate"/><rect x="14" y="14" width="6" height="6" rx="0.6"/></svg>{{end}}
 
@@ -51,25 +57,25 @@
 <input type="hidden" name="tries" value="{{.Tries}}">
 {{- end}}{{end}}
 
-{{define "check_actions"}}{{with .Nudge}}<p class="nudge" role="status">{{.}}</p>{{else}}{{if .Retry}}<p class="visually-hidden" role="status">Not quite, try again.</p>{{end}}{{end}}
-<div class="check-actions"><button type="submit">Check</button><button type="submit" name="giveup" value="1" class="quiet">Give up</button></div>{{end}}
+{{define "check_actions"}}{{with .Nudge}}<p class="nudge" role="status">{{t .}}</p>{{else}}{{if .Retry}}<p class="visually-hidden" role="status">{{t "play.not_quite"}}</p>{{end}}{{end}}
+<div class="check-actions"><button type="submit">{{t "play.check"}}</button><button type="submit" name="giveup" value="1" class="quiet">{{t "play.give_up"}}</button></div>{{end}}
 
-{{define "why"}}{{if or .Explanation .Rule}}<details class="why"><summary>Why?</summary>{{template "notes_body" .}}</details>{{end}}{{end}}
+{{define "why"}}{{if or .Explanation .Rule}}<details class="why"><summary>{{t "play.why"}}</summary>{{template "notes_body" .}}</details>{{end}}{{end}}
 
-{{define "notes_body"}}{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}{{with .Rule}}{{if $.Full}}<div class="rule rule-full"><p><span class="rule-label">Rule</span>{{with .Title}} <strong>{{.}}</strong>{{end}}</p><div class="md">{{.HTML}}</div></div>{{else}}<p class="rule"><span class="rule-label">Rule</span> <span class="rule-name">{{.Label}}</span>{{with .Preview}} — {{.}}{{end}} <button type="button" class="link-button" data-open-info hidden>Show rule</button></p>{{end}}{{end}}{{end}}
+{{define "notes_body"}}{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}{{with .Rule}}{{if $.Full}}<div class="rule rule-full"><p><span class="rule-label">{{t "rule.label"}}</span>{{with .Title}} <strong>{{.}}</strong>{{end}}</p><div class="md">{{.HTML}}</div></div>{{else}}<p class="rule"><span class="rule-label">{{t "rule.label"}}</span> <span class="rule-name">{{.Label}}</span>{{with .Preview}} — {{.}}{{end}} <button type="button" class="link-button" data-open-info hidden>{{t "rule.show"}}</button></p>{{end}}{{end}}{{end}}
 
 {{define "info_icon"}}<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r="0.6" fill="currentColor"/></svg>{{end}}
 
-{{define "info_button"}}{{if .}}<button type="button" class="info-btn" data-info aria-label="Rule" title="Rule" aria-haspopup="dialog" aria-controls="info-sheet" hidden>{{template "info_icon"}}</button>{{with .Rule}}<template class="info-rule" data-key="{{.Key}}">{{template "rule_full" .}}</template>{{end}}{{end}}{{end}}
+{{define "info_button"}}{{if .}}<button type="button" class="info-btn" data-info aria-label="{{t "rule.label"}}" title="{{t "rule.label"}}" aria-haspopup="dialog" aria-controls="info-sheet" hidden>{{template "info_icon"}}</button>{{with .Rule}}<template class="info-rule" data-key="{{.Key}}">{{template "rule_full" .}}</template>{{end}}{{end}}{{end}}
 
 {{define "rule_full"}}<section class="rule-doc">{{with .Title}}<h2 class="rule-title">{{.}}</h2>{{end}}<div class="md">{{.HTML}}</div></section>{{end}}
 
-{{define "info_sheet"}}<div class="sheet info-sheet" id="info-sheet" role="dialog" aria-label="Rules" hidden>
+{{define "info_sheet"}}<div class="sheet info-sheet" id="info-sheet" role="dialog" aria-label="{{t "rule.sheet"}}" hidden>
 <div class="info-scroll">
 <div id="info-card"></div>
 {{- with .}}
 <div class="info-general">
-<p class="info-label">Whole deck</p>
+<p class="info-label">{{t "rule.whole_deck"}}</p>
 {{- if gt (len .) 1}}
 {{- range .}}
 <details class="rule-item" data-key="{{.Key}}"><summary>{{.Label}}</summary><div class="md">{{.HTML}}</div></details>
@@ -82,13 +88,13 @@
 </div>
 {{- end}}
 </div>
-<button type="button" class="secondary sheet-close" data-info-close>Close</button>
+<button type="button" class="secondary sheet-close" data-info-close>{{t "common.close"}}</button>
 </div>{{end}}
 
-{{define "bar"}}{{with .Nav}}<a class="nav-btn" data-nav="prev"{{with .PrevURL}} href="{{.}}"{{else}} aria-disabled="true"{{end}}{{with .PrevID}} data-prev="{{.}}"{{end}} data-card="{{.CardURL}}" aria-label="Previous card" title="Previous card"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg></a>{{end}}
-{{- if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
+{{define "bar"}}{{with .Nav}}<a class="nav-btn" data-nav="prev"{{with .PrevURL}} href="{{.}}"{{else}} aria-disabled="true"{{end}}{{with .PrevID}} data-prev="{{.}}"{{end}} data-card="{{.CardURL}}" aria-label="{{t "play.prev"}}" title="{{t "play.prev"}}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg></a>{{end}}
+{{- if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="{{tf "play.card_of" .Index .Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
 <span class="count">{{.Index}}/{{.Total}}</span>{{end}}
-{{- with .Nav}}<a class="nav-btn" data-nav="next"{{with .SkipURL}} href="{{.}}" data-id="{{$.Nav.ID}}" data-next="{{$.Nav.NextURL}}"{{else}} aria-disabled="true"{{end}} aria-label="Skip to the next card" title="Skip"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg></a>{{end}}{{end}}
+{{- with .Nav}}<a class="nav-btn" data-nav="next"{{with .SkipURL}} href="{{.}}" data-id="{{$.Nav.ID}}" data-next="{{$.Nav.NextURL}}"{{else}} aria-disabled="true"{{end}} aria-label="{{t "play.skip_long"}}" title="{{t "play.skip"}}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg></a>{{end}}{{end}}
 
 {{define "bar_oob"}}<div id="focus-pos" class="focus-pos" hx-swap-oob="true">{{template "bar" .}}</div>{{end}}
 
@@ -106,71 +112,26 @@
 {{- end}}
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
+<script src="/static/app.js" defer></script>
 <script src="/static/reveal.js" defer></script>
 <script src="/static/info.js" defer></script>{{end}}
 
-{{define "theme_switch"}}<form class="theme-switch" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}"><span class="label">Theme</span>{{range .Options}}<button type="submit" name="theme" value="{{.Value}}" aria-pressed="{{.Current}}">{{.Label}}</button>{{end}}</form>{{end}}
+{{define "body_strings"}} data-msg-server="{{t "flash.server"}}" data-msg-network="{{t "flash.network"}}" data-msg-copied="{{t "common.copied"}}" data-msg-show="{{t "pass.show"}}" data-msg-hide="{{t "pass.hide"}}"{{end}}
+
+{{define "theme_icons"}}<svg class="ti ti-auto" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><svg class="ti ti-light" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2.1M12 19.15v2.1M2.75 12h2.1M19.15 12h2.1M5.46 5.46l1.48 1.48M17.06 17.06l1.48 1.48M5.46 18.54l1.48-1.48M17.06 6.94l1.48-1.48"/></svg><svg class="ti ti-dark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M19.5 14.6A7.75 7.75 0 0 1 9.4 4.5a7.75 7.75 0 1 0 10.1 10.1z"/></svg>{{end}}
+
+{{define "theme_button"}}<form class="theme-cycle" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}"><button type="submit" name="theme" value="{{.NextTheme}}" class="icon-btn theme-btn" data-mode="{{.Theme}}" data-label-auto="{{t "theme.label_auto"}}" data-label-light="{{t "theme.label_light"}}" data-label-dark="{{t "theme.label_dark"}}" aria-label="{{if eq .Theme "light"}}{{t "theme.label_light"}}{{else if eq .Theme "dark"}}{{t "theme.label_dark"}}{{else}}{{t "theme.label_auto"}}{{end}}" title="{{if eq .Theme "light"}}{{t "theme.label_light"}}{{else if eq .Theme "dark"}}{{t "theme.label_dark"}}{{else}}{{t "theme.label_auto"}}{{end}}">{{template "theme_icons"}}</button></form>{{end}}
+
+{{define "theme_switch"}}<form class="theme-switch" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}">{{range .Themes}}<button type="submit" name="theme" value="{{.Value}}" aria-pressed="{{.Current}}">{{t .Label}}</button>{{end}}</form>{{end}}
+
+{{define "lang_switch"}}<form class="lang-switch" method="post" action="/lang"><input type="hidden" name="next" value="{{.Next}}">{{range .Langs}}<button type="submit" name="lang" value="{{.Code}}" lang="{{.Code}}" aria-pressed="{{.Current}}">{{.Name}}</button>{{end}}</form>{{end}}
+
+{{define "lang_menu"}}<details class="lang-menu"><summary class="icon-btn" aria-label="{{tf "lang.current" .LangName}}" title="{{tf "lang.current" .LangName}}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.75"/><path d="M3.5 12h17M12 3.25c2.4 2.4 3.6 5.3 3.6 8.75s-1.2 6.35-3.6 8.75M12 3.25C9.6 5.65 8.4 8.55 8.4 12s1.2 6.35 3.6 8.75"/></svg></summary><div class="menu-pop">{{template "lang_switch" .}}</div></details>{{end}}
 
 {{define "flash"}}<div id="flash" role="alert" hidden></div>
-<script>
-(function () {
-  var flash = document.getElementById("flash");
-  var hide = null;
-  function show(msg) {
-    flash.textContent = msg;
-    flash.hidden = false;
-    clearTimeout(hide);
-    hide = setTimeout(function () { flash.hidden = true; }, 6000);
-  }
-  document.body.addEventListener("htmx:responseError", function () {
-    show("Something went wrong — reload the page.");
-  });
-  document.body.addEventListener("htmx:sendError", function () {
-    show("Network error — check your connection.");
-  });
-  flash.addEventListener("click", function () { flash.hidden = true; });
+<div id="toast" role="status" aria-live="polite" hidden></div>{{end}}
 
-  var colors = {light: "#f4efe4", dark: "#181b20"};
-  document.addEventListener("click", function (e) {
-    var button = e.target.closest(".theme-switch button[name=theme]");
-    if (!button) return;
-    e.preventDefault();
-    var theme = button.value;
-    document.documentElement.dataset.theme = theme;
-    document.querySelectorAll(".theme-switch button[name=theme]").forEach(function (b) {
-      b.setAttribute("aria-pressed", String(b.value === theme));
-    });
-    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.remove(); });
-    (theme === "auto" ? ["light", "dark"] : [theme]).forEach(function (t) {
-      var m = document.createElement("meta");
-      m.name = "theme-color";
-      m.content = colors[t];
-      if (theme === "auto") m.media = "(prefers-color-scheme: " + t + ")";
-      document.head.appendChild(m);
-    });
-    fetch("/theme", {method: "POST", headers: {"HX-Request": "true"}, body: new URLSearchParams({theme: theme})});
-  });
-})();
-</script>{{end}}
-
-{{define "copy_script"}}<script>
-(function () {
-  if (!navigator.clipboard) return;
-  document.querySelectorAll(".copy-btn").forEach(function (btn) {
-    btn.hidden = false;
-    btn.addEventListener("click", function () {
-      var el = document.getElementById(btn.dataset.copy);
-      navigator.clipboard.writeText(el.textContent).then(function () {
-        var original = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(function () { btn.textContent = original; }, 1500);
-      });
-    });
-  });
-})();
-</script>{{end}}
-
-{{define "chooser"}}<nav class="controls chooser" aria-label="Which tasks">
-<span class="seg">{{range .Choices}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}} <span class="n">{{.Count}}</span></a>{{end}}</span>
-<span class="seg">{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>Shuffle</a>{{end}}</span>
+{{define "chooser"}}<nav class="controls chooser" aria-label="{{t "chooser.label"}}">
+<span class="seg">{{range .Choices}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{t .Label}} <span class="n">{{.Count}}</span></a>{{end}}</span>
+<span class="seg">{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>{{t .Label}}</a>{{end}}</span>
 </nav>{{end}}

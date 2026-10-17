@@ -22,7 +22,7 @@ const (
 	maxEditorBody   = 1 << 20
 	maxDeckTasks    = 500
 	maxShownErrors  = 50
-	conflictMessage = "This deck changed since you opened it — copy your text, reload and apply again."
+	conflictMessage = "edit.conflict"
 )
 
 type editView struct {
@@ -37,7 +37,7 @@ type editView struct {
 	Visibility   []visibilityOption
 	Source       string
 	Errors       []string
-	Lossy        string
+	Lossy        *lossy
 	Version      string
 	RuleCount    int
 }
@@ -172,15 +172,17 @@ func sameInput(a, b greek.TaskInput) bool {
 		})
 }
 
-func linesList(lines []int) string {
+type lossy struct {
+	N     int
+	Lines string
+}
+
+func linesList(lines []int) *lossy {
 	parts := make([]string, len(lines))
 	for i, l := range lines {
 		parts[i] = strconv.Itoa(l)
 	}
-	if len(lines) == 1 {
-		return "line " + parts[0]
-	}
-	return "lines " + strings.Join(parts, ", ")
+	return &lossy{N: len(lines), Lines: strings.Join(parts, ", ")}
 }
 
 func deckSource(tasks []store.Task) string {
@@ -227,13 +229,13 @@ func (f deckForm) view(v editView) editView {
 	return v
 }
 
-func (f deckForm) check(existing []greek.Rule) ([]greek.Rule, []greek.TaskInput, []string) {
+func (f deckForm) check(r *http.Request, existing []greek.Rule) ([]greek.Rule, []greek.TaskInput, []string) {
 	rules, inputs, errs, _ := checkSource(f.source, existing)
 	if f.title == "" {
-		errs = append([]string{"Title is required."}, errs...)
+		errs = append([]string{tr(r, "edit.title_required")}, errs...)
 	}
 	if n := len(errs) - maxShownErrors; n > 0 {
-		errs = append(errs[:maxShownErrors], fmt.Sprintf("…and %d more", n))
+		errs = append(errs[:maxShownErrors], trn(r, "edit.and_more", n))
 	}
 	return rules, inputs, errs
 }
@@ -285,7 +287,7 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs, RuleCount: len(set.Rules)})
 		h.page(w, r, status, "edit", v)
 	}
-	rules, inputs, errs := f.check(set.Rules)
+	rules, inputs, errs := f.check(r, set.Rules)
 	if len(errs) > 0 {
 		rerender(http.StatusUnprocessableEntity, errs)
 		return
@@ -297,7 +299,7 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 	}
 	_, err = h.st.SaveDeck(r.Context(), set.ID, time.Unix(0, nanos), patch, inputs)
 	if errors.Is(err, store.ErrConflict) {
-		rerender(http.StatusConflict, []string{conflictMessage})
+		rerender(http.StatusConflict, []string{tr(r, conflictMessage)})
 		return
 	}
 	if err != nil {
@@ -317,7 +319,7 @@ func (h *handler) createDeck(w http.ResponseWriter, r *http.Request, u store.Use
 		h.fail(w, r, err)
 		return
 	}
-	rules, inputs, errs := f.check(nil)
+	rules, inputs, errs := f.check(r, nil)
 	if len(errs) > 0 {
 		h.page(w, r, http.StatusUnprocessableEntity, "edit", f.view(editView{New: true, Action: "/new", Errors: errs}))
 		return

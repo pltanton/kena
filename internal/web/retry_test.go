@@ -124,7 +124,7 @@ func TestListRetryAndReload(t *testing.T) {
 func TestCorrectResultHasWhy(t *testing.T) {
 	e := setup(t)
 	_, body := e.get("/s/" + e.set.Slug + "/list")
-	wantNone(t, "untried list", body, "third person singular", "<details")
+	wantNone(t, "untried list", body, "third person singular", `<details class="why"`)
 
 	for _, mode := range []string{"cards", "list"} {
 		_, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}, "mode": {mode}}, true)

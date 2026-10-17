@@ -21,6 +21,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 
+	"github.com/pltanton/kena/internal/csp"
+	"github.com/pltanton/kena/internal/i18n"
 	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 )
@@ -42,7 +44,13 @@ var (
 //go:embed templates/authorize.html
 var templatesFS embed.FS
 
-var authorizeTmpl = template.Must(template.ParseFS(templatesFS, "templates/authorize.html"))
+var authorizeTmpl = func() map[i18n.Lang]*template.Template {
+	m := map[i18n.Lang]*template.Template{}
+	for _, l := range i18n.Langs {
+		m[l] = template.Must(template.New("authorize.html").Funcs(i18n.Funcs(l)).ParseFS(templatesFS, "templates/authorize.html"))
+	}
+	return m
+}()
 
 type Server struct {
 	csrf      *http.CrossOriginProtection
@@ -228,6 +236,8 @@ var authorizeParams = []string{"response_type", "client_id", "redirect_uri", "co
 type param struct{ Name, Value string }
 
 type authorizePage struct {
+	lang         i18n.Lang
+	formAction   string
 	Fatal        string
 	ClientName   string
 	ClientHost   string
@@ -250,12 +260,13 @@ func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuth
 }
 
 func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+	lang := i18n.FromRequest(r)
 	if err := s.csrf.Check(r); err != nil {
-		renderAuthorize(w, http.StatusForbidden, authorizePage{Fatal: "Cross-site request rejected."})
+		renderAuthorize(w, http.StatusForbidden, authorizePage{lang: lang, Fatal: "oauth.cross_site"})
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "Malformed request."})
+		renderAuthorize(w, http.StatusBadRequest, authorizePage{lang: lang, Fatal: "oauth.malformed"})
 		return
 	}
 	get := r.Form.Get
@@ -264,15 +275,15 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	client, err := s.lookupClient(r.Context(), clientID)
 	if errors.Is(err, errUnknownClient) {
 		slog.Warn("oauth: authorize unknown client", "client_id", clientID, "err", err)
-		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "Unknown client."})
+		renderAuthorize(w, http.StatusBadRequest, authorizePage{lang: lang, Fatal: "oauth.unknown_client"})
 		return
 	}
 	if err != nil {
-		s.authorizeServerError(w, "client lookup", err)
+		s.authorizeServerError(w, lang, "client lookup", err)
 		return
 	}
 	if redirectURI == "" || !matchRedirect(client.RedirectURIs, redirectURI) {
-		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "The redirect URI is not registered for this client."})
+		renderAuthorize(w, http.StatusBadRequest, authorizePage{lang: lang, Fatal: "oauth.unregistered"})
 		return
 	}
 
@@ -294,7 +305,8 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := authorizePage{ClientName: client.ClientName}
+	page := authorizePage{lang: lang, ClientName: client.ClientName}
+	page.formAction, _ = csp.Source(redirectURI)
 	if strings.HasPrefix(client.ClientID, "https://") {
 		page.ClientHost = hostOf(client.ClientID)
 	}
@@ -307,7 +319,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	user, loggedIn, err := session.Current(r, s.Store)
 	if err != nil {
-		s.authorizeServerError(w, "session lookup", err)
+		s.authorizeServerError(w, lang, "session lookup", err)
 		return
 	}
 	if loggedIn {
@@ -328,12 +340,12 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		u, err := session.Login(w, r, s.Store, page.Username, r.PostForm.Get("passphrase"))
 		if errors.Is(err, store.ErrNotFound) {
 			page.User = ""
-			page.Error = "Wrong username or passphrase."
+			page.Error = "login.wrong"
 			renderAuthorize(w, http.StatusOK, page)
 			return
 		}
 		if err != nil {
-			s.authorizeServerError(w, "login", err)
+			s.authorizeServerError(w, lang, "login", err)
 			return
 		}
 		page.User = u.Username
@@ -351,7 +363,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	code, err := store.NewSecret("kena_ac_")
 	if err != nil {
-		s.authorizeServerError(w, "generate code", err)
+		s.authorizeServerError(w, lang, "generate code", err)
 		return
 	}
 	resource := get("resource")
@@ -368,15 +380,15 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:     s.now().Add(codeTTL),
 	})
 	if err != nil {
-		s.authorizeServerError(w, "save code", err)
+		s.authorizeServerError(w, lang, "save code", err)
 		return
 	}
 	s.redirectWith(w, r, redirectURI, url.Values{"code": {code}})
 }
 
-func (s *Server) authorizeServerError(w http.ResponseWriter, op string, err error) {
+func (s *Server) authorizeServerError(w http.ResponseWriter, lang i18n.Lang, op string, err error) {
 	slog.Error("oauth: authorize", "op", op, "err", err)
-	renderAuthorize(w, http.StatusInternalServerError, authorizePage{Fatal: "Internal error, try again later."})
+	renderAuthorize(w, http.StatusInternalServerError, authorizePage{lang: lang, Fatal: "oauth.internal"})
 }
 
 func hostOf(raw string) string {
@@ -394,7 +406,7 @@ func (s *Server) redirectError(w http.ResponseWriter, r *http.Request, redirectU
 func (s *Server) redirectWith(w http.ResponseWriter, r *http.Request, redirectURI string, extra url.Values) {
 	u, err := url.Parse(redirectURI)
 	if err != nil {
-		renderAuthorize(w, http.StatusBadRequest, authorizePage{Fatal: "Malformed redirect URI."})
+		renderAuthorize(w, http.StatusBadRequest, authorizePage{lang: i18n.FromRequest(r), Fatal: "oauth.malformed_redirect"})
 		return
 	}
 	q := u.Query()
@@ -412,10 +424,18 @@ func (s *Server) redirectWith(w http.ResponseWriter, r *http.Request, redirectUR
 func renderAuthorize(w http.ResponseWriter, status int, page authorizePage) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+	w.Header().Add("Vary", "Accept-Language")
+	if page.formAction != "" {
+		csp.Set(w.Header(), page.formAction)
+	} else {
+		csp.Set(w.Header())
+	}
 	w.WriteHeader(status)
-	if err := authorizeTmpl.Execute(w, page); err != nil {
+	t, ok := authorizeTmpl[page.lang]
+	if !ok {
+		t = authorizeTmpl[i18n.En]
+	}
+	if err := t.Execute(w, page); err != nil {
 		slog.Error("oauth: rendering authorize page", "err", err)
 	}
 }

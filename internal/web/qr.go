@@ -17,7 +17,7 @@ import (
 
 const loginCodeTTL = 5 * time.Minute
 
-func qrSVG(text string) (template.HTML, error) {
+func qrSVG(text, label string) (template.HTML, error) {
 	code, err := qr.Encode(text, qr.M)
 	if err != nil {
 		return "", fmt.Errorf("encoding QR: %w", err)
@@ -32,7 +32,7 @@ func qrSVG(text string) (template.HTML, error) {
 			}
 		}
 	}
-	return template.HTML(fmt.Sprintf(`<svg class="qr" viewBox="0 0 %d %d" role="img" aria-label="QR code for logging in on your phone" shape-rendering="crispEdges"><rect width="%d" height="%d" fill="#fff"/><path fill="#000" d="%s"/></svg>`, n, n, n, n, d.String())), nil
+	return template.HTML(fmt.Sprintf(`<svg class="qr" viewBox="0 0 %d %d" role="img" aria-label="%s" shape-rendering="crispEdges"><rect width="%d" height="%d" fill="#fff"/><path fill="#000" d="%s"/></svg>`, n, n, template.HTMLEscapeString(label), n, n, d.String())), nil
 }
 
 func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.User) {
@@ -42,7 +42,7 @@ func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.
 		h.serverError(w, r, err)
 		return
 	}
-	svg, err := qrSVG(h.publicURL + "/login/qr/" + url.PathEscape(code))
+	svg, err := qrSVG(h.publicURL+"/login/qr/"+url.PathEscape(code), tr(r, "qr.label"))
 	if err != nil {
 		h.serverError(w, r, err)
 		return

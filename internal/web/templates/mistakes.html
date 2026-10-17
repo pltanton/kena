@@ -1,6 +1,6 @@
-{{define "title"}}Mistakes · kena{{end}}
-{{define "main"}}<h1>Mistakes</h1>
-<p class="lede">Tasks you got wrong in the last {{.Days}} days.</p>
+{{define "title"}}{{t "mistakes.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "mistakes.title"}}</h1>
+<p class="lede">{{tn "mistakes.lede" .Days}}</p>
 {{- range .Sets}}
 <section class="group">
 <h2><a href="{{.URL}}">{{.Title}}</a></h2>
@@ -8,30 +8,18 @@
 {{- range .Tasks}}
 <li class="item mistake">
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
-<p class="meta">{{range .Kinds}}<span class="kind">{{.}}</span> {{end}}{{.WrongCount}} wrong{{if .Fixed}} · <span class="ok">fixed ✓</span>{{end}}</p>
+<p class="meta">{{range .Kinds}}<span class="kind">{{t .}}</span> {{end}}{{tn "count.wrong" .WrongCount}}{{if .Fixed}} · <span class="ok">{{t "mistakes.fixed"}} ✓</span>{{end}}</p>
 {{template "why" .Notes}}
 </li>
 {{- end}}
 </ul>
 </section>
 {{- else}}
-<p class="empty">{{template "motif"}}<span>No mistakes in the last {{.Days}} days.</span></p>
+<p class="empty">{{template "motif"}}<span>{{tn "mistakes.empty" .Days}}</span></p>
 {{- end}}
 <section class="ask">
-<h2>Ask your agent</h2>
-<p class="muted">It reads these mistakes, explains your weak spots and builds a practice deck. No agent yet? See <a href="/connect">Connect</a>.</p>
-<div class="copy-row"><code class="copy" id="ask-prompt">{{.Prompt}}</code><button type="button" class="secondary small" id="ask-copy" hidden>Copy</button></div>
+<h2>{{t "mistakes.ask"}}</h2>
+<p class="muted">{{th "mistakes.ask_lede"}}</p>
+<div class="copy-row"><code class="copy" id="ask-prompt">{{.Prompt}}</code><button type="button" class="secondary small copy-btn" data-copy="ask-prompt" hidden>{{t "common.copy"}}</button></div>
 </section>
-<script>
-(function () {
-  var button = document.getElementById("ask-copy");
-  if (!navigator.clipboard) return;
-  button.hidden = false;
-  button.addEventListener("click", function () {
-    navigator.clipboard.writeText(document.getElementById("ask-prompt").textContent).then(function () {
-      button.textContent = "Copied";
-    });
-  });
-})();
-</script>
 {{end}}

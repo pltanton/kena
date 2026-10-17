@@ -12,7 +12,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-deck-rules-design.md`, rich rules and the ⓘ sheet:
 `docs/superpowers/specs/2026-10-17-rich-rules-design.md`, swipe navigation:
 `docs/superpowers/specs/2026-10-17-swipe-nav-design.md`, admin:
-`docs/superpowers/specs/2026-10-17-admin-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-17-admin-design.md`, UI languages, theme button and CSP:
+`docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -37,8 +38,10 @@ nix flake check
 - `internal/mcpserver`: tools; every write goes through `prepare` (`greek.PrepareAgainst`, with the set's existing tasks) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
+- `internal/i18n`: UI message catalogs (`en.go`, `ru.go`, `el.go`), plurals, `kena_lang` / Accept-Language selection, template funcs `t`, `tf`, `tn`, `th`.
+- `internal/csp`: the Content-Security-Policy every HTML page sends.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`; `play.js`: focus mode), `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
@@ -53,5 +56,7 @@ nix flake check
 - Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
 - Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, empty lines or lines starting with `>` in text, line breaks outside text and explanation, control characters), so every lint-clean task round-trips through `deckfmt`. Text may span lines (dialogues); `deckfmt` reads consecutive non-`>` lines as one task.
 - Rule bodies reach HTML only through `markdown.Render`; never `template.HTML` a body yourself.
+- Every UI string goes through `internal/i18n` and exists in all three catalogs (tests check keys used in templates and Go). Deck content, MCP texts, the guide, logs and lint/parse diagnostics stay untranslated. `th` messages are trusted HTML from the catalog; their arguments are escaped.
+- No inline `<script>` or `on…=` handlers: scripts live in `static/*.js` and read localised strings from `data-*` attributes (CSP `script-src 'self'`). The authorize page's `form-action` names the validated redirect origin, because browsers apply `form-action` to the redirect after Allow/Cancel.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

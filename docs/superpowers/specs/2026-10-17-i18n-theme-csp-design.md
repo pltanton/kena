@@ -35,7 +35,7 @@ English inside localised framing ("Nothing was saved…").
   code exists, and that rendered pages contain no `!` markers.
 - Terms: deck = «набор» / «σετ» (indeclinable, keeps Greek forms simple),
   task = «задание» / «άσκηση», rule = «правило» / «κανόνας», practise =
-  «тренировка» / «εξάσκηση», worksheet = «лист заданий» / «φύλλο ασκήσεων»,
+  «тренировка» / «εξάσκηση», worksheet = «лист заданий» / «φυλλάδιο»,
   passphrase = «кодовая фраза» / «φράση πρόσβασης». Russian addresses the user
   as «вы», Greek uses the polite plural imperative («Ελέγξτε»), modern
   monotonic spelling.
@@ -78,7 +78,9 @@ and the wordmark keep `lang="el"` on their own elements. HTML pages send
   sheet gets a "Theme" row of the same three buttons.
 - The header stays on one line at 375px in all three languages: nav labels
   are short («Мои наборы», «Каталог», «Ошибки»; «Τα σετ μου», «Κατάλογος»,
-  «Λάθη»), the wordmark hides below 400px, nav padding tightens.
+  «Λάθη»), the wordmark hides below 440px (the logo stays), nav padding
+  tightens below 400px and the font below 370px. Below 360px the nav scrolls
+  sideways with a fade at its end instead of overlapping the logo.
 
 ## 3. Content-Security-Policy
 

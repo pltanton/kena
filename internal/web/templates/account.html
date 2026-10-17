@@ -1,60 +1,63 @@
-{{define "title"}}Account · kena{{end}}
-{{define "main"}}<div class="page-head"><h1>Account</h1><form method="post" action="/logout"><button type="submit" class="secondary small">Log out</button></form></div>
-<p class="lede">Logged in as <strong>{{.User.Username}}</strong>.{{if .User.IsAdmin}} <a href="/admin">Admin</a>{{end}}</p>
+{{define "title"}}{{t "account.title"}} · kena{{end}}
+{{define "main"}}<div class="page-head"><h1>{{t "account.title"}}</h1><form method="post" action="/logout"><button type="submit" class="secondary small">{{t "account.logout"}}</button></form></div>
+<p class="lede">{{th "account.logged_in_as" .User.Username}}{{if .User.IsAdmin}} <a href="/admin">{{t "admin.title"}}</a>{{end}}</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 {{with .Notice}}<p class="notice" role="status">{{.}}</p>{{end}}
 
-<h2>Connected apps</h2>
+<h2>{{t "account.apps"}}</h2>
 {{if .Apps}}<ul class="rows">
 {{- range .Apps}}
-<li><span><strong>{{.Name}}</strong><span class="meta">{{with .Host}}{{.}} · {{end}}since {{.Since}}</span></span>
-<form method="post" action="/account/apps/disconnect"><input type="hidden" name="client_id" value="{{.ClientID}}"><button type="submit" class="secondary small">Disconnect</button></form></li>
+<li><span><strong>{{.Name}}</strong><span class="meta">{{with .Host}}{{.}} · {{end}}{{tf "account.since" .Since}}</span></span>
+<form method="post" action="/account/apps/disconnect"><input type="hidden" name="client_id" value="{{.ClientID}}"><button type="submit" class="secondary small">{{t "account.disconnect"}}</button></form></li>
 {{- end}}
-</ul>{{else}}<p class="muted">No apps connected.</p>{{end}}
-<p><a href="/connect">Connect Claude, ChatGPT or another agent</a></p>
+</ul>{{else}}<p class="muted">{{t "account.no_apps"}}</p>{{end}}
+<p><a href="/connect">{{t "account.connect_link"}}</a></p>
 
-<h2 id="tokens">Personal tokens</h2>
-<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT log in instead and don't need one.</p>
+<h2 id="tokens">{{t "tokens.title"}}</h2>
+<p class="muted">{{t "tokens.lede"}}</p>
 {{with .NewToken}}<div class="card secret">
-<p><strong>New token{{with .Label}} “{{.}}”{{end}}.</strong> Copy it now, it won't be shown again.</p>
+<p><strong>{{if .Label}}{{tf "tokens.new_named" .Label}}{{else}}{{t "tokens.new"}}{{end}}</strong> {{t "tokens.copy_now"}}</p>
 <code class="copy">{{.Secret}}</code>
 <p class="muted">Claude Code:</p>
 <code class="copy">claude mcp add --transport http kena {{.MCPURL}} --header "Authorization: Bearer {{.Secret}}"</code>
 </div>{{end}}
 {{if .Tokens}}<ul class="rows">
 {{- range .Tokens}}
-<li><span><strong>{{or .Label "unlabelled"}}</strong><span class="meta">created {{.Created}} · last used {{.LastUsed}}</span></span>
-<form method="post" action="/account/tokens/{{.ID}}/revoke"><button type="submit" class="secondary small">Revoke</button></form></li>
+<li><span><strong>{{or .Label (t "tokens.unlabelled")}}</strong><span class="meta">{{tf "tokens.meta" .Created .LastUsed}}</span></span>
+<form method="post" action="/account/tokens/{{.ID}}/revoke"><button type="submit" class="secondary small">{{t "tokens.revoke"}}</button></form></li>
 {{- end}}
 </ul>{{end}}
 <form method="post" action="/account/tokens">
-<label for="label">Label</label>
+<label for="label">{{t "tokens.label"}}</label>
 <div class="inline-form">
-<input id="label" name="label" placeholder="laptop claude code" maxlength="100">
-<button type="submit" class="secondary small">New token</button>
+<input id="label" name="label" placeholder="{{t "tokens.label_placeholder"}}" maxlength="100">
+<button type="submit" class="secondary small">{{t "tokens.new_button"}}</button>
 </div>
 </form>
 
-<h2 id="phone">Log in on your phone</h2>
+<h2 id="phone">{{t "qr.title"}}</h2>
 {{if .QR}}<div class="qr-box">
 {{.QR}}
-<p class="muted">Scan it with your phone's camera. It works once, for 5 minutes.</p>
+<p class="muted">{{t "qr.scan"}}</p>
 </div>
-<p class="warning">Anyone who scans this logs in as you — don't share screenshots.</p>
-{{else}}<p class="muted">Show a QR code, scan it with your phone, and you're logged in there too. No passphrase typing.</p>
-{{end}}<form method="post" action="/account/qr#phone"><button type="submit" class="secondary small">{{if .QR}}New code{{else}}Show code{{end}}</button></form>
+<p class="warning">{{t "qr.warning"}}</p>
+{{else}}<p class="muted">{{t "qr.lede"}}</p>
+{{end}}<form method="post" action="/account/qr#phone"><button type="submit" class="secondary small">{{if .QR}}{{t "qr.new"}}{{else}}{{t "qr.show"}}{{end}}</button></form>
 
-<h2>Appearance</h2>
-{{template "theme_switch" .Theme}}
+<h2>{{t "account.appearance"}}</h2>
+{{template "theme_switch" .Prefs}}
 
-<h2>Change passphrase</h2>
+<h2>{{t "account.language"}}</h2>
+{{template "lang_switch" .Prefs}}
+
+<h2>{{t "pass.change"}}</h2>
 <form class="card stack" method="post" action="/account/passphrase">
 <input type="text" name="username" value="{{.User.Username}}" autocomplete="username" hidden>
-<label for="current">Current passphrase</label>
-<div class="pass"><input id="current" name="current" type="password" autocomplete="current-password" required><button type="button" class="reveal" aria-controls="current" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
-<label for="new">New passphrase</label>
-<div class="pass"><input id="new" name="new" type="password" autocomplete="new-password" minlength="10" required><button type="button" class="reveal" aria-controls="new" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
-<p class="muted">At least 10 characters. Other devices and connected apps will be signed out.</p>
-<button type="submit">Change passphrase</button>
+<label for="current">{{t "pass.current"}}</label>
+<div class="pass"><input id="current" name="current" type="password" autocomplete="current-password" required><button type="button" class="reveal" aria-controls="current" aria-pressed="false" aria-label="{{t "pass.show_label"}}" hidden>{{t "pass.show"}}</button></div>
+<label for="new">{{t "pass.new"}}</label>
+<div class="pass"><input id="new" name="new" type="password" autocomplete="new-password" minlength="10" required><button type="button" class="reveal" aria-controls="new" aria-pressed="false" aria-label="{{t "pass.show_label"}}" hidden>{{t "pass.show"}}</button></div>
+<p class="muted">{{t "pass.rules"}}</p>
+<button type="submit">{{t "pass.change"}}</button>
 </form>
 {{end}}

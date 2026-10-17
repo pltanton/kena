@@ -252,7 +252,7 @@ func TestStreakCarriedThroughNextAndRedirect(t *testing.T) {
 
 func TestCardsEnterAdvances(t *testing.T) {
 	e := setup(t)
-	_, body := e.get("/s/" + e.set.Slug + "/play")
+	_, body := e.get("/static/play.js")
 	if !strings.Contains(body, `"keydown"`) || !strings.Contains(body, "e.repeat") || !strings.Contains(body, "e.isComposing") || !strings.Contains(body, "card.contains(e.target)") {
 		t.Fatalf("cards page lacks the Enter handler:\n%s", body)
 	}
@@ -346,11 +346,14 @@ func TestListView(t *testing.T) {
 func TestKeyboardKeeperOnlyInCards(t *testing.T) {
 	e := setup(t)
 	_, body := e.get("/s/" + e.set.Slug + "/play")
-	if !strings.Contains(body, `id="kbd-keeper"`) || !strings.Contains(body, "htmx:beforeRequest") {
+	if !strings.Contains(body, `id="kbd-keeper"`) || !strings.Contains(body, `src="/static/play.js"`) {
 		t.Fatalf("cards mode lacks keyboard keeper:\n%s", body)
 	}
+	if _, js := e.get("/static/play.js"); !strings.Contains(js, "htmx:beforeRequest") {
+		t.Fatal("play.js lacks the keyboard keeper")
+	}
 	_, body = e.get("/s/" + e.set.Slug + "/list")
-	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "htmx:beforeRequest") {
+	if strings.Contains(body, "kbd-keeper") || strings.Contains(body, "play.js") {
 		t.Fatal("list mode renders keyboard keeper")
 	}
 }
@@ -461,7 +464,7 @@ func TestCheckWithoutHtmxCardsAdvancesInsteadOfLooping(t *testing.T) {
 func TestLayoutHandlesHtmxErrors(t *testing.T) {
 	e := setup(t)
 	_, body := e.get("/")
-	if !strings.Contains(body, "htmx:responseError") || !strings.Contains(body, "htmx:sendError") {
+	if _, js := e.get("/static/app.js"); !strings.Contains(js, "htmx:responseError") || !strings.Contains(js, "htmx:sendError") || !strings.Contains(body, `src="/static/app.js"`) {
 		t.Fatalf("layout missing htmx error handlers:\n%s", body)
 	}
 	if !strings.Contains(body, `id="flash"`) {
@@ -566,8 +569,8 @@ func TestBrandAssets(t *testing.T) {
 
 func navOf(t *testing.T, body string) string {
 	t.Helper()
-	start := strings.Index(body, `<nav class="nav"`)
-	end := strings.Index(body[start:], "</nav>")
+	start := strings.Index(body, `<header class="site"`)
+	end := strings.Index(body[start:], "</header>")
 	if start < 0 || end < 0 {
 		t.Fatalf("no main nav:\n%s", body)
 	}
@@ -592,7 +595,7 @@ func TestNav(t *testing.T) {
 		"/":         `<a href="/" aria-current="page">My decks</a>`,
 		"/browse":   `<a href="/browse" aria-current="page">Discover</a>`,
 		"/mistakes": `<a href="/mistakes" aria-current="page">Mistakes</a>`,
-		"/account":  `<a href="/account" class="acct" aria-current="page"`,
+		"/account":  `<a href="/account" class="icon-btn acct" aria-current="page"`,
 	}
 	for path, want := range cases {
 		nav := navOf(t, mustGet(t, e, path))

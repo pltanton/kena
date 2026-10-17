@@ -20,7 +20,7 @@ const (
 	rulePreviewLen  = 90
 	maxRulesBody    = 64 << 10
 	snippetLen      = 40
-	ruleGoneMessage = "This rule was changed or deleted since you opened the page — reload and try again."
+	ruleGoneMessage = "rules.gone"
 )
 
 type ruleView struct {
@@ -149,9 +149,9 @@ func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request, u store.User
 	h.page(w, r, http.StatusOK, "rules", v)
 }
 
-var ruleFieldLabels = map[string]string{"key": "Key", "title": "Title", "body": "Body"}
+var ruleFieldLabels = map[string]string{"key": msg("rules.field_key"), "title": msg("rules.field_title"), "body": msg("rules.field_body")}
 
-func ruleIssues(issues []greek.Issue, i int) (errs, warnings []string) {
+func ruleIssues(r *http.Request, issues []greek.Issue, i int) (errs, warnings []string) {
 	prefix := fmt.Sprintf("rules[%d].", i)
 	for _, iss := range issues {
 		field, ok := strings.CutPrefix(iss.Field, prefix)
@@ -160,7 +160,7 @@ func ruleIssues(issues []greek.Issue, i int) (errs, warnings []string) {
 		}
 		msg := iss.Message
 		if label := ruleFieldLabels[field]; label != "" {
-			msg = label + ": " + msg
+			msg = tr(r, label) + ": " + msg
 		}
 		if iss.Severity == greek.Error {
 			errs = append(errs, msg)
@@ -171,7 +171,7 @@ func ruleIssues(issues []greek.Issue, i int) (errs, warnings []string) {
 	return errs, warnings
 }
 
-func inUseMessage(e *store.RulesInUseError, tasks []store.Task) string {
+func inUseMessage(r *http.Request, e *store.RulesInUseError, tasks []store.Task) string {
 	byID := make(map[int64]store.Task, len(tasks))
 	for _, t := range tasks {
 		byID[t.ID] = t
@@ -179,14 +179,14 @@ func inUseMessage(e *store.RulesInUseError, tasks []store.Task) string {
 	var parts []string
 	for _, use := range e.Uses {
 		for _, ref := range use.Tasks {
-			s := fmt.Sprintf("task %d", ref.Position)
+			s := tr(r, "rules.task_n", ref.Position)
 			if t, ok := byID[ref.ID]; ok {
 				s += " «" + snippet(t.Text) + "»"
 			}
 			parts = append(parts, s)
 		}
 	}
-	return fmt.Sprintf("Still used by %s. Point those tasks at another rule (or remove their @key) in the editor first.", strings.Join(parts, ", "))
+	return tr(r, "rules.in_use", strings.Join(parts, ", "))
 }
 
 func snippet(text string) string {
@@ -240,7 +240,7 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		h.page(w, r, status, "rules", v)
 	}
 	if posted.Orig != "" && idx < 0 {
-		render(http.StatusConflict, posted, []string{ruleGoneMessage})
+		render(http.StatusConflict, posted, []string{tr(r, ruleGoneMessage)})
 		return
 	}
 
@@ -254,10 +254,10 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		var inUse *store.RulesInUseError
 		switch {
 		case errors.As(err, &inUse):
-			posted.Errors = []string{inUseMessage(inUse, tasks)}
+			posted.Errors = []string{inUseMessage(r, inUse, tasks)}
 			render(http.StatusUnprocessableEntity, posted, nil)
 		case errors.Is(err, store.ErrConflict):
-			render(http.StatusConflict, posted, []string{conflictMessage})
+			render(http.StatusConflict, posted, []string{tr(r, conflictMessage)})
 		case err != nil:
 			h.fail(w, r, err)
 		default:
@@ -276,7 +276,7 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		rules[i] = rule
 	}
 	prepared, issues := greek.PrepareRules(rules)
-	posted.Errors, posted.Warnings = ruleIssues(issues, i)
+	posted.Errors, posted.Warnings = ruleIssues(r, issues, i)
 	switch op {
 	case "preview":
 		if len(posted.Errors) > 0 {
@@ -303,10 +303,10 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 	var inUse *store.RulesInUseError
 	switch {
 	case errors.As(err, &inUse):
-		posted.Errors = []string{inUseMessage(inUse, tasks)}
+		posted.Errors = []string{inUseMessage(r, inUse, tasks)}
 		render(http.StatusUnprocessableEntity, posted, nil)
 	case errors.Is(err, store.ErrConflict):
-		render(http.StatusConflict, posted, []string{conflictMessage})
+		render(http.StatusConflict, posted, []string{tr(r, conflictMessage)})
 	case err != nil:
 		h.fail(w, r, err)
 	default:

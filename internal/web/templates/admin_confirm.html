@@ -1,15 +1,15 @@
-{{define "title"}}{{.Title}} · Admin · kena{{end}}
+{{define "title"}}{{.Title}} · {{t "admin.title"}} · kena{{end}}
 {{define "main"}}<h1>{{.Title}}</h1>
 <div class="card confirm">
 <p>{{.Message}}</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 <form method="post" action="{{.Action}}"{{if .Typed}} class="stack"{{end}}>
 {{- if .Typed}}
-<label for="confirm">Type <strong>{{.Username}}</strong> to confirm</label>
+<label for="confirm">{{th "admin.type_to_confirm" .Username}}</label>
 <input id="confirm" name="confirm" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" required>
 {{- end}}
 <button type="submit" class="danger">{{.Button}}</button>
 </form>
-<a class="button secondary" href="{{.Back}}">Cancel</a>
+<a class="button secondary" href="{{.Back}}">{{t "common.cancel"}}</a>
 </div>
 {{end}}
