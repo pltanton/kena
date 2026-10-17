@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -62,6 +61,9 @@ type lineMsg struct {
 }
 
 func byLine(ms []lineMsg) []string {
+	if len(ms) == 0 {
+		return nil
+	}
 	slices.SortStableFunc(ms, func(a, b lineMsg) int { return cmp.Compare(a.line, b.line) })
 	out := make([]string, len(ms))
 	for i, m := range ms {
@@ -74,25 +76,31 @@ func checkSource(src string, existing []greek.Rule) (rules []greek.Rule, inputs 
 	d, perrs := deckfmt.ParseDeck(src)
 	items := d.Items
 	var es, ws []lineMsg
+	add := func(line int, sev greek.Severity, text string) {
+		m := lineMsg{line, fmt.Sprintf("line %d: %s", line, text)}
+		if sev == greek.Error {
+			es = append(es, m)
+		} else {
+			ws = append(ws, m)
+		}
+	}
 	for _, e := range perrs {
 		es = append(es, lineMsg{e.Line, e.Error()})
 	}
 	if len(items) > maxDeckTasks {
-		line := items[maxDeckTasks].Line
-		es = append(es, lineMsg{line, fmt.Sprintf("line %d: a deck holds at most %d tasks", line, maxDeckTasks)})
+		add(items[maxDeckTasks].Line, greek.Error, fmt.Sprintf("a deck holds at most %d tasks", maxDeckTasks))
 	}
 	merged := slices.Clone(existing)
 	lineOf := map[int]int{}
 	for k, r := range d.Rules {
-		line := d.RuleLines[k]
 		norm, _ := greek.PrepareRules([]greek.Rule{r})
 		j := slices.IndexFunc(merged, func(x greek.Rule) bool { return x.Key == norm[0].Key })
 		switch {
 		case j < 0:
-			lineOf[len(merged)] = line
+			lineOf[len(merged)] = d.RuleLines[k]
 			merged = append(merged, r)
 		case merged[j].Body != norm[0].Body:
-			es = append(es, lineMsg{line, fmt.Sprintf("line %d: rule %q already exists with other text; edit it on the Rules page and drop this line", line, norm[0].Key)})
+			add(d.RuleLines[k], greek.Error, fmt.Sprintf("rule %q already exists with other text; edit it on the Rules page and drop this line", norm[0].Key))
 		}
 	}
 	prepared := existing
@@ -112,31 +120,14 @@ func checkSource(src string, existing []greek.Rule) (rules []greek.Rule, inputs 
 					continue
 				}
 			}
-			m := lineMsg{line, fmt.Sprintf("line %d: %s", line, iss.Message)}
-			if iss.Severity == greek.Error {
-				es = append(es, m)
-			} else {
-				ws = append(ws, m)
-			}
+			add(line, iss.Severity, iss.Message)
 		}
 	}
 	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, prepared)
 	for _, iss := range issues {
-		line := items[iss.Task].Line
-		m := lineMsg{line, fmt.Sprintf("line %d: %s%s", line, describeField(iss.Field), iss.Message)}
-		if iss.Severity == greek.Error {
-			es = append(es, m)
-		} else {
-			ws = append(ws, m)
-		}
+		add(items[iss.Task].Line, iss.Severity, describeField(iss.Field)+iss.Message)
 	}
-	if len(es) > 0 {
-		errs = byLine(es)
-	}
-	if len(ws) > 0 {
-		warnings = byLine(ws)
-	}
-	return rules, inputs, errs, warnings
+	return rules, inputs, byLine(es), byLine(ws)
 }
 
 func taskInputs(tasks []store.Task) []greek.TaskInput {
@@ -204,6 +195,11 @@ func versionOf(set store.Set) string {
 	return strconv.FormatInt(set.UpdatedAt.UnixNano(), 10)
 }
 
+func parseVersion(s string) (time.Time, error) {
+	nanos, err := parseInt("version", s)
+	return time.Unix(0, nanos), err
+}
+
 func parseDeckForm(w http.ResponseWriter, r *http.Request) (deckForm, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxEditorBody)
 	if err := r.ParseForm(); err != nil {
@@ -212,7 +208,7 @@ func parseDeckForm(w http.ResponseWriter, r *http.Request) (deckForm, error) {
 	f := r.PostForm
 	vis, ok := store.ParseVisibility(f.Get("visibility"))
 	if !ok {
-		return deckForm{}, fmt.Errorf("visibility %q: %w", f.Get("visibility"), store.ErrInvalid)
+		return deckForm{}, invalid("visibility", f.Get("visibility"))
 	}
 	clean := func(k string) string { return strings.TrimSpace(greek.NFC(f.Get(k))) }
 	return deckForm{
@@ -241,7 +237,7 @@ func (f deckForm) check(r *http.Request, existing []greek.Rule) ([]greek.Rule, [
 }
 
 func savedURL(slug string) string {
-	return "/s/" + url.PathEscape(slug) + "?saved=1"
+	return deckPath(slug) + "?saved=1"
 }
 
 func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User) {
@@ -256,7 +252,7 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 		return
 	}
 	v := editView{
-		Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug,
+		Action: deckPath(set.Slug) + "/edit", Slug: set.Slug,
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
 		Source: deckSource(tasks), Version: versionOf(set), RuleCount: len(set.Rules),
 	}
@@ -278,13 +274,13 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		h.fail(w, r, err)
 		return
 	}
-	nanos, err := strconv.ParseInt(f.version, 10, 64)
+	version, err := parseVersion(f.version)
 	if err != nil {
-		h.fail(w, r, fmt.Errorf("version %q: %w", f.version, store.ErrInvalid))
+		h.fail(w, r, err)
 		return
 	}
 	rerender := func(status int, errs []string) {
-		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs, RuleCount: len(set.Rules)})
+		v := f.view(editView{Action: deckPath(set.Slug) + "/edit", Slug: set.Slug, Errors: errs, RuleCount: len(set.Rules)})
 		h.page(w, r, status, "edit", v)
 	}
 	rules, inputs, errs := f.check(r, set.Rules)
@@ -297,7 +293,7 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 	if rules != nil {
 		patch.Rules = &rules
 	}
-	_, err = h.st.SaveDeck(r.Context(), set.ID, time.Unix(0, nanos), patch, inputs)
+	_, err = h.st.SaveDeck(r.Context(), set.ID, version, patch, inputs)
 	if errors.Is(err, store.ErrConflict) {
 		rerender(http.StatusConflict, []string{tr(r, conflictMessage)})
 		return

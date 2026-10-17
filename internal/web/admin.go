@@ -2,9 +2,9 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/pltanton/kena/internal/passphrase"
@@ -59,14 +59,6 @@ func (h *handler) requireAdmin(fn func(http.ResponseWriter, *http.Request, store
 	}
 }
 
-func adminRowOf(r *http.Request, s store.UserSummary) adminRow {
-	row := adminRow{UserSummary: s, LastActive: tr(r, "date.never")}
-	if s.LastActive != nil {
-		row.LastActive = day(r, *s.LastActive)
-	}
-	return row
-}
-
 func (h *handler) adminRows(r *http.Request) ([]adminRow, error) {
 	sums, err := h.st.ListUserSummaries(r.Context())
 	if err != nil {
@@ -74,18 +66,20 @@ func (h *handler) adminRows(r *http.Request) ([]adminRow, error) {
 	}
 	rows := make([]adminRow, len(sums))
 	for i, s := range sums {
-		rows[i] = adminRowOf(r, s)
+		rows[i] = adminRow{UserSummary: s, LastActive: tr(r, "date.never")}
+		if s.LastActive != nil {
+			rows[i].LastActive = day(r, *s.LastActive)
+		}
 	}
 	return rows, nil
 }
 
 func (h *handler) renderAdmin(w http.ResponseWriter, r *http.Request, status int, v adminView) {
-	rows, err := h.adminRows(r)
-	if err != nil {
+	var err error
+	if v.Users, err = h.adminRows(r); err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	v.Users = rows
 	h.page(w, r, status, "admin", v)
 }
 
@@ -102,8 +96,7 @@ func (h *handler) newPassphrase(r *http.Request, userID int64) (string, error) {
 }
 
 func (h *handler) adminCreate(w http.ResponseWriter, r *http.Request, _ store.User) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	name := strings.ToLower(strings.TrimSpace(r.PostForm.Get("username")))
@@ -129,14 +122,13 @@ func (h *handler) adminCreate(w http.ResponseWriter, r *http.Request, _ store.Us
 }
 
 func (h *handler) adminTarget(w http.ResponseWriter, r *http.Request) (adminRow, bool) {
-	name := r.PathValue("name")
 	rows, err := h.adminRows(r)
 	if err != nil {
 		h.serverError(w, r, err)
 		return adminRow{}, false
 	}
 	for _, row := range rows {
-		if row.User.Username == name {
+		if row.User.Username == r.PathValue("name") {
 			return row, true
 		}
 	}
@@ -166,46 +158,40 @@ var guardMessages = map[error]string{
 }
 
 func (h *handler) guardError(w http.ResponseWriter, r *http.Request, me store.User, err error) {
-	if errors.Is(err, store.ErrForbidden) {
-		text := tr(r, "error.forbidden")
-		for e, key := range guardMessages {
-			if errors.Is(err, e) {
-				text = tr(r, key)
-			}
-		}
-		h.renderAdminUser(w, r, http.StatusForbidden, me, adminUserView{Error: text})
+	if !errors.Is(err, store.ErrForbidden) {
+		h.fail(w, r, err)
 		return
 	}
-	h.fail(w, r, err)
+	text := tr(r, "error.forbidden")
+	for e, key := range guardMessages {
+		if errors.Is(err, e) {
+			text = tr(r, key)
+		}
+	}
+	h.renderAdminUser(w, r, http.StatusForbidden, me, adminUserView{Error: text})
 }
 
-func deleteUserMessage(r *http.Request, row adminRow) string {
-	return tr(r, "admin.delete_message", row.User.Username, trn(r, "count.decks", row.Decks))
+// confirmView asks to confirm the action the URL ends with: passphrase, logout or delete.
+func confirmView(r *http.Request, row adminRow) adminConfirmView {
+	name := row.User.Username
+	v := adminConfirmView{Action: r.URL.Path, Back: userPath(name), Username: name}
+	switch path.Base(r.URL.Path) {
+	case "passphrase":
+		v.Title, v.Message = tr(r, "admin.reset_pass"), tr(r, "admin.reset_pass_message", name)
+	case "logout":
+		v.Title, v.Message = tr(r, "admin.logout_all"), tr(r, "admin.logout_all_message", name)
+	default:
+		v.Title, v.Typed = tr(r, "admin.delete_user"), true
+		v.Message = tr(r, "admin.delete_message", name, trn(r, "count.decks", row.Decks))
+	}
+	v.Button = v.Title
+	return v
 }
 
 func (h *handler) adminConfirm(w http.ResponseWriter, r *http.Request, _ store.User) {
-	row, ok := h.adminTarget(w, r)
-	if !ok {
-		return
+	if row, ok := h.adminTarget(w, r); ok {
+		h.page(w, r, http.StatusOK, "admin_confirm", confirmView(r, row))
 	}
-	name := row.User.Username
-	v := adminConfirmView{Back: userPath(name), Username: name}
-	switch {
-	case strings.HasSuffix(r.URL.Path, "/passphrase"):
-		v.Title = tr(r, "admin.reset_pass")
-		v.Button = v.Title
-		v.Message = tr(r, "admin.reset_pass_message", name)
-	case strings.HasSuffix(r.URL.Path, "/logout"):
-		v.Title = tr(r, "admin.logout_all")
-		v.Button = v.Title
-		v.Message = tr(r, "admin.logout_all_message", name)
-	default:
-		v.Title = tr(r, "admin.delete_user")
-		v.Button, v.Typed = v.Title, true
-		v.Message = deleteUserMessage(r, row)
-	}
-	v.Action = r.URL.Path
-	h.page(w, r, http.StatusOK, "admin_confirm", v)
 }
 
 func (h *handler) adminResetPassphrase(w http.ResponseWriter, r *http.Request, me store.User) {
@@ -223,11 +209,7 @@ func (h *handler) adminResetPassphrase(w http.ResponseWriter, r *http.Request, m
 
 func (h *handler) adminSetAdmin(w http.ResponseWriter, r *http.Request, me store.User) {
 	row, ok := h.adminTarget(w, r)
-	if !ok {
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !ok || !h.parseForm(w, r) {
 		return
 	}
 	if err := h.st.SetAdmin(r.Context(), me.ID, row.User.ID, r.PostForm.Get("is_admin") == "1"); err != nil {
@@ -251,21 +233,13 @@ func (h *handler) adminLogout(w http.ResponseWriter, r *http.Request, me store.U
 
 func (h *handler) adminDelete(w http.ResponseWriter, r *http.Request, me store.User) {
 	row, ok := h.adminTarget(w, r)
-	if !ok {
+	if !ok || !h.parseForm(w, r) {
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
-		return
-	}
-	name := row.User.Username
-	if strings.TrimSpace(r.PostForm.Get("confirm")) != name {
-		title := tr(r, "admin.delete_user")
-		h.page(w, r, http.StatusUnprocessableEntity, "admin_confirm", adminConfirmView{
-			Title: title, Button: title, Typed: true, Username: name, Action: r.URL.Path, Back: userPath(name),
-			Message: deleteUserMessage(r, row),
-			Error:   tr(r, "admin.confirm_mismatch"),
-		})
+	if strings.TrimSpace(r.PostForm.Get("confirm")) != row.User.Username {
+		v := confirmView(r, row)
+		v.Error = tr(r, "admin.confirm_mismatch")
+		h.page(w, r, http.StatusUnprocessableEntity, "admin_confirm", v)
 		return
 	}
 	if err := h.st.DeleteUser(r.Context(), me.ID, row.User.ID); err != nil {

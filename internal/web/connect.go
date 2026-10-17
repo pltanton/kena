@@ -8,8 +8,6 @@ import (
 	"net/url"
 )
 
-const connectPromptPhoto = "prompt.photo"
-
 type connectView struct {
 	LoggedIn       bool
 	LoginURL       string
@@ -23,45 +21,35 @@ type connectView struct {
 	Error          string
 }
 
-func connectLinks(publicURL string) (mcpURL, claudeURL, cursorURL, vscodeURL string) {
-	mcpURL = publicURL + "/mcp"
-
-	claudeURL = "https://claude.ai/customize/connectors?" + url.Values{
+func (h *handler) renderConnect(w http.ResponseWriter, r *http.Request, v connectView) {
+	v.MCPURL = h.publicURL + "/mcp"
+	v.ClaudeURL = template.URL("https://claude.ai/customize/connectors?" + url.Values{
 		"modal":         {"add-custom-connector"},
 		"connectorName": {"kena"},
-		"connectorUrl":  {mcpURL},
-	}.Encode()
-
+		"connectorUrl":  {v.MCPURL},
+	}.Encode())
 	cursorConfig, _ := json.Marshal(struct {
 		URL string `json:"url"`
-	}{mcpURL})
-	cursorURL = "cursor://anysphere.cursor-deeplink/mcp/install?" + url.Values{
+	}{v.MCPURL})
+	v.CursorURL = template.URL("cursor://anysphere.cursor-deeplink/mcp/install?" + url.Values{
 		"name":   {"kena"},
 		"config": {base64.StdEncoding.EncodeToString(cursorConfig)},
-	}.Encode()
-
+	}.Encode())
 	vscodeConfig, _ := json.Marshal(struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 		URL  string `json:"url"`
-	}{"kena", "http", mcpURL})
-	vscodeURL = "vscode:mcp/install?" + url.QueryEscape(string(vscodeConfig))
-
-	return mcpURL, claudeURL, cursorURL, vscodeURL
-}
-
-func (h *handler) renderConnect(w http.ResponseWriter, r *http.Request, status int, v connectView) {
-	mcpURL, claudeURL, cursorURL, vscodeURL := connectLinks(h.publicURL)
-	v.MCPURL, v.ClaudeURL, v.CursorURL, v.VSCodeURL = mcpURL, template.URL(claudeURL), template.URL(cursorURL), template.URL(vscodeURL)
-	v.PromptPhoto, v.PromptMistakes = tr(r, connectPromptPhoto), tr(r, askPrompt)
+	}{"kena", "http", v.MCPURL})
+	v.VSCodeURL = template.URL("vscode:mcp/install?" + url.QueryEscape(string(vscodeConfig)))
+	v.PromptPhoto, v.PromptMistakes = tr(r, "prompt.photo"), tr(r, askPrompt)
 	if _, ok := currentUser(r); ok {
 		v.LoggedIn = true
 	} else {
-		v.LoginURL = "/login?" + url.Values{"next": {"/connect"}}.Encode()
+		v.LoginURL = loginURL("/connect")
 	}
-	h.page(w, r, status, "connect", v)
+	h.page(w, r, http.StatusOK, "connect", v)
 }
 
 func (h *handler) connect(w http.ResponseWriter, r *http.Request) {
-	h.renderConnect(w, r, http.StatusOK, connectView{})
+	h.renderConnect(w, r, connectView{})
 }

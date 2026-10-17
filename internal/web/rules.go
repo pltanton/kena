@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pltanton/kena/internal/greek"
 	"github.com/pltanton/kena/internal/markdown"
@@ -112,7 +110,7 @@ type rulesPage struct {
 	Errors  []string
 }
 
-func (h *handler) rulesView(set store.Set, tasks []store.Task, version string) rulesPage {
+func rulesView(set store.Set, tasks []store.Task, version string) rulesPage {
 	uses := map[string]int{}
 	for _, t := range tasks {
 		uses[t.Rule]++
@@ -126,7 +124,7 @@ func (h *handler) rulesView(set store.Set, tasks []store.Task, version string) r
 }
 
 func rulesURL(slug string) string {
-	return "/s/" + url.PathEscape(slug) + "/rules"
+	return deckPath(slug) + "/rules"
 }
 
 func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request, u store.User) {
@@ -140,7 +138,7 @@ func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request, u store.User
 		h.fail(w, r, err)
 		return
 	}
-	v := h.rulesView(set, tasks, versionOf(set))
+	v := rulesView(set, tasks, versionOf(set))
 	if saved := r.URL.Query().Get("saved"); saved != "" {
 		for i := range v.Rules {
 			v.Rules[i].Saved = v.Rules[i].Key == saved
@@ -206,15 +204,14 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxRulesBody)
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	f := r.PostForm
 	version := f.Get("version")
-	nanos, err := strconv.ParseInt(version, 10, 64)
+	at, err := parseVersion(version)
 	if err != nil {
-		h.fail(w, r, fmt.Errorf("version %q: %w", version, store.ErrInvalid))
+		h.fail(w, r, err)
 		return
 	}
 	tasks, err := h.st.ListTasks(ctx, set.ID)
@@ -228,7 +225,7 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		idx = slices.IndexFunc(set.Rules, func(x greek.Rule) bool { return x.Key == posted.Orig })
 	}
 	render := func(status int, form ruleForm, pageErrs []string) {
-		v := h.rulesView(set, tasks, version)
+		v := rulesView(set, tasks, version)
 		v.Errors = pageErrs
 		form.Slug, form.Version = set.Slug, version
 		if idx >= 0 {
@@ -244,13 +241,8 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		return
 	}
 
-	op := f.Get("op")
-	if op == "delete" {
-		if idx < 0 {
-			h.fail(w, r, fmt.Errorf("delete without a rule: %w", store.ErrInvalid))
-			return
-		}
-		_, err := h.st.ReplaceRules(ctx, set.ID, time.Unix(0, nanos), slices.Delete(slices.Clone(set.Rules), idx, idx+1), nil)
+	save := func(rules []greek.Rule, renames map[string]string, loc string) {
+		_, err := h.st.ReplaceRules(ctx, set.ID, at, rules, renames)
 		var inUse *store.RulesInUseError
 		switch {
 		case errors.As(err, &inUse):
@@ -261,8 +253,21 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		case err != nil:
 			h.fail(w, r, err)
 		default:
-			http.Redirect(w, r, rulesURL(set.Slug), http.StatusSeeOther)
+			http.Redirect(w, r, loc, http.StatusSeeOther)
 		}
+	}
+
+	op := f.Get("op")
+	if op == "delete" {
+		if idx < 0 {
+			h.fail(w, r, fmt.Errorf("delete without a rule: %w", store.ErrInvalid))
+			return
+		}
+		save(slices.Delete(slices.Clone(set.Rules), idx, idx+1), nil, rulesURL(set.Slug))
+		return
+	}
+	if op != "save" && op != "preview" {
+		h.fail(w, r, invalid("op", op))
 		return
 	}
 
@@ -277,39 +282,19 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 	}
 	prepared, issues := greek.PrepareRules(rules)
 	posted.Errors, posted.Warnings = ruleIssues(r, issues, i)
-	switch op {
-	case "preview":
-		if len(posted.Errors) > 0 {
-			render(http.StatusUnprocessableEntity, posted, nil)
-			return
-		}
-		posted.Preview = markdown.Render(prepared[i].Body)
-		render(http.StatusOK, posted, nil)
-		return
-	case "save":
-	default:
-		h.fail(w, r, fmt.Errorf("op %q: %w", op, store.ErrInvalid))
-		return
-	}
 	if len(posted.Errors) > 0 {
 		render(http.StatusUnprocessableEntity, posted, nil)
+		return
+	}
+	if op == "preview" {
+		posted.Preview = markdown.Render(prepared[i].Body)
+		render(http.StatusOK, posted, nil)
 		return
 	}
 	var renames map[string]string
 	if idx >= 0 && posted.Orig != prepared[i].Key {
 		renames = map[string]string{posted.Orig: prepared[i].Key}
 	}
-	_, err = h.st.ReplaceRules(ctx, set.ID, time.Unix(0, nanos), prepared, renames)
-	var inUse *store.RulesInUseError
-	switch {
-	case errors.As(err, &inUse):
-		posted.Errors = []string{inUseMessage(r, inUse, tasks)}
-		render(http.StatusUnprocessableEntity, posted, nil)
-	case errors.Is(err, store.ErrConflict):
-		render(http.StatusConflict, posted, []string{tr(r, conflictMessage)})
-	case err != nil:
-		h.fail(w, r, err)
-	default:
-		http.Redirect(w, r, rulesURL(set.Slug)+"?"+url.Values{"saved": {prepared[i].Key}}.Encode()+"#rule-"+prepared[i].Key, http.StatusSeeOther)
-	}
+	key := prepared[i].Key
+	save(prepared, renames, rulesURL(set.Slug)+"?"+url.Values{"saved": {key}}.Encode()+"#rule-"+key)
 }

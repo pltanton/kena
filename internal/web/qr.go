@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -36,7 +37,6 @@ func qrSVG(text, label string) (template.HTML, error) {
 }
 
 func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.User) {
-	w.Header().Set("Cache-Control", "no-store")
 	code, err := h.st.CreateLoginCode(r.Context(), u.ID, loginCodeTTL)
 	if err != nil {
 		h.serverError(w, r, err)
@@ -47,7 +47,7 @@ func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.
 		h.serverError(w, r, err)
 		return
 	}
-	h.renderAccount(w, r, http.StatusOK, u, accountView{QR: svg})
+	h.renderAccount(w, r, u, accountView{QR: svg})
 }
 
 type qrLoginView struct {
@@ -56,20 +56,28 @@ type qrLoginView struct {
 	Action   string
 }
 
-func (h *handler) qrLoginPage(w http.ResponseWriter, r *http.Request) {
+// codeUser looks the path's login code up with lookup; an unknown or spent code answers 410.
+func (h *handler) codeUser(w http.ResponseWriter, r *http.Request, lookup func(context.Context, string) (store.User, error)) (store.User, bool) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	secret := r.PathValue("secret")
-	u, err := h.st.PeekLoginCode(r.Context(), secret)
+	u, err := lookup(r.Context(), r.PathValue("secret"))
 	if errors.Is(err, store.ErrNotFound) {
 		h.page(w, r, http.StatusGone, "qr_login", qrLoginView{})
-		return
+		return u, false
 	}
 	if err != nil {
 		h.serverError(w, r, err)
+		return u, false
+	}
+	return u, true
+}
+
+func (h *handler) qrLoginPage(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.codeUser(w, r, h.st.PeekLoginCode)
+	if !ok {
 		return
 	}
-	v := qrLoginView{Username: u.Username, Action: "/login/qr/" + url.PathEscape(secret)}
+	v := qrLoginView{Username: u.Username, Action: "/login/qr/" + url.PathEscape(r.PathValue("secret"))}
 	if cur, ok := currentUser(r); ok {
 		v.Current = cur.Username
 	}
@@ -77,24 +85,13 @@ func (h *handler) qrLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) qrLogin(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	u, err := h.st.UseLoginCode(r.Context(), r.PathValue("secret"))
-	if errors.Is(err, store.ErrNotFound) {
-		h.page(w, r, http.StatusGone, "qr_login", qrLoginView{})
-		return
-	}
-	if err != nil {
-		h.serverError(w, r, err)
+	u, ok := h.codeUser(w, r, h.st.UseLoginCode)
+	if !ok {
 		return
 	}
 	if err := session.Start(w, r, h.st, u.ID); err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	if err := h.st.MergeAttempts(r.Context(), deviceID(r), u.ProgressID); err != nil && !errors.Is(err, store.ErrForbidden) {
-		h.serverError(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	h.loggedIn(w, r, u, "/")
 }

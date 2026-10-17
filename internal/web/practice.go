@@ -602,7 +602,7 @@ func doneBar(slug string, todo []store.Task, p params, n int) progressBar {
 	return progressBar{Index: n, Total: n, Nav: newNav(slug, 0, prev, p)}
 }
 
-func parseID(what, s string) (int64, error) {
+func parseInt(what, s string) (int64, error) {
 	id, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return 0, invalid(what, s)
@@ -654,7 +654,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case q.Get("at") != "":
-		id, err := parseID("at", q.Get("at"))
+		id, err := parseInt("at", q.Get("at"))
 		if err == nil {
 			data.Card, err = playState(d, order, p, id, len(todo))
 		}
@@ -666,7 +666,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	case len(todo) == 0:
 		data.Done = newDone(r, set.Slug, true, pr)
 	case q.Get("after") != "":
-		after, err := parseID("after", q.Get("after"))
+		after, err := parseInt("after", q.Get("after"))
 		if err != nil {
 			h.fail(w, r, err)
 			return
@@ -697,7 +697,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.Mode = "cards"
-	after, err := parseID("after", q.Get("after"))
+	after, err := parseInt("after", q.Get("after"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -746,7 +746,7 @@ func (h *handler) playCard(w http.ResponseWriter, r *http.Request) {
 	}
 	p.Mode = "cards"
 	p.I, p.Tries = 0, 0
-	id, err := parseID("id", q.Get("id"))
+	id, err := parseInt("id", q.Get("id"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -775,7 +775,7 @@ func (h *handler) task(r *http.Request, id int64) (store.Task, store.Set, error)
 }
 
 func (h *handler) check(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID("task id", r.PathValue("id"))
+	id, err := parseInt("task id", r.PathValue("id"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -844,7 +844,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) item(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID("task id", r.PathValue("id"))
+	id, err := parseInt("task id", r.PathValue("id"))
 	if err != nil {
 		h.fail(w, r, err)
 		return

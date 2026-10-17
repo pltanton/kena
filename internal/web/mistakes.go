@@ -2,7 +2,6 @@ package web
 
 import (
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/pltanton/kena/internal/greek"
@@ -72,7 +71,7 @@ func (h *handler) mistakes(w http.ResponseWriter, r *http.Request, u store.User)
 	}
 	v := mistakesView{Days: mistakesDays, Prompt: tr(r, askPrompt)}
 	for _, sm := range rep.Sets {
-		ms := mistakeSet{Title: sm.Set.Title, URL: "/s/" + url.PathEscape(sm.Set.Slug)}
+		ms := mistakeSet{Title: sm.Set.Title, URL: deckPath(sm.Set.Slug)}
 		for _, tm := range sm.Tasks {
 			ms.Tasks = append(ms.Tasks, newMistakeRow(tm))
 		}

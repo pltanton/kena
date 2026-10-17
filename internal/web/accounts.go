@@ -2,11 +2,9 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -46,8 +44,7 @@ func (h *handler) loginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) login(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	username, next := strings.TrimSpace(r.PostForm.Get("username")), safeNext(r.PostForm.Get("next"))
@@ -60,6 +57,11 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
+	h.loggedIn(w, r, u, next)
+}
+
+// loggedIn moves this device's anonymous progress into the account and goes to next.
+func (h *handler) loggedIn(w http.ResponseWriter, r *http.Request, u store.User, next string) {
 	if err := h.st.MergeAttempts(r.Context(), deviceID(r), u.ProgressID); err != nil && !errors.Is(err, store.ErrForbidden) {
 		h.serverError(w, r, err)
 		return
@@ -86,7 +88,7 @@ func (h *handler) requireUser(fn func(http.ResponseWriter, *http.Request, store.
 			if r.Method == http.MethodGet {
 				next = r.URL.RequestURI()
 			}
-			http.Redirect(w, r, "/login?"+url.Values{"next": {next}}.Encode(), http.StatusSeeOther)
+			http.Redirect(w, r, loginURL(next), http.StatusSeeOther)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
@@ -146,7 +148,7 @@ func appName(r *http.Request, a store.ConnectedApp) appRow {
 	return row
 }
 
-func (h *handler) renderAccount(w http.ResponseWriter, r *http.Request, status int, u store.User, v accountView) {
+func (h *handler) renderAccount(w http.ResponseWriter, r *http.Request, u store.User, v accountView) {
 	ctx := r.Context()
 	tokens, err := h.st.ListTokens(ctx, u.ID)
 	if err != nil {
@@ -173,16 +175,15 @@ func (h *handler) renderAccount(w http.ResponseWriter, r *http.Request, status i
 	for _, a := range apps {
 		v.Apps = append(v.Apps, appName(r, a))
 	}
-	h.page(w, r, status, "account", v)
+	h.page(w, r, http.StatusOK, "account", v)
 }
 
 func (h *handler) account(w http.ResponseWriter, r *http.Request, u store.User) {
-	h.renderAccount(w, r, http.StatusOK, u, accountView{})
+	h.renderAccount(w, r, u, accountView{})
 }
 
 func (h *handler) changePassphrase(w http.ResponseWriter, r *http.Request, u store.User) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	ctx := r.Context()
@@ -192,36 +193,35 @@ func (h *handler) changePassphrase(w http.ResponseWriter, r *http.Request, u sto
 			return
 		}
 		session.Sleep(ctx, session.FailDelay)
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: tr(r, "account.pass_wrong")})
+		h.renderAccount(w, r, u, accountView{Error: tr(r, "account.pass_wrong")})
 		return
 	}
 	err := h.st.SetPassword(ctx, u.ID, r.PostForm.Get("new"), session.Secret(r))
 	if errors.Is(err, store.ErrInvalid) {
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: tr(r, "account.pass_short", passphrase.MinLength)})
+		h.renderAccount(w, r, u, accountView{Error: tr(r, "account.pass_short", passphrase.MinLength)})
 		return
 	}
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
-	h.renderAccount(w, r, http.StatusOK, u, accountView{Notice: tr(r, "account.pass_changed")})
+	h.renderAccount(w, r, u, accountView{Notice: tr(r, "account.pass_changed")})
 }
 
 func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.User) {
-	w.Header().Set("Cache-Control", "no-store")
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	label := strings.TrimSpace(r.PostForm.Get("label"))
-	toConnect := r.PostForm.Get("return") == "connect"
-	if utf8.RuneCountInString(label) > maxTokenLabelRunes {
-		msg := tr(r, "account.label_long", maxTokenLabelRunes)
-		if toConnect {
-			h.renderConnect(w, r, http.StatusOK, connectView{Error: msg})
-			return
+	render := func(nt *newToken, errMsg string) {
+		if r.PostForm.Get("return") == "connect" {
+			h.renderConnect(w, r, connectView{NewToken: nt, Error: errMsg})
+		} else {
+			h.renderAccount(w, r, u, accountView{NewToken: nt, Error: errMsg})
 		}
-		h.renderAccount(w, r, http.StatusOK, u, accountView{Error: msg})
+	}
+	if utf8.RuneCountInString(label) > maxTokenLabelRunes {
+		render(nil, tr(r, "account.label_long", maxTokenLabelRunes))
 		return
 	}
 	secret, _, err := h.st.IssueToken(r.Context(), u.ID, label)
@@ -229,18 +229,13 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.Us
 		h.serverError(w, r, err)
 		return
 	}
-	nt := &newToken{Secret: secret, Label: label, MCPURL: h.publicURL + "/mcp"}
-	if toConnect {
-		h.renderConnect(w, r, http.StatusOK, connectView{NewToken: nt})
-		return
-	}
-	h.renderAccount(w, r, http.StatusOK, u, accountView{NewToken: nt})
+	render(&newToken{Secret: secret, Label: label, MCPURL: h.publicURL + "/mcp"}, "")
 }
 
 func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request, u store.User) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, err := parseInt("token id", r.PathValue("id"))
 	if err != nil {
-		h.fail(w, r, fmt.Errorf("token id %q: %w", r.PathValue("id"), store.ErrInvalid))
+		h.fail(w, r, err)
 		return
 	}
 	if err := h.st.RevokeUserToken(r.Context(), u.ID, id); err != nil {
@@ -251,8 +246,7 @@ func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request, u store.Us
 }
 
 func (h *handler) disconnectApp(w http.ResponseWriter, r *http.Request, u store.User) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
+	if !h.parseForm(w, r) {
 		return
 	}
 	if err := h.st.DisconnectApp(r.Context(), u.ID, r.PostForm.Get("client_id")); err != nil {
