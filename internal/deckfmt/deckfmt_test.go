@@ -92,13 +92,27 @@ func TestParse(t *testing.T) {
 			[]int{1},
 		},
 		{
-			"consecutive sentences are separate tasks",
-			"Α {β}.\nΓ {δ}.",
+			"consecutive lines are one multi-line task",
+			"  Α: {β};  \nΒ: Γ {δ}.\n> why",
 			[]greek.TaskInput{
-				{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}},
+				{Text: "Α: ___;\nΒ: Γ ___.", Blanks: []greek.Blank{blank("", "β"), blank("", "δ")}, Explanation: "why"},
+			},
+			[]int{1},
+		},
+		{
+			"a line without a blank inside a multi-line task",
+			"— Πού πας;\n— Στο {σπίτι}.",
+			[]greek.TaskInput{{Text: "— Πού πας;\n— Στο ___.", Blanks: []greek.Blank{blank("", "σπίτι")}}},
+			[]int{1},
+		},
+		{
+			"a sentence after an explanation starts a new task",
+			"Α {β}.\n> why\nΓ {δ}.",
+			[]greek.TaskInput{
+				{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "why"},
 				{Text: "Γ ___.", Blanks: []greek.Blank{blank("", "δ")}},
 			},
-			[]int{1, 2},
+			[]int{1, 3},
 		},
 		{
 			"empty hint",
@@ -148,6 +162,8 @@ func TestParseErrors(t *testing.T) {
 		{"two bars", "Α {β | γ | δ}.", []string{"line 1: more than one | in a blank"}},
 		{"bar outside blank", "Α | {β}.", []string{"line 1: | outside a blank"}},
 		{"no blank", "Α β γ.", []string{"line 1: no blank; write the answer in {braces}"}},
+		{"no blank in a multi-line task", "Α β.\nΓ δ.\n\nΕ {ζ}.", []string{"line 1: no blank; write the answer in {braces}"}},
+		{"error on a later line of a task", "Α {β}.\nΓ {δ.\n> why", []string{"line 2: unclosed {"}},
 		{"explanation first", "> why\nΑ {β}.", []string{"line 1: explanation without a sentence above it"}},
 		{"explanation after blank line", "Α {β}.\n\n> why", []string{"line 3: explanation without a sentence above it"}},
 		{"explanation under a broken sentence", "Α {β.\n> why", []string{"line 1: unclosed {"}},
@@ -199,6 +215,9 @@ var tricky = []greek.TaskInput{
 	{Text: "Α {___}.", Blanks: []greek.Blank{blank("", "β")}},
 	{Text: "Α ___ | γ.", Blanks: []greek.Blank{blank("", "β")}},
 	{Text: "Α ___\nγ.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "  — Α ___;  \n\n  — Β ___. \r\n", Blanks: []greek.Blank{blank("", "β"), blank("", "γ")}, Explanation: "x"},
+	{Text: "Α ___\n> γ.", Blanks: []greek.Blank{blank("", "β")}},
+	{Text: "Α ___\n  \t", Blanks: []greek.Blank{blank("", "β")}},
 	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β/γ")}},
 	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β}")}},
 	{Text: "Α ___.", Blanks: []greek.Blank{blank("δ | ε", "β")}},
@@ -227,4 +246,13 @@ func FuzzRoundTrip(f *testing.F) {
 		}
 		roundTrips(t, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
 	})
+}
+
+func TestMultilineTaskRoundTrips(t *testing.T) {
+	task := greek.TaskInput{Text: "Α: Πόσους ___ κάλεσες;\nΒ: Κάλεσα ___.", Blanks: []greek.Blank{blank("πόσος", "συναδέλφους"), blank("", "πολλούς")}, Explanation: "one\ntwo"}
+	want := "Α: Πόσους {συναδέλφους | πόσος} κάλεσες;\nΒ: Κάλεσα {πολλούς}.\n> one\n> two\n"
+	if got := Format([]greek.TaskInput{task}); got != want {
+		t.Fatalf("Format = %q, want %q", got, want)
+	}
+	roundTrips(t, task)
 }

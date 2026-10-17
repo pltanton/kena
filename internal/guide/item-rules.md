@@ -118,8 +118,12 @@ Follow the grid from `workflow`. Within any 20 consecutive items:
 - several lexical classes of the target;
 - some negatives (`δεν`, `μην`) and some questions (Greek question mark is `;`);
 - the blank at the start, middle and end;
-- several frames: statements, questions, negatives, short dialogues
-  (`— … ; — …`), a main clause with `όταν`, `ενώ`, `γιατί` or `πριν`;
+- several frames: statements, questions, negatives, short dialogues, a main
+  clause with `όταν`, `ενώ`, `γιατί` or `πριν`;
+- a dialogue puts each turn on its own line (`\n` in `text`), each starting
+  with `— ` or `Α: ` / `Β: `, never two turns run together on one line:
+  - Bad: `Α: Πόσους ___ κάλεσες; Β: Κάλεσα πολλούς.`
+  - Good: `— Πόσους φίλους ___ στο πάρτι;` / `— Πολλούς, όλη την τάξη.` (two lines)
 - the cue in different places, not always first in the sentence;
 - no two items with the same frame ("Χθες ο Νίκος ___ …", "Χθες η Μαρία ___ …"),
   and across the set no frame on more than ~20% of items. "Time cue + subject
@@ -156,7 +160,10 @@ them what they missed in this item, so a generic line is as good as none.
 - One language for the whole deck: short English by default up to B1, Greek if
   the user or the level asks for it.
 - Never put the same explanation on two items. If two read interchangeably,
-  rewrite them. The server warns when one text repeats on more than two tasks.
+  rewrite them. The server warns when one text repeats on more than two tasks,
+  and when explanations are templated: the same sentence with only quoted
+  words, numbers or the answer swapped (`… «πολλούς» … πρότασης 1`, `… «πολλές»
+  … πρότασης 2`).
 
 Bad (on every item of a deck): `Αόριστος: ολοκληρωμένη πράξη στο παρελθόν.`
 

@@ -45,6 +45,6 @@ nix flake check
 - `sets.visibility`: `private` = owner only (web 404 for everyone else, admins included; MCP not found except for admins), `friends` = any logged-in user, `public` = everyone. `store.CanView` is the single rule; listings use the same SQL conditions.
 - Stars only add non-private sets to a user's home list; a starred set that turns private disappears and the star stays dormant.
 - Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
-- Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, line breaks in text, control characters), so every lint-clean task round-trips through `deckfmt`.
+- Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, empty lines or lines starting with `>` in text, line breaks outside text and explanation, control characters), so every lint-clean task round-trips through `deckfmt`. Text may span lines (dialogues); `deckfmt` reads consecutive non-`>` lines as one task.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

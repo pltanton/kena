@@ -13,7 +13,7 @@ type BlankIn struct {
 }
 
 type TaskIn struct {
-	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank"`
+	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
 	Explanation string    `json:"explanation,omitempty" jsonschema:"one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case"`
 }

@@ -60,7 +60,7 @@ type UpdateSetIn struct {
 
 type UpdateTaskIn struct {
 	TaskID      int64      `json:"task_id" jsonschema:"task id from get_set"`
-	Text        *string    `json:"text,omitempty" jsonschema:"new sentence with one ___ per blank"`
+	Text        *string    `json:"text,omitempty" jsonschema:"new sentence with one ___ per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      *[]BlankIn `json:"blanks,omitempty" jsonschema:"new blanks, replacing all old ones; one per ___, in order"`
 	Explanation *string    `json:"explanation,omitempty" jsonschema:"new explanation"`
 }

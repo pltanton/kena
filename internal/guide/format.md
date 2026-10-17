@@ -21,7 +21,10 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
 ```
 
 - `text`: the sentence. Each blank is exactly three underscores `___`, with
-  spaces or punctuation around it as in normal text.
+  spaces or punctuation around it as in normal text. It may span several lines
+  (`\n`): a dialogue puts each turn on its own line, starting with `— ` (the
+  Greek dialogue dash) or `Α: ` / `Β: `. No empty lines, and no line may start
+  with `>`.
 - `blanks`: one entry per `___`, in the order they appear.
 - `answers`: every accepted form, exact spelling and accents, lowercase. Only
   what goes into the blank: no punctuation, no neighbouring words.
@@ -103,6 +106,16 @@ Two blanks:
 }
 ```
 
+A dialogue, one turn per line:
+
+```json
+{
+  "text": "— Πόσους φίλους ___ στο πάρτι σου;\n— Πολλούς, σχεδόν όλη την τάξη.",
+  "blanks": [{ "answers": ["κάλεσες"], "hint": "καλώ" }],
+  "explanation": "2nd sg. aorist of καλώ: κάλεσα → κάλεσες; the question is about one finished party."
+}
+```
+
 One blank with two accepted answers:
 
 ```json
@@ -123,6 +136,7 @@ task index):
 
 - number of `___` differs from the number of blanks;
 - empty text, or a blank with no answers;
+- an empty line inside the text, or a text line starting with `>`;
 - Latin letters or digits mixed into a Greek word (lookalikes such as Latin o);
 - polytonic characters (U+1F00–U+1FFF);
 - medial sigma (U+03C3) at the end of a word, or final ς inside a word, in text or answers;
@@ -135,6 +149,12 @@ Warnings (the call succeeds; review them):
 - text longer than 20 words;
 - the same explanation (ignoring case, spacing and final punctuation) on more
   than two tasks of the batch and the set;
+- templated explanations: more than two that differ only in numbers, quoted
+  words («…», "…") or the item's own answers and hints;
+- a short Latin abbreviation in brackets, such as `(ma)`, inside a Greek
+  explanation;
+- in a batch of 10 or more: over 60% of the tasks with the same sequence of
+  hints (vary lemmas, cases and frames);
 - in a batch of 10 or more: over half the tasks without an explanation;
 - in a batch of 10 or more: over 60% of sentences with a subject pronoun
   (εγώ, εσύ, αυτός, αυτή, αυτό, εμείς, εσείς, αυτοί, αυτές, αυτά).

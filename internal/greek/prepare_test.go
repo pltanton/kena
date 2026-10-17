@@ -94,7 +94,7 @@ func TestPrepareMissingExplanations(t *testing.T) {
 	for i := range 10 {
 		exp := ""
 		if i >= 6 {
-			exp = fmt.Sprintf("explanation %d", i)
+			exp = []string{"Augment έ- under stress.", "Stem γράφ- becomes έγραψ-.", "Third person ending -ε.", "Finished action yesterday."}[i-6]
 		}
 		tasks = append(tasks, styleTask(fmt.Sprintf("Η Μαρία ___ γράμμα %d.", i), exp))
 	}
@@ -139,9 +139,15 @@ func TestPrepareVariedBatchNoStyleWarnings(t *testing.T) {
 		"Αυτό το βιβλίο το ___ μία φορά, πριν από χρόνια.",
 		"Οι φίλοι μου ___ αργά, γιατί έχασαν το λεωφορείο.",
 	}
+	lemmas := []string{"διαβάζω", "είμαι", "πηγαίνω", "μιλάω", "τρώω", "έρχομαι", "πηγαίνω", "σβήνω", "διαβάζω", "φτάνω"}
+	notes := []string{"Finished reading → aorist.", "είμαι has no aorist; past ήμουν.", "Habit → imperfect πηγαίναμε.",
+		"ενώ + ongoing action → imperfect.", "Irregular aorist of τρώω: έφαγα.", "Γιατί + past event → aorist ήρθες.",
+		"Childhood habit → imperfect.", "Sudden event → aorist.", "μία φορά → aorist.", "Arrival as one event → aorist."}
 	var tasks []TaskInput
 	for i, s := range texts {
-		tasks = append(tasks, styleTask(s, fmt.Sprintf("specific explanation %d", i)))
+		task := styleTask(s, notes[i])
+		task.Blanks[0].Hint = lemmas[i]
+		tasks = append(tasks, task)
 	}
 	_, issues := Prepare(tasks, nil)
 	if len(issues) != 0 {

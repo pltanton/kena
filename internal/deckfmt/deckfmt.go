@@ -68,13 +68,45 @@ func Parse(src string) ([]Item, []LineError) {
 	src = strings.ReplaceAll(src, "\r", "\n")
 
 	var (
-		items   []Item
-		errs    []LineError
-		open    bool
-		broken  bool
-		explain []string
+		items    []Item
+		errs     []LineError
+		sentence []string
+		start    int
+		open     bool
+		broken   bool
+		explain  []string
 	)
+	closeSentence := func() {
+		if sentence == nil {
+			return
+		}
+		task, bad := greek.TaskInput{}, false
+		var lines []string
+		for k, line := range sentence {
+			part, msg := parseLine(line)
+			if msg != "" {
+				errs = append(errs, LineError{start + k, msg})
+				bad = true
+				continue
+			}
+			lines = append(lines, part.Text)
+			task.Blanks = append(task.Blanks, part.Blanks...)
+		}
+		if !bad && len(task.Blanks) == 0 {
+			errs = append(errs, LineError{start, "no blank; write the answer in {braces}"})
+			bad = true
+		}
+		sentence = nil
+		if bad {
+			broken = true
+			return
+		}
+		task.Text = strings.Join(lines, "\n")
+		items = append(items, Item{Task: task, Line: start})
+		open = true
+	}
 	flush := func() {
+		closeSentence()
 		if open && len(explain) > 0 {
 			items[len(items)-1].Task.Explanation = strings.Join(explain, "\n")
 		}
@@ -87,6 +119,7 @@ func Parse(src string) ([]Item, []LineError) {
 		case trimmed == "":
 			flush()
 		case strings.HasPrefix(trimmed, ">"):
+			closeSentence()
 			if broken {
 				continue
 			}
@@ -98,22 +131,18 @@ func Parse(src string) ([]Item, []LineError) {
 				explain = append(explain, s)
 			}
 		default:
-			flush()
-			task, msg := parseSentence(trimmed)
-			if msg != "" {
-				errs = append(errs, LineError{n, msg})
-				broken = true
-				continue
+			if sentence == nil {
+				flush()
+				start = n
 			}
-			items = append(items, Item{Task: task, Line: n})
-			open = true
+			sentence = append(sentence, trimmed)
 		}
 	}
 	flush()
 	return items, errs
 }
 
-func parseSentence(line string) (greek.TaskInput, string) {
+func parseLine(line string) (greek.TaskInput, string) {
 	var (
 		task greek.TaskInput
 		text strings.Builder
@@ -147,9 +176,6 @@ func parseSentence(line string) (greek.TaskInput, string) {
 		task.Blanks = append(task.Blanks, bl)
 		text.WriteString(greek.Marker)
 		rest = rest[end+1:]
-	}
-	if len(task.Blanks) == 0 {
-		return task, "no blank; write the answer in {braces}"
 	}
 	task.Text = strings.TrimSpace(text.String())
 	return task, ""

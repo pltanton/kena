@@ -2,6 +2,7 @@ package greek
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -41,11 +42,10 @@ func LintTask(t TaskInput) []Issue {
 			fmt.Sprintf("found %d %q placeholders but %d blanks", n, Marker, len(t.Blanks))})
 	}
 
-	issues = append(issues, charIssues("text", t.Text, "{}|", false)...)
-	if strings.HasPrefix(strings.TrimSpace(t.Text), ">") {
-		issues = append(issues, Issue{Error, "text", "text must not start with >; the editor reads such lines as explanations"})
-	}
+	issues = append(issues, charIssues("text", t.Text, "{}|", true)...)
+	issues = append(issues, textLineIssues(t.Text)...)
 	issues = append(issues, charIssues("explanation", t.Explanation, "", true)...)
+	issues = append(issues, abbreviationIssues(t.Explanation)...)
 
 	textNoMarker := strings.ReplaceAll(t.Text, Marker, " ")
 	issues = append(issues, scriptIssues("text", textNoMarker)...)
@@ -77,6 +77,46 @@ func LintTask(t TaskInput) []Issue {
 	}
 
 	return issues
+}
+
+func textLineIssues(text string) []Issue {
+	var issues []Issue
+	lines := strings.Split(text, "\n")
+	empty, quoted := false, false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		empty = empty || (line == "" && len(lines) > 1)
+		quoted = quoted || strings.HasPrefix(line, ">")
+	}
+	if empty {
+		issues = append(issues, Issue{Error, "text", "empty line inside the text; the editor reads an empty line as the end of a task"})
+	}
+	if quoted {
+		issues = append(issues, Issue{Error, "text", "a text line must not start with >; the editor reads such lines as explanations"})
+	}
+	return issues
+}
+
+var parenAbbrev = regexp.MustCompile(`\(([A-Za-z]{1,4})\)`)
+
+func abbreviationIssues(explanation string) []Issue {
+	m := parenAbbrev.FindStringSubmatch(explanation)
+	if m == nil {
+		return nil
+	}
+	greek, latin := 0, 0
+	for _, r := range explanation {
+		switch {
+		case unicode.Is(unicode.Greek, r):
+			greek++
+		case unicode.Is(unicode.Latin, r):
+			latin++
+		}
+	}
+	if greek <= latin {
+		return nil
+	}
+	return []Issue{{Warning, "explanation", fmt.Sprintf("unexplained abbreviation %q in a Greek explanation; write it out or drop it", m[0])}}
 }
 
 func scriptIssues(field, s string) []Issue {
@@ -213,8 +253,6 @@ func charIssues(field, s, forbidden string, newlineOK bool) []Issue {
 			issues = append(issues, Issue{Error, field, fmt.Sprintf("%q is not allowed here; the editor uses it for blanks", string(r))})
 		case r == '\n' && newlineOK:
 			continue
-		case r == '\n' && field == "text":
-			issues = append(issues, Issue{Error, field, "line break is not allowed; keep the sentence on one line"})
 		case unicode.IsControl(r):
 			issues = append(issues, Issue{Error, field, fmt.Sprintf("control character %U is not allowed", r)})
 		default:

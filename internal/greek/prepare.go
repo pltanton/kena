@@ -2,6 +2,7 @@ package greek
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -20,13 +21,13 @@ func normalizeTask(t TaskInput) TaskInput {
 		blanks[i] = Blank{Answers: answers, Hint: strings.TrimSpace(NFC(b.Hint))}
 	}
 	return TaskInput{
-		Text:        strings.TrimSpace(NFC(t.Text)),
+		Text:        normalizeLines(t.Text),
 		Blanks:      blanks,
-		Explanation: normalizeExplanation(t.Explanation),
+		Explanation: normalizeLines(t.Explanation),
 	}
 }
 
-func normalizeExplanation(s string) string {
+func normalizeLines(s string) string {
 	s = strings.ReplaceAll(NFC(s), "\r\n", "\n")
 	var lines []string
 	for _, line := range strings.Split(strings.ReplaceAll(s, "\r", "\n"), "\n") {
@@ -66,6 +67,7 @@ func PrepareAgainst(tasks []TaskInput, existing []TaskInput) ([]TaskInput, []Tas
 	}
 	issues = append(issues, repeatedExplanations(out, existing)...)
 	issues = append(issues, batchStyle(out)...)
+	issues = append(issues, hintMonotony(out)...)
 	return out, issues
 }
 
@@ -100,13 +102,124 @@ func repeatedExplanations(batch, existing []TaskInput) []TaskIssue {
 		count[k]++
 	}
 	var issues []TaskIssue
+	flagged := map[int]bool{}
 	for _, k := range order {
 		if n := count[k]; n > maxSameExplanation {
+			flagged[first[k]] = true
 			issues = append(issues, TaskIssue{Task: first[k], Issue: Issue{Warning, "explanation",
 				fmt.Sprintf("explanation repeated %d times — make each explanation specific to its item (what makes this form, and the cue for this tense or case)", n)}})
 		}
 	}
+	return append(issues, templatedExplanations(batch, existing, flagged)...)
+}
+
+var (
+	quotedSpan = regexp.MustCompile(`«[^»]*»|"[^"]*"|“[^”]*”`)
+	digits     = regexp.MustCompile(`\p{Nd}+`)
+)
+
+func templateKey(t TaskInput) string {
+	s := strings.ToLower(NFC(t.Explanation))
+	s = quotedSpan.ReplaceAllString(s, " ")
+	s = digits.ReplaceAllString(s, " ")
+	var words []string
+	for _, b := range t.Blanks {
+		words = append(words, strings.ToLower(b.Hint))
+		for _, a := range b.Answers {
+			words = append(words, strings.ToLower(a))
+		}
+	}
+	for _, w := range words {
+		for _, f := range strings.Fields(w) {
+			s = replaceWord(s, f)
+		}
+	}
+	return strings.TrimRight(strings.Join(strings.Fields(s), " "), ".;:!·… ")
+}
+
+func replaceWord(s, w string) string {
+	var out []string
+	for _, f := range strings.Fields(s) {
+		if strings.Trim(f, ".,;:!·…()[]→-–—") != strings.Trim(w, ".,;:!·…()[]") {
+			out = append(out, f)
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+func templatedExplanations(batch, existing []TaskInput, flagged map[int]bool) []TaskIssue {
+	count := map[string]int{}
+	for _, t := range existing {
+		if k := templateKey(t); k != "" {
+			count[k]++
+		}
+	}
+	first := map[string]int{}
+	exact := map[string]map[string]bool{}
+	var order []string
+	for i, t := range batch {
+		k := templateKey(t)
+		if k == "" {
+			continue
+		}
+		if _, ok := first[k]; !ok {
+			first[k] = i
+			order = append(order, k)
+			exact[k] = map[string]bool{}
+		}
+		exact[k][explanationKey(t.Explanation)] = true
+		count[k]++
+	}
+	var issues []TaskIssue
+	for _, k := range order {
+		if n := count[k]; n > maxSameExplanation && (len(exact[k]) > 1 || !flagged[first[k]]) {
+			issues = append(issues, TaskIssue{Task: first[k], Issue: Issue{Warning, "explanation",
+				fmt.Sprintf("%d explanations are templated: the same sentence with only the quoted words, numbers or answers swapped — say what makes each form and the cue for it", n)}})
+		}
+	}
 	return issues
+}
+
+func hintPattern(t TaskInput) string {
+	var hints []string
+	any := false
+	for _, b := range t.Blanks {
+		h := strings.ToLower(strings.Join(strings.Fields(b.Hint), " "))
+		any = any || h != ""
+		hints = append(hints, h)
+	}
+	if !any {
+		return ""
+	}
+	return strings.Join(hints, "\x00")
+}
+
+func hintMonotony(batch []TaskInput) []TaskIssue {
+	n := len(batch)
+	if n < minStyleBatch {
+		return nil
+	}
+	count := map[string]int{}
+	first := map[string]int{}
+	best := ""
+	for i, t := range batch {
+		k := hintPattern(t)
+		if k == "" {
+			continue
+		}
+		if _, ok := first[k]; !ok {
+			first[k] = i
+		}
+		count[k]++
+		if count[k] > count[best] {
+			best = k
+		}
+	}
+	if best == "" || count[best]*10 <= n*6 {
+		return nil
+	}
+	return []TaskIssue{{Task: first[best], Issue: Issue{Warning, "blanks",
+		fmt.Sprintf("%d of %d tasks use the same hint pattern — vary the items (different lemmas, cases, frames)", count[best], n)}}}
 }
 
 var subjectPronouns = map[string]bool{
