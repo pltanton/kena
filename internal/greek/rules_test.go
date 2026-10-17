@@ -115,3 +115,14 @@ func TestRuleLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestPrepareRulesRejectsLargeTables(t *testing.T) {
+	wide := strings.Repeat("|a", 13) + "\n" + strings.Repeat("|-", 13) + "\n"
+	long := "|a|b|\n|-|-|\n" + strings.Repeat("|\n", 200)
+	for _, body := range []string{wide, long} {
+		_, issues := PrepareRules([]Rule{{Key: "a", Body: body}})
+		if len(issues) != 1 || issues[0].Severity != Error || issues[0].Field != "rules[0].body" || !strings.Contains(issues[0].Message, "table") {
+			t.Errorf("PrepareRules(%.20q…) = %+v", body, issues)
+		}
+	}
+}

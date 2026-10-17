@@ -235,6 +235,14 @@ func TestRulesPage(t *testing.T) {
 		t.Fatalf("preview saved: %+v", set.Rules)
 	}
 
+	huge := strings.Repeat("|a", 2000) + "\n" + strings.Repeat("|-", 2000) + "\n" + strings.Repeat("|\n", 3000)
+	resp, body = maria.post(path, e.rulesForm("preview", "", greek.Rule{Key: "huge", Body: huge}), e.srv.URL)
+	wantStatus(t, resp, http.StatusUnprocessableEntity)
+	wantAll(t, "oversized preview", body, "Not saved", "longer than 4000")
+	if strings.Contains(body, "rule-preview") || strings.Contains(body, "<td>") {
+		t.Fatalf("oversized body previewed")
+	}
+
 	resp, body = maria.post(path, e.rulesForm("save", "", greek.Rule{Key: "Bad", Body: " "}), e.srv.URL)
 	wantStatus(t, resp, http.StatusUnprocessableEntity)
 	wantAll(t, "invalid", body, "Not saved", "Key:", "Body:")

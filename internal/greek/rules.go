@@ -20,7 +20,7 @@ type Rule struct {
 const (
 	MaxRules        = 30
 	MaxRuleTitleLen = 80
-	MaxRuleBodyLen  = 4000
+	MaxRuleBodyLen  = markdown.MaxLen
 	ruleKeyPattern  = `^[a-z0-9-]{1,32}$`
 	ruleFieldFormat = "rules[%d].%s"
 	rulePreviewLen  = 60
@@ -82,6 +82,9 @@ func PrepareRules(rules []Rule) ([]Rule, []Issue) {
 		case strings.IndexFunc(r.Body, func(c rune) bool { return unicode.IsControl(c) && c != '\n' && c != '\t' }) >= 0:
 			issues = append(issues, Issue{Error, field("body"), "control character is not allowed"})
 		default:
+			for _, msg := range markdown.Errors(r.Body) {
+				issues = append(issues, Issue{Error, field("body"), msg})
+			}
 			for _, msg := range markdown.Issues(r.Body) {
 				issues = append(issues, Issue{Warning, field("body"), msg})
 			}

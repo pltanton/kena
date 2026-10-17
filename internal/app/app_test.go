@@ -177,3 +177,18 @@ func TestAccessLogRedactsQRSecret(t *testing.T) {
 		t.Fatalf("access log leaks the QR secret:\n%s", buf.String())
 	}
 }
+
+func TestNoSniffOnAllResponses(t *testing.T) {
+	ts, url, _ := newServer(t)
+	for _, req := range []struct{ method, path string }{{"GET", "/"}, {"GET", "/static/app.css"}, {"GET", "/nope"}, {"POST", "/mcp"}} {
+		r, _ := http.NewRequest(req.method, url+req.path, strings.NewReader("{}"))
+		resp, err := ts.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if got := resp.Header.Get("X-Content-Type-Options"); got != "nosniff" {
+			t.Errorf("%s %s: X-Content-Type-Options = %q", req.method, req.path, got)
+		}
+	}
+}
