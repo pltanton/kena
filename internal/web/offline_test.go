@@ -167,7 +167,6 @@ func TestPack(t *testing.T) {
 		t.Errorf("version %q and key %q unchanged after an attempt", p2.Version, p2.Key)
 	}
 
-
 	other := e.as("", false)
 	if _, p3, _ := other.pack(e.set.Slug); len(p3.State) != 0 {
 		t.Errorf("another device sees state %v", p3.State)
