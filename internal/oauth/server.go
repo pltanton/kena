@@ -238,15 +238,21 @@ func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuth
 	if strings.HasPrefix(clientID, "https://") {
 		c, err := s.fetchClientDoc(ctx, clientID)
 		if err != nil {
-			return c, fmt.Errorf("%w: %w", errUnknownClient, err)
+			return store.OAuthClient{}, fmt.Errorf("%w: %w", errUnknownClient, err)
 		}
-		return c, s.Store.SaveClient(ctx, c)
+		if err := s.Store.SaveClient(ctx, c); err != nil {
+			return store.OAuthClient{}, err
+		}
+		return c, nil
 	}
 	c, err := s.Store.GetClient(ctx, clientID)
 	if errors.Is(err, store.ErrNotFound) {
-		return c, errUnknownClient
+		return store.OAuthClient{}, errUnknownClient
 	}
-	return c, err
+	if err != nil {
+		return store.OAuthClient{}, err
+	}
+	return c, nil
 }
 
 func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {

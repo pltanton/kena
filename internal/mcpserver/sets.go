@@ -188,7 +188,10 @@ func (s *server) visibleSet(ctx context.Context, u store.User, ref string) (stor
 	if err == nil && !ok {
 		err = fail("set %q not found; use list_sets to find the id or slug", ref)
 	}
-	return st, err
+	if err != nil {
+		return store.Set{}, err
+	}
+	return st, nil
 }
 
 func (s *server) editableSet(ctx context.Context, u store.User, ref string) (store.Set, error) {
@@ -196,7 +199,10 @@ func (s *server) editableSet(ctx context.Context, u store.User, ref string) (sto
 	if err != nil {
 		return store.Set{}, err
 	}
-	return st, canEdit(u, st)
+	if err := canEdit(u, st); err != nil {
+		return store.Set{}, err
+	}
+	return st, nil
 }
 
 func canEdit(u store.User, st store.Set) error {
@@ -221,7 +227,10 @@ func (s *server) editableTask(ctx context.Context, u store.User, id int64) (stor
 	if !ok {
 		return store.Task{}, store.Set{}, fail("task %d not found", id)
 	}
-	return t, st, canEdit(u, st)
+	if err := canEdit(u, st); err != nil {
+		return store.Task{}, store.Set{}, err
+	}
+	return t, st, nil
 }
 
 func (s *server) existingTasks(ctx context.Context, setID int64, skipTask int64) ([]greek.TaskInput, error) {

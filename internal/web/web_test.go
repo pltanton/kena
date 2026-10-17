@@ -95,6 +95,9 @@ func (e *env) account(name string, admin bool) store.User {
 			e.t.Fatal(err)
 		}
 	}
+	if u.IsAdmin != admin {
+		e.t.Fatalf("user %s exists with admin=%v, want %v", name, u.IsAdmin, admin)
+	}
 	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
 		e.t.Fatal(err)
 	}

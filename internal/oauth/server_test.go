@@ -294,6 +294,36 @@ func TestAuthorizeLoggedInShowsAllow(t *testing.T) {
 	}
 }
 
+func TestAuthorizeGetNeverIssuesCode(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://claude.ai/api/mcp/auth_callback"
+	clientID := e.register(t, redirect)
+	q := authParams(clientID, redirect, testVerifier)
+	q.Set("action", "allow")
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		req, err := http.NewRequest(method, e.ts.URL+"/oauth/authorize?"+q.Encode(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.AddCookie(&http.Cookie{Name: session.CookieName, Value: e.session})
+		resp, err := e.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Location") != "" {
+			t.Errorf("%s with action=allow: status %d, Location %q", method, resp.StatusCode, resp.Header.Get("Location"))
+		}
+	}
+	var codes int
+	if err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM oauth_codes`).Scan(&codes); err != nil {
+		t.Fatal(err)
+	}
+	if codes != 0 {
+		t.Fatalf("GET issued %d codes", codes)
+	}
+}
+
 func TestAuthorizeLoginThenAllow(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/pltanton/kena/internal/db/dbtest"
 	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
@@ -32,12 +34,14 @@ type env struct {
 	user    store.User
 	token   string
 	session string
+	pool    *pgxpool.Pool
 }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	ctx := context.Background()
-	st := store.New(dbtest.New(t))
+	pool := dbtest.New(t)
+	st := store.New(pool)
 	u, err := st.EnsureUser(ctx, "anton", false)
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +63,7 @@ func newEnv(t *testing.T) *env {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 	c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	return &env{srv: srv, ts: ts, client: c, user: u, token: tok, session: sess}
+	return &env{srv: srv, ts: ts, client: c, user: u, token: tok, session: sess, pool: pool}
 }
 
 func (e *env) get(t *testing.T, path string, q url.Values) (*http.Response, string) {
