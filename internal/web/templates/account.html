@@ -1,12 +1,20 @@
 {{define "title"}}Account · kena{{end}}
-{{define "main"}}<h1>Account</h1>
-<p>Logged in as <strong>{{.User.Username}}</strong>.</p>
-<form method="post" action="/logout"><button type="submit" class="secondary">Log out</button></form>
+{{define "main"}}<div class="page-head"><h1>Account</h1><form method="post" action="/logout"><button type="submit" class="secondary small">Log out</button></form></div>
+<p class="lede">Logged in as <strong>{{.User.Username}}</strong>.</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 {{with .Notice}}<p class="notice" role="status">{{.}}</p>{{end}}
 
+<h2>Connected apps</h2>
+{{if .Apps}}<ul class="rows">
+{{- range .Apps}}
+<li><span><strong>{{.Name}}</strong><span class="meta">{{with .Host}}{{.}} · {{end}}since {{.Since}}</span></span>
+<form method="post" action="/account/apps/disconnect"><input type="hidden" name="client_id" value="{{.ClientID}}"><button type="submit" class="secondary small">Disconnect</button></form></li>
+{{- end}}
+</ul>{{else}}<p class="muted">No apps connected.</p>{{end}}
+<p><a href="/connect">Connect Claude, ChatGPT or another agent</a></p>
+
 <h2 id="tokens">Personal tokens</h2>
-<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT don't need one: they ask you to log in here. See <a href="/connect">Connect</a> for setup steps per app.</p>
+<p class="muted">For Claude Code, Hermes and other agents that take a bearer token. The Claude app and ChatGPT log in instead and don't need one.</p>
 {{with .NewToken}}<div class="card secret">
 <p><strong>New token{{with .Label}} “{{.}}”{{end}}.</strong> Copy it now, it won't be shown again.</p>
 <code class="copy">{{.Secret}}</code>
@@ -18,20 +26,14 @@
 <li><span><strong>{{or .Label "unlabelled"}}</strong><span class="meta">created {{.Created}} · last used {{.LastUsed}}</span></span>
 <form method="post" action="/account/tokens/{{.ID}}/revoke"><button type="submit" class="secondary small">Revoke</button></form></li>
 {{- end}}
-</ul>{{else}}<p class="muted">No tokens.</p>{{end}}
-<form class="stack" method="post" action="/account/tokens">
+</ul>{{end}}
+<form method="post" action="/account/tokens">
 <label for="label">Label</label>
+<div class="inline-form">
 <input id="label" name="label" placeholder="laptop claude code" maxlength="100">
-<button type="submit">New token</button>
+<button type="submit" class="secondary small">New token</button>
+</div>
 </form>
-
-<h2>Connected apps</h2>
-{{if .Apps}}<ul class="rows">
-{{- range .Apps}}
-<li><span><strong>{{.Name}}</strong><span class="meta">{{with .Host}}{{.}} · {{end}}since {{.Since}}</span></span>
-<form method="post" action="/account/apps/disconnect"><input type="hidden" name="client_id" value="{{.ClientID}}"><button type="submit" class="secondary small">Disconnect</button></form></li>
-{{- end}}
-</ul>{{else}}<p class="muted">No apps connected.</p>{{end}}
 
 <h2>Change passphrase</h2>
 <form class="card stack" method="post" action="/account/passphrase">

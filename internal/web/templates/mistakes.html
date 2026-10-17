@@ -1,11 +1,6 @@
 {{define "title"}}Mistakes · kena{{end}}
 {{define "main"}}<h1>Mistakes</h1>
-<div class="card ask">
-<p><strong>Ask your agent:</strong></p>
-<code class="copy" id="ask-prompt">{{.Prompt}}</code>
-<button type="button" class="secondary small" id="ask-copy" hidden>Copy</button>
-<p class="muted">It reads these mistakes, explains your weak spots and builds a practice set. No agent connected yet? See <a href="/connect">Connect</a>.</p>
-</div>
+<p class="lede">Tasks you got wrong in the last {{.Days}} days.</p>
 {{- range .Sets}}
 <section class="group">
 <h2><a href="{{.URL}}">{{.Title}}</a></h2>
@@ -21,6 +16,11 @@
 {{- else}}
 <p class="empty">{{template "motif"}}<span>No mistakes in the last {{.Days}} days.</span></p>
 {{- end}}
+<section class="ask">
+<h2>Ask your agent</h2>
+<p class="muted">It reads these mistakes, explains your weak spots and builds a practice deck. No agent yet? See <a href="/connect">Connect</a>.</p>
+<div class="copy-row"><code class="copy" id="ask-prompt">{{.Prompt}}</code><button type="button" class="secondary small" id="ask-copy" hidden>Copy</button></div>
+</section>
 <script>
 (function () {
   var button = document.getElementById("ask-copy");

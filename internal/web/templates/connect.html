@@ -1,20 +1,29 @@
 {{define "title"}}Connect · kena{{end}}
 {{define "main"}}<h1>Connect</h1>
-<p class="muted">Let an AI agent read and write your kena decks. The server is at <code>{{.MCPURL}}</code>.</p>
+<p class="lede">Let an AI agent read your mistakes and make decks for you, for example from a photo of your textbook.</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 
 <div class="card">
 <h2>Claude</h2>
 <p class="muted">Web, desktop and mobile app.</p>
 <a id="claude-add-link" class="button" href="{{.ClaudeURL}}" target="_blank" rel="noopener">Add to Claude</a>
-<p class="muted">Confirm the dialog → log in on the kena page → Allow. Add it on web or desktop; it appears in the mobile app automatically.</p>
+<ol class="steps">
+<li>Confirm the dialog in Claude.</li>
+<li>Log in on the kena page and press Allow.</li>
+</ol>
+<p class="muted">Add it on web or desktop; it then shows up in the mobile app too.</p>
 </div>
 
 <div class="card">
 <h2>ChatGPT</h2>
 <code class="copy" id="chatgpt-url">{{.MCPURL}}</code>
 <button type="button" class="secondary small copy-btn" data-copy="chatgpt-url" hidden>Copy URL</button>
-<p class="muted">Settings → Plugins (or Apps &amp; Connectors) → + → Add custom MCP server → paste the URL → choose OAuth → log in on kena → Allow. Needs developer mode on Plus/Pro, or a Business/Enterprise plan.</p>
+<ol class="steps">
+<li>Settings → Plugins (or Apps &amp; Connectors) → + → Add custom MCP server.</li>
+<li>Paste the URL and choose OAuth.</li>
+<li>Log in on kena and press Allow.</li>
+</ol>
+<p class="muted">Needs developer mode on Plus/Pro, or a Business/Enterprise plan.</p>
 <p><a href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt" target="_blank" rel="noopener">OpenAI help</a></p>
 </div>
 

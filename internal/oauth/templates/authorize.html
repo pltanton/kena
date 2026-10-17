@@ -25,13 +25,15 @@ main.oauth-authorize,header.site{max-width:28rem}
 <h1>Authorization error</h1>
 <p class="error">{{.Fatal}}</p>
 {{else}}
-<h1>Connect an app to kena</h1>
-{{if .ClientName}}<p><strong>{{.ClientName}}</strong> (name provided by the app)</p>{{end}}
-{{if .ClientHost}}<p>App published by <strong>{{.ClientHost}}</strong></p>{{end}}
-<p>You will be sent back to <strong>{{.RedirectHost}}</strong></p>
+<h1>Connect an app</h1>
+<ul class="facts">
+{{if .ClientName}}<li><strong>{{.ClientName}}</strong> <span class="muted">(name provided by the app)</span></li>{{end}}
+{{if .ClientHost}}<li>Published by <strong>{{.ClientHost}}</strong></li>{{end}}
+<li>Sends you back to <strong>{{.RedirectHost}}</strong></li>
+</ul>
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 {{if .User}}
-<p>Allow {{if .ClientName}}<strong>{{.ClientName}}</strong>{{else}}this app{{end}} to create and edit <strong>{{.User}}</strong>'s sets?</p>
+<p class="ask-allow">Allow {{if .ClientName}}<strong>{{.ClientName}}</strong>{{else}}this app{{end}} to read, create and edit <strong>{{.User}}</strong>'s decks?</p>
 <form method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
 {{end}}<div class="choices">
@@ -40,7 +42,7 @@ main.oauth-authorize,header.site{max-width:28rem}
 </div>
 </form>
 {{else}}
-<p>Log in to kena to let this app create and edit your task sets.</p>
+<p class="ask-allow">Log in to kena to let this app read, create and edit your decks.</p>
 <form class="card stack" method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
 {{end}}<input type="hidden" name="action" value="login">
