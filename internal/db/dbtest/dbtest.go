@@ -73,7 +73,7 @@ func startCluster() (*cluster, error) {
 	defer logFile.Close()
 	port := 10000 + rand.IntN(50000)
 	c.url = fmt.Sprintf("host=%s port=%d user=postgres dbname=postgres", dir, port)
-	c.cmd = exec.Command("postgres", "-D", dir, "-k", dir, "-c", "listen_addresses=", "-p", strconv.Itoa(port), "-F")
+	c.cmd = exec.Command("postgres", "-D", dir, "-k", dir, "-c", "listen_addresses=", "-c", "max_connections=500", "-p", strconv.Itoa(port), "-F")
 	c.cmd.Stdout, c.cmd.Stderr = logFile, logFile
 	if err := c.cmd.Start(); err != nil {
 		c.cmd = nil
@@ -147,7 +147,12 @@ func New(t testing.TB) *pgxpool.Pool {
 		t.Fatalf("dbtest: preparing migrated template: %v", templateErr)
 	}
 	connString := createDatabase(t, admin, templateName)
-	pool, err := pgxpool.New(context.Background(), connString)
+	cfg, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		t.Fatalf("dbtest: %v", err)
+	}
+	cfg.MaxConns = 4
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("dbtest: connecting: %v", err)
 	}

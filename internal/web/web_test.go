@@ -35,6 +35,7 @@ type env struct {
 
 func setup(t *testing.T) *env {
 	t.Helper()
+	t.Parallel()
 	ctx := context.Background()
 	st := store.New(dbtest.New(t))
 

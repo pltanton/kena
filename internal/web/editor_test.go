@@ -311,6 +311,10 @@ func TestDeleteDeck(t *testing.T) {
 
 func TestEditorWarnsAboutLossyTasks(t *testing.T) {
 	e := setup(t)
+	maria := e.as("maria", false)
+	if _, body := maria.get("/s/" + e.set.Slug + "/edit"); strings.Contains(body, `class="warning"`) {
+		t.Fatalf("warning on a clean deck:\n%s", body)
+	}
 	if _, err := e.st.AddTasks(context.Background(), e.set.ID, []greek.TaskInput{
 		{Text: "Αυτό {δεν} ___ σωστό.", Blanks: []greek.Blank{{Answers: []string{"είναι"}}}},
 		{Text: "Οκ ___.", Blanks: []greek.Blank{{Answers: []string{"ναι"}}}},
@@ -318,13 +322,9 @@ func TestEditorWarnsAboutLossyTasks(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	_, body := e.as("maria", false).get("/s/" + e.set.Slug + "/edit")
+	_, body := maria.get("/s/" + e.set.Slug + "/edit")
 	if !strings.Contains(body, `class="warning"`) || !strings.Contains(body, "lines 8, 12") {
 		t.Fatalf("no round-trip warning:\n%s", body)
-	}
-	e2 := setup(t)
-	if _, body := e2.as("maria", false).get("/s/" + e2.set.Slug + "/edit"); strings.Contains(body, `class="warning"`) {
-		t.Fatalf("warning on a clean deck:\n%s", body)
 	}
 }
 
