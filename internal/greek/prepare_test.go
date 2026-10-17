@@ -100,7 +100,7 @@ func TestPrepareMissingExplanations(t *testing.T) {
 	}
 	_, issues := Prepare(tasks, nil)
 	w := warningsFor(issues, "explanation")
-	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "6 of 10 tasks have no explanation") {
+	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "6 of 10 tasks have neither an explanation nor a deck rule") {
 		t.Fatalf("warnings = %+v", w)
 	}
 	_, issues = Prepare(tasks[:9], nil)

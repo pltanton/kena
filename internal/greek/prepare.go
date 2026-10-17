@@ -197,7 +197,7 @@ func batchStyle(batch []TaskInput) []TaskIssue {
 	missing, firstMissing := 0, -1
 	pronouns, firstPronoun := 0, -1
 	for i, t := range batch {
-		if t.Explanation == "" {
+		if t.Explanation == "" && t.Rule == "" {
 			missing++
 			if firstMissing < 0 {
 				firstMissing = i
@@ -212,7 +212,7 @@ func batchStyle(batch []TaskInput) []TaskIssue {
 	}
 	if missing*2 > n {
 		issues = append(issues, TaskIssue{Task: firstMissing, Issue: Issue{Warning, "explanation",
-			fmt.Sprintf("%d of %d tasks have no explanation — add a short one specific to each item; learners see it after a wrong answer", missing, n)}})
+			fmt.Sprintf("%d of %d tasks have neither an explanation nor a deck rule — point each at a rule, and explain what is specific to the item; learners see both after a wrong answer", missing, n)}})
 	}
 	if pronouns*10 > n*6 {
 		issues = append(issues, TaskIssue{Task: firstPronoun, Issue: Issue{Warning, "text",

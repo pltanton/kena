@@ -65,3 +65,16 @@ func TestPrepareDeckChecksTaskRules(t *testing.T) {
 		t.Fatal("Prepare without rules accepts a rule reference")
 	}
 }
+
+func TestRuleCountsAsExplained(t *testing.T) {
+	var tasks []TaskInput
+	for i := range 10 {
+		tasks = append(tasks, TaskInput{Text: "Χθες ___ " + strings.Repeat("πολύ ", i) + ".", Blanks: []Blank{{Answers: []string{"έγραψε"}, Hint: []string{"γράφω", "λέω"}[i%2]}}, Rule: "past"})
+	}
+	_, issues := PrepareDeck(tasks, nil, []Rule{{Key: "past", Text: "x"}})
+	for _, iss := range issues {
+		if iss.Field == "explanation" {
+			t.Fatalf("tasks with a rule reported as unexplained: %+v", iss)
+		}
+	}
+}

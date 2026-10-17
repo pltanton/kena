@@ -183,7 +183,7 @@ Warnings (the call succeeds; review them):
   than two tasks of the batch and the set — put it in a deck rule;
 - in a batch of 10 or more: over 60% of the tasks with the same sequence of
   hints (vary lemmas, cases and frames);
-- in a batch of 10 or more: over half the tasks without an explanation;
+- in a batch of 10 or more: over half the tasks with neither an explanation nor a `rule`;
 - in a batch of 10 or more: over 60% of sentences with a subject pronoun
   (εγώ, εσύ, αυτός, αυτή, αυτό, εμείς, εσείς, αυτοί, αυτές, αυτά).
 
