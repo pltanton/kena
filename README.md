@@ -23,6 +23,13 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   Practising needs no login: progress is tied to an anonymous device cookie.
   Logging in (username + passphrase) keeps progress in the account, so every
   device sees the same; what you solved before logging in moves to the account.
+- Offline: practice keeps working without a network. Logged in, your own and
+  starred decks are kept on the device automatically; any deck can be kept
+  with "Save for offline" on its overview. Offline, focus mode checks answers
+  on the device (same nudges, give up, streak, swipes) and queues them; a
+  small indicator in the practice bar shows ✓ (synced), ⟳ N (waiting) or that
+  you are offline, and the answers are sent (and re-checked by the server)
+  as soon as the network is back. kena is installable as an app.
 - Account page (`/account`): log in on your phone by scanning a one-time QR
   code (5 minutes), theme (Auto, Light, Dark; the header button cycles them),
   language, change passphrase, personal tokens, connected apps.

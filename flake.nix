@@ -23,14 +23,21 @@
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         inputsFrom = [(kena pkgs)];
-        packages = with pkgs; [go gopls gotools postgresql];
+        packages = with pkgs; [go gopls gotools postgresql nodejs];
       };
     });
 
     # A full NixOS VM test for the module is too heavy for `nix flake check`;
     # building the package stands in for it here.
-    checks = nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux"] (system: {
-      module = kena nixpkgs.legacyPackages.${system};
+    checks = nixpkgs.lib.genAttrs ["x86_64-linux" "aarch64-linux"] (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      module = kena pkgs;
+      offline-js = pkgs.runCommand "kena-offline-js" {nativeBuildInputs = [pkgs.nodejs];} ''
+        cp -r ${./internal} internal
+        node --test internal/web/jstest/*.test.mjs
+        touch $out
+      '';
     });
 
     formatter = forAllSystems (pkgs: pkgs.alejandra);

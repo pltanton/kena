@@ -35,8 +35,9 @@ the build id (first 12 hex digits of a SHA-256 over every embedded static file
 and template, so any UI change makes a new worker) and the list of precached
 assets. `app.js` registers it when `navigator.serviceWorker` exists.
 
-- Install: precache every `/static/` file except licence texts, and
-  `/offline`, into `kena-static-<build>`; `skipWaiting`. Activate: delete other
+- Install: precache every `/static/` file except licence texts and the
+  manifest screenshots, and `/offline`, into `kena-static-<build>`; put `/`
+  (the start URL) into `kena-pages`; `skipWaiting`. Activate: delete other
   `kena-static-*` caches, `clients.claim`, re-fetch every saved page in the
   page cache (best effort).
 - `/static/*`: network first (the HTTP cache still answers within
@@ -189,10 +190,15 @@ each offline attempt, every 30 s while items are pending, and on tap.
   offline a toast that answers are kept on this device and sync when back
   online. `aria-label`/`title` carry the localised state ("Offline", "Not
   synced yet: 3", "All answers synced").
-- Site header: the same control, only while something is pending.
-- Deviation from the brief: the focus bar shows an icon instead of the word
-  "offline" — at 375 px the Greek «εκτός σύνδεσης» doesn't fit next to the
-  progress bar. The word is in the label, the toast and the site header.
+- Site header: the same control, only while something is pending, and only
+  `⟳ N` (no icon) so the nav still fits at 390 px; below that the nav scrolls
+  sideways as it already does under 360 px.
+- Deviation from the brief: the bars show a cloud-with-a-slash icon instead of
+  the word "offline" — at 375 px the Greek «εκτός σύνδεσης» doesn't fit next
+  to the progress bar. The word is in the label/title and the tap toast.
+- Back online: the `online` event syncs at once (retrying after 1, 3 and
+  10 s); without that event (lie-fi ends quietly) a probe every 30 s while
+  something is pending gets there.
 
 All strings are in the en/ru/el catalogs and reach the scripts through
 `data-*` attributes.
@@ -207,7 +213,9 @@ Content-Type, cross-origin rejected); online `cid`; `/sw.js` (build id,
 precache list, headers); `/offline`; i18n completeness; shared vectors;
 golden file current.
 
-JS: `node --test internal/web/jstest` (vectors, golden replay, pack decoding).
+JS: `node --test internal/web/jstest/*.test.mjs` (vectors, shuffle, plurals,
+golden replay, errors, state overlay); also a `nix flake check` check
+(`offline-js`), so node is a check input but not a build input of the package.
 
 Browser (headless Chromium over CDP): online visit saves the deck; network
 offline (`Network.emulateNetworkConditions`); reload the play page from the

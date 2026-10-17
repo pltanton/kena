@@ -13,7 +13,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-rich-rules-design.md`, swipe navigation:
 `docs/superpowers/specs/2026-10-17-swipe-nav-design.md`, admin:
 `docs/superpowers/specs/2026-10-17-admin-design.md`, UI languages, theme button and CSP:
-`docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`, offline practice and sync:
+`docs/superpowers/specs/2026-10-18-offline-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -21,6 +22,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 ```
 go test ./...        # needs initdb + postgres on PATH (throwaway cluster) or KENA_TEST_DATABASE_URL
 go vet ./...
+node --test internal/web/jstest/*.test.mjs   # offline engine vs Go (nodejs is in the dev shell)
+KENA_UPDATE_GOLDEN=1 go test ./internal/web -run 'TestOfflineGolden|TestShuffleVectors'   # after changing card/done/bar templates or practice handlers
 nix build            # after go.mod changes: update vendorHash in nix/package.nix
 nix flake check
 ```
@@ -41,7 +44,7 @@ nix flake check
 - `internal/i18n`: UI message catalogs (`en.go`, `ru.go`, `el.go`), plurals, `kena_lang` / Accept-Language selection, template funcs `t`, `tf`, `tn`, `th`.
 - `internal/csp`: the Content-Security-Policy every HTML page sends.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`; `play.js`: focus mode), `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.PrepareDeck` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`, service worker registration; `play.js`: focus mode; `sync.js`: IndexedDB packs and attempt queue, `/sync`, the sync indicator, Save for offline; `offline.js`: the offline engine, a port of `greek` checking and of the focus-mode handlers and templates), `sw.js` (served at `/sw.js` with the build id and precache list), offline pack `/s/{slug}/pack.json`, `/offline/decks.json`, `POST /sync`, `/offline`, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.PrepareDeck` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
@@ -59,4 +62,5 @@ nix flake check
 - Every UI string goes through `internal/i18n` and exists in all three catalogs (tests check keys used in templates and Go). Deck content, MCP texts, the guide, logs and lint/parse diagnostics stay untranslated. `th` messages are trusted HTML from the catalog; their arguments are escaped.
 - No inline `<script>` or `on…=` handlers: scripts live in `static/*.js` and read localised strings from `data-*` attributes (CSP `script-src 'self'`). The authorize page's `form-action` names the validated redirect origin, because browsers apply `form-action` to the redirect after Allow/Cancel.
 - Keep MCP tool names stable; agents and the guide reference them.
+- Offline: online practice stays server-rendered; `offline.js` only answers htmx requests when the network is gone. It must render exactly what `card.html`, `done.html` and the bar/sentence/notes templates render: change them together, regenerate `testdata/offline_golden.json` and run the node tests. Answer checking lives twice (`greek` and `offline.js`); `greek/testdata/vectors.json` is the shared contract. The pack's answers are XOR-obfuscated, not secret. `/sync` re-checks every attempt and dedupes by `attempts.client_id`; never trust the client's `correct`. Packs download only for the viewer's own and starred decks (logged in) and decks saved with Save for offline.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).
