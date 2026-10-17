@@ -25,10 +25,10 @@ nix flake check
 - `internal/app`: routing; `/mcp` behind `auth.RequireBearerToken`.
 - `internal/db`: pool, embedded SQL migrations; `dbtest` starts a throwaway cluster per test binary.
 - `internal/store`: all SQL. Does not lint.
-- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `Prepare` (NFC + lint + duplicate warnings for a batch).
+- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `Prepare`/`PrepareAgainst` (NFC + lint + duplicate, repeated-explanation and batch style warnings).
 - `internal/deckfmt`: the editor's plain-text deck format; `Format` and `Parse` round-trip, parse errors carry line numbers.
 - `internal/guide`: authoring guide markdown served by `get_authoring_guide`, `skill://kena/<topic>` and server instructions.
-- `internal/mcpserver`: tools; every write goes through `prepare` (`greek.Prepare`) before touching the store.
+- `internal/mcpserver`: tools; every write goes through `prepare` (`greek.PrepareAgainst`, with the set's existing tasks) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).

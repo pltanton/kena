@@ -1,6 +1,6 @@
 ---
 name: greek-pitfalls
-description: Modern Greek traps for task authors (accent shift, enclitic double accent, final sigma, monotonic spelling, aspect after θα/να, clitics, σε + article, final ν, variant forms, rare lemmas), each with a concrete rule.
+description: Modern Greek traps for task authors (accent shift, enclitic double accent, final sigma, monotonic spelling, aspect after θα/να, clitics, σε + article, final ν, variant forms, rare lemmas, aorist vs imperfect), each with a concrete rule.
 ---
 
 # Greek pitfalls
@@ -143,3 +143,25 @@ If an item needs more than two or three variants, change the slot or the lemma.
 
 Rule: if you are not certain a form is in everyday use and spelled exactly so,
 pick another lemma. The pool is large enough.
+
+## 11. Aorist or imperfect
+
+In most past sentences both tenses are grammatical; only the meaning differs
+(one finished event vs habit or background). This is the main ambiguity of a
+deck whose instruction says "αόριστος ή παρατατικός".
+
+- The aorist is built on the perfective stem, the imperfect on the present
+  stem: έγραψα / έγραφα, διάβασα / διάβαζα, άνοιξα / άνοιγα.
+- Irregular aorists have a regular imperfect: είδα / έβλεπα, πήγα / πήγαινα,
+  έφαγα / έτρωγα, είπα / έλεγα, ήρθα / ερχόμουν.
+- Verbs in -άω/-ώ: imperfect in -ούσα, aorist in -ησα or -εσα:
+  μιλούσα / μίλησα, μπορούσα / μπόρεσα.
+
+Rules:
+
+- Force each item with a cue (see `item-rules`, rule 2) or tag the hint
+  (`γράφω, αόρ.` / `γράφω, παρατ.`).
+- A bare `χθες`, `πέρσι` or `το πρωί` does not decide: `Χθες έβρεχε όλη μέρα`
+  is correct Greek. Add a result, a count or a habit word.
+- If the sentence truly allows both, list both in `answers`, or better,
+  rewrite it.

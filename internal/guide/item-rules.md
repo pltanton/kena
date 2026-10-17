@@ -1,6 +1,6 @@
 ---
 name: item-rules
-description: Rules for a single gap-fill item (one target per blank, context forces the form, hints, length, level, variety, no giveaways) with good and bad Greek examples.
+description: Rules for a single gap-fill item (one target per blank, context forces the form, hints in mixed-tense decks, natural pro-drop sentences, varied frames, no giveaways, item-specific explanations) with good and bad Greek examples.
 ---
 
 # Item rules
@@ -18,14 +18,17 @@ produce is already in the sentence.
 
 - Bad (aorist set): `Το γράμμα; ___ χθες το βράδυ.` → `το έγραψα` — the blank
   needs a clitic and a verb, and the person is free.
-- Good: `Το γράμμα για τη γιαγιά; Εγώ το ___ χθες το βράδυ.` (γράφω) → `έγραψα`
+- Good: `— Και το γράμμα στη γιαγιά; — Το ___ χθες και το έστειλα σήμερα.` (γράφω) → `έγραψα`
+  (έστειλα fixes the person; no `εγώ` needed)
 
 ## 2. Context forces the form
 
 The learner must be able to derive exactly one form, or you list every form that
 fits in `answers`. Force each feature with something visible:
 
-- person and number: a subject noun or pronoun, or another verb with the same subject;
+- person and number: a name or subject noun, another verb with the same subject,
+  a possessive, a vocative or a dialogue turn (`— Πού ήσουν;`); a subject
+  pronoun only for contrast (see 6);
 - tense and aspect: a time cue (χθες, αύριο, κάθε μέρα, τώρα, μόλις, μέχρι);
 - case: a preposition or a verb that governs it;
 - gender: an article or an agreeing word.
@@ -42,13 +45,37 @@ Good: `Όταν η Άννα ___ στο σπίτι, έκανε ένα ζεστό 
 The set's instruction line counts as context: in a set that says "Συμπληρώστε με
 τον αόριστο", the tense is given, but person and number still need a cue.
 
+### Decks that mix aorist and imperfect
+
+The instruction "αόριστος ή παρατατικός" gives no tense, so every item must
+force one, by a cue in the sentence or by a tag in the hint (see 3):
+
+- aorist: a single finished event or a result: μία φορά, ξαφνικά, τελικά,
+  πριν από δύο χρόνια, a count (`δύο κεφάλαια`), the event that interrupts (`όταν χτύπησε το τηλέφωνο`);
+- imperfect: habit or background: κάθε μέρα, κάθε καλοκαίρι, συνήθως, συχνά,
+  πάντα, συνέχεια, `ενώ` + ongoing action, `όταν ήμουν μικρός`.
+- A bare `χθες` is weak: `Χθες διάβαζα όλο το απόγευμα` is correct Greek. Pair
+  it with a result or a count.
+
+Bad (mixed deck): `Χθες το βράδυ η Ελένη ___ στο σπίτι.` (μένω) — έμεινε and έμενε both fit.
+
+Good: `Όταν ήμουν μικρός, ___ κάθε καλοκαίρι στο χωριό με τη γιαγιά.` (πηγαίνω) → `πήγαινα`
+
+Good: `Ενώ η Σοφία ___ το μεσημεριανό, χτύπησε το κουδούνι.` (μαγειρεύω) → `μαγείρευε`
+
 ## 3. Hint = lemma or feature tag, never the answer
 
 - Use the format from the spec, the same for the whole set: lemma (`γράφω`),
-  lemma + tag (`γράφω, αόρ.`) or tag only (`γεν. πληθ.`).
+  lemma + tag (`γράφω, αόρ.`) or tag only (`γεν. πληθ.`). Exception: in a
+  mixed deck the tag may go on some items only (last bullet).
 - Never put the answer, a part of it, or its stem in the hint.
 - If the answer equals the lemma (1st sg. present: `γράφω`), change the slot:
   use another person, or another target.
+- In a deck that mixes tenses, aspects or cases, decide per item: either the
+  sentence forces the choice with an unambiguous cue (see 2), or the hint
+  carries the tag (`γράφω, αόρ.` / `γράφω, παρατ.`). Never leave a bare lemma
+  where both tenses fit. If choosing the tense is the point of the deck,
+  prefer cues and tag only the items no natural cue can settle.
 
 Bad: `Χθες ___ ένα γράμμα. (έγραψ-)`. Good: `Χθες ο Κώστας ___ ένα γράμμα στον Νίκο. (γράφω)` → `έγραψε`.
 
@@ -75,6 +102,13 @@ Bad: `Χθες ___ ένα γράμμα. (έγραψ-)`. Good: `Χθες ο Κώ�
 - Two short clauses that build a small scene are better than one bare clause.
 - Use varied Greek names (Νίκος, Ελένη, Κώστας, Σοφία, Γιώργος, Άννα, Δημήτρης,
   Μαρία) and common nouns, not the same three people throughout.
+- Greek drops subject pronouns: the verb ending already shows the person. Write
+  εγώ, εσύ, αυτός… only for contrast (`Εγώ έμεινα σπίτι, αυτός βγήκε.`). Let
+  the person come from a name, a vocative, a possessive, another verb or a
+  dialogue turn.
+- Bad: `Την περασμένη εβδομάδα εσύ ___ ένα γράμμα.` (γράφω) — the pronoun is
+  there only to fix the person, and no Greek speaker says it so.
+- Good: `— Γιατί δεν ήρθες στο πάρτι; — ___ πυρετό όλο το βράδυ.` (έχω) → `είχα`
 
 ## 7. Variety across the set
 
@@ -84,7 +118,12 @@ Follow the grid from `workflow`. Within any 20 consecutive items:
 - several lexical classes of the target;
 - some negatives (`δεν`, `μην`) and some questions (Greek question mark is `;`);
 - the blank at the start, middle and end;
-- no two items with the same frame ("Χθες ο Νίκος ___ …", "Χθες η Μαρία ___ …").
+- several frames: statements, questions, negatives, short dialogues
+  (`— … ; — …`), a main clause with `όταν`, `ενώ`, `γιατί` or `πριν`;
+- the cue in different places, not always first in the sentence;
+- no two items with the same frame ("Χθες ο Νίκος ___ …", "Χθες η Μαρία ___ …"),
+  and across the set no frame on more than ~20% of items. "Time cue + subject
+  + ___ + object" on every line is a template, not a deck.
 
 ## 8. No giveaways
 
@@ -102,3 +141,31 @@ Follow the grid from `workflow`. Within any 20 consecutive items:
 - List every form that is grammatical in that sentence and fits the hint
   (variants, both aspects if the context allows both). If the list grows past
   two or three, rewrite the sentence instead.
+
+## 10. Explanations: specific to the item
+
+The explanation is what the learner reads after a wrong answer. It must tell
+them what they missed in this item, so a generic line is as good as none.
+
+- One short sentence, at most ~120 characters, for this item only.
+- Name what makes this form: the stem change (γράφ- → έγραψ-), the augment
+  (έ- only when stressed: έγραψα but γράψαμε), an irregular form (βλέπω → είδα),
+  the accent shift, the ending for the person or case.
+- In a deck that mixes tenses or cases, also say why this one: point to the cue
+  in the sentence (`μία φορά` → aorist, `κάθε μέρα` → imperfect).
+- One language for the whole deck: short English by default up to B1, Greek if
+  the user or the level asks for it.
+- Never put the same explanation on two items. If two read interchangeably,
+  rewrite them. The server warns when one text repeats on more than two tasks.
+
+Bad (on every item of a deck): `Αόριστος: ολοκληρωμένη πράξη στο παρελθόν.`
+
+Bad: `Past tense of γράφω.` (true of every γράφω item, says nothing about the slot)
+
+Good:
+
+- `μία φορά = one finished event → aorist; γράφ- → έγραψ-, stressed augment έ-.`
+- `1st pl.: the accent moves to γράψ-, so no augment: γράψαμε, not έγραψαμε.`
+- `Irregular aorist: βλέπω → είδα; 3rd pl. είδαν.`
+- `κάθε καλοκαίρι = habit → imperfect; πηγαίνω → πήγαινα, 1st pl. πηγαίναμε.`
+- `ενώ + ongoing action → imperfect μαγείρευε; the interruption (χτύπησε) is aorist.`

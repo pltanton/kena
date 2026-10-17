@@ -29,6 +29,8 @@ Read the exercise and fill this table. It is the only thing you keep from the bo
 | lexical classes  | sub-patterns the target splits into                                     | γράφω → έγραψα; διαβάζω → διάβασα; irregular πηγαίνω → πήγα, τρώω → έφαγα |
 | word pool        | lemmas the book uses plus same-level lemmas of the same classes (25–40) | γράφω, δουλεύω, ανοίγω, αγοράζω, ετοιμάζω, βλέπω, παίρνω, λέω, έρχομαι    |
 | hint format      | what goes next to the blank (lemma or tag), one format for the set      | lemma: `γράφω`                                                            |
+| tense choice     | does the learner pick the tense? then each item needs a cue or a tag    | no: the instruction line fixes the aorist                                 |
+| explanation lang | English (default up to B1) or Greek, the same for the whole set         | English                                                                   |
 | instruction line | one Greek sentence telling the learner what to do                       | Συμπληρώστε με τον αόριστο του ρήματος.                                   |
 | level            | CEFR level of the book, or the user's stated level                      | B1                                                                        |
 | source ref       | book title, unit, exercise number                                       | `<Book title>, unit 5, ex. 3`                                             |
@@ -66,15 +68,21 @@ Quotas across the whole set (adapt to the target):
 - negatives ~20%, questions ~15%, the rest affirmative statements;
 - both genders and singular/plural subjects;
 - no lemma more than ~5 times in 100 (irregular core verbs may recur, spaced out);
-- the blank's position moves: start, middle, end of the sentence.
+- the blank's position moves: start, middle, end of the sentence;
+- frames vary (statements, questions, negatives, dialogues, `όταν`/`ενώ`
+  clauses); no frame on more than ~20% of items;
+- subject pronouns only for contrast: Greek is pro-drop.
 
 Before each batch, write its 20 grid rows: item number, lemma, slot
-(e.g. 3rd pl.), polarity/type, context cue, blank position.
+(e.g. 3rd pl.), polarity/type, frame, context cue, blank position.
 
 ## 4. Write in batches of 20
 
 Write each batch from its grid rows, following `item-rules` and
 `greek-pitfalls`. Never write all N in one go: quality drops and templates repeat.
+
+Write each item's explanation together with the item, from its derivation and
+its cue (`item-rules`, rule 10), never as a template filled in afterwards.
 
 ## 5. Self-check each batch
 

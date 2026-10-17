@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/pltanton/kena/internal/db/dbtest"
+	"github.com/pltanton/kena/internal/greek"
 	"github.com/pltanton/kena/internal/oauth"
 	"github.com/pltanton/kena/internal/store"
 )
@@ -363,6 +364,31 @@ func TestValidateTasks(t *testing.T) {
 	}
 }
 
+func TestRepeatedExplanationAcrossSet(t *testing.T) {
+	e := newEnv(t)
+	cs := e.connect(t, "alice")
+	generic := "Αόριστος: ολοκληρωμένη πράξη στο παρελθόν."
+	tasks := validTasks()
+	for _, tk := range tasks {
+		tk["explanation"] = generic
+	}
+	out := ok[WriteResult](t, cs, "create_set", setArgs("Set", tasks))
+	if len(out.Warnings) != 0 {
+		t.Fatalf("create_set warnings = %v", out.Warnings)
+	}
+	more := task("Το πρωί η Ελένη ___ ένα μήνυμα στον Νίκο.", "έγραψε")
+	more["explanation"] = generic
+	rep := ok[LintReport](t, cs, "validate_tasks", map[string]any{"tasks": []map[string]any{more}, "set": out.Slug})
+	want := "task[0].explanation: explanation repeated 3 times"
+	if joined := strings.Join(rep.Warnings, "\n"); !strings.Contains(joined, want) {
+		t.Fatalf("validate_tasks warnings = %v", rep.Warnings)
+	}
+	add := ok[WriteResult](t, cs, "add_tasks", map[string]any{"set": out.Slug, "tasks": []map[string]any{more}})
+	if joined := strings.Join(add.Warnings, "\n"); !strings.Contains(joined, want) {
+		t.Fatalf("add_tasks warnings = %v", add.Warnings)
+	}
+}
+
 func TestValidateTasksAgainstSet(t *testing.T) {
 	e := newEnv(t)
 	cs := e.connect(t, "alice")
@@ -548,7 +574,7 @@ func TestPrepareNormalizes(t *testing.T) {
 	nfd := norm.NFD.String("Χθες η Μαρία ___ ένα γράμμα.")
 	out, rep := prepare([]TaskIn{
 		{Text: "  " + nfd + " ", Blanks: []BlankIn{{Answers: []string{norm.NFD.String("έγραψε ")}, Hint: norm.NFD.String("γράφω")}}, Explanation: norm.NFD.String("αόριστος")},
-	}, []string{"Χθες η Μαρία ___ ένα γράμμα."})
+	}, []greek.TaskInput{{Text: "Χθες η Μαρία ___ ένα γράμμα."}})
 	if len(rep.Errors) != 0 {
 		t.Fatalf("errors = %v", rep.Errors)
 	}

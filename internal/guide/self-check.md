@@ -1,6 +1,6 @@
 ---
 name: self-check
-description: Checklist to run on every batch of 20 tasks before calling validate_tasks (level spec, blind re-solve, derive forms from the paradigm, native reading, mechanical lint, level measurement).
+description: Checklist to run on every batch of 20 tasks before calling validate_tasks (level spec, blind re-solve, derive forms from the paradigm, native reading, explanations side by side, mechanical lint, level measurement).
 ---
 
 # Self-check (run on every batch of 20)
@@ -28,6 +28,8 @@ instruction line, the sentence and the hint.
       `answers` or is ruled out by changing the sentence (add a subject, a time
       cue, a preposition).
 - [ ] If more than two or three forms remain, rewrite the item.
+- [ ] Mixed-tense deck: cover the hint and ask for every item: could the other
+      tense fit? If yes, add a cue to the sentence or the tag to the hint.
 
 ## 3. Derive each answer from the paradigm
 
@@ -50,9 +52,21 @@ Read each sentence as a Greek speaker would.
 - [ ] Articles, agreement (gender, number, case) and prepositions outside the
       blank are correct.
 - [ ] The scene makes sense and fits everyday life.
-- [ ] No two items in the batch share a frame; the blank moves around.
+- [ ] No two items in the batch share a frame; the blank and the cue move around.
+- [ ] No subject pronoun (εγώ, εσύ, αυτός…) unless it marks a contrast; the
+      person comes from a name, another verb, a possessive or the dialogue.
 
-## 5. Mechanical lint
+## 5. Explanations side by side
+
+List the batch's explanations one under another, without the sentences.
+
+- [ ] Every task has one, at most ~120 characters, in the deck's language.
+- [ ] Each names what makes its form (stem, augment, irregular form, accent,
+      ending); in a mixed deck it also names the cue for the tense.
+- [ ] If two are identical or interchangeable, rewrite them: an explanation
+      that fits another item does not explain this one.
+
+## 6. Mechanical lint
 
 - [ ] Text is NFC; only monotonic Greek letters; nothing from U+1F00–U+1FFF.
 - [ ] No Latin lookalikes inside Greek words (Latin o vs Greek ο, Latin v vs ν,
@@ -65,7 +79,7 @@ Read each sentence as a Greek speaker would.
 - [ ] No sentence duplicates another one in this batch or in the set.
 - [ ] Questions end with `;`.
 
-## 6. Measure the level
+## 7. Measure the level
 
 - [ ] Each sentence has 6–14 words (count the blank as a word).
 - [ ] List every lemma outside the A2–B1 core (or the book's level). Replace it
@@ -75,5 +89,6 @@ Read each sentence as a Greek speaker would.
 ## Then
 
 Call `validate_tasks` with the batch. It repeats the mechanical checks (errors
-reject the call; warnings flag duplicates, missing accents, long sentences). It
-cannot check meaning, ambiguity or level: steps 1–4 and 6 are yours.
+reject the call; warnings flag duplicates, missing accents, long sentences, repeated or missing
+explanations, subject pronouns). It cannot check meaning, ambiguity or level:
+steps 1–5 and 7 are yours.

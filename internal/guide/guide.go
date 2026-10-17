@@ -84,19 +84,20 @@ func names() string {
 
 const Instructions = `kena stores Greek grammar gap-fill tasks. Before writing tasks, call get_authoring_guide.
 Critical rules:
-1. Write new sentences; never copy or upload the book's sentences.
-2. One target per blank; one ___ per blank.
-3. Context must force the form; otherwise list every accepted answer.
-4. Checking is strict: accents and final ς count.
+1. Write new sentences; never copy the book's.
+2. One target and one ___ per blank.
+3. Context forces the form, or list every accepted answer.
+4. Strict check: accents and final ς count.
 5. Monotonic Greek only; ς at word end.
 6. hint = lemma or tag, never the answer.
-7. Call validate_tasks first; max 50 tasks per create_set/add_tasks call.
+7. validate_tasks first; max 50 tasks per create_set/add_tasks call.
+8. explanation: this item's form + why this tense, never generic.
 More rules:
-- 6-14 words, A2-B1 vocabulary unless the book is higher; natural everyday mini-scenes.
-- Vary person, number, gender, lexical class, polarity, questions and blank position.
-- After θα/να, force the aspect with a cue (κάθε μέρα vs μόλις) or put it in the hint.
-- Write in batches of 20 and self-check each one (blind re-solve, derive forms from the paradigm).
+- 6-14 words, A2-B1 vocabulary unless the book is higher; everyday mini-scenes.
+- Vary person, number, gender, lexical class, polarity, questions, frames and blank position.
+- No subject pronouns unless contrastive: Greek is pro-drop.
+- Mixed tenses or θα/να aspect: force each item by a cue (κάθε μέρα vs μόλις) or a hint tag.
+- Write in batches of 20; self-check each (blind re-solve, derive each form).
 - Default 100 tasks: ~30 blocked, then ~70 interleaved.
-- Set: Greek/English title, one Greek instruction line, source_ref = book, unit, exercise.
-- Report the set URL to the user.
+- Set: Greek/English title, one Greek instruction line, source_ref = book, unit, exercise; report the set URL.
 Mistakes analysis: read topic analyze-mistakes, then call get_mistakes_report.`

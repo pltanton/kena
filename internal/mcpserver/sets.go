@@ -19,6 +19,7 @@ const authoringRules = "Rules: call get_authoring_guide first if you have not ye
 	"answers = every accepted form, accents exact: checking is strict, a missing accent or wrong final ς marks the learner wrong. " +
 	"Monotonic Greek only, ς at word end, σ elsewhere. " +
 	"hint = lemma or tag, never the answer. " +
+	"explanation = one short sentence specific to its item (what makes this form, and the cue for this tense or case), never the same generic text on every task. " +
 	"At most 50 tasks per create_set/add_tasks call; send larger sets in batches."
 
 const lintNote = "Every task is linted: any error rejects the whole call and nothing is saved (errors name task[i] and the field); warnings are returned with the result."
@@ -213,18 +214,18 @@ func (s *server) editableTask(ctx context.Context, u store.User, id int64) (stor
 	return t, st, nil
 }
 
-func (s *server) existingTexts(ctx context.Context, setID int64, skipTask int64) ([]string, error) {
+func (s *server) existingTasks(ctx context.Context, setID int64, skipTask int64) ([]greek.TaskInput, error) {
 	tasks, err := s.st.ListTasks(ctx, setID)
 	if err != nil {
 		return nil, err
 	}
-	texts := make([]string, 0, len(tasks))
+	out := make([]greek.TaskInput, 0, len(tasks))
 	for _, t := range tasks {
 		if t.ID != skipTask {
-			texts = append(texts, t.Text)
+			out = append(out, greek.TaskInput{Text: t.Text, Explanation: t.Explanation})
 		}
 	}
-	return texts, nil
+	return out, nil
 }
 
 func (s *server) addSetTools(srv *mcp.Server) {
@@ -325,7 +326,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if err != nil {
 			return WriteResult{}, err
 		}
-		existing, err := s.existingTexts(ctx, st.ID, 0)
+		existing, err := s.existingTasks(ctx, st.ID, 0)
 		if err != nil {
 			return WriteResult{}, err
 		}
@@ -402,7 +403,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if in.Explanation != nil {
 			merged.Explanation = *in.Explanation
 		}
-		existing, err := s.existingTexts(ctx, st.ID, t.ID)
+		existing, err := s.existingTasks(ctx, st.ID, t.ID)
 		if err != nil {
 			return TaskResult{}, err
 		}
@@ -457,7 +458,8 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		Name: "validate_tasks",
 		Description: "Dry run: lint tasks exactly as create_set/add_tasks would, without saving anything. " +
 			"Checks: the 50-task-per-call cap; per-task lint (text, blanks, hints, Greek spelling and accents); " +
-			"duplicate sentence text within the batch; and, when set is given, duplicates against that set's existing tasks too. " +
+			"duplicate sentence text within the batch; and, when set is given, duplicates against that set's existing tasks too; " +
+			"explanations repeated on more than 2 tasks, and in batches of 10+ too many missing explanations or subject pronouns. " +
 			"Returns errors (would reject the write) and warnings, each as task[i].field: message. " +
 			"Run it on every batch, fix all errors, review warnings, then upload. " + authoringRules,
 		Annotations: readOnly("Validate tasks"),
@@ -465,13 +467,13 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if len(in.Tasks) > maxTasksPerCall {
 			return LintReport{}, fail("max %d tasks per call; send batches", maxTasksPerCall)
 		}
-		var existing []string
+		var existing []greek.TaskInput
 		if in.Set != "" {
 			st, err := s.visibleSet(ctx, u, in.Set)
 			if err != nil {
 				return LintReport{}, err
 			}
-			existing, err = s.existingTexts(ctx, st.ID, 0)
+			existing, err = s.existingTasks(ctx, st.ID, 0)
 			if err != nil {
 				return LintReport{}, err
 			}

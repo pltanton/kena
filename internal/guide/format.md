@@ -16,7 +16,7 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
       "hint": "lemma or tag"
     }
   ],
-  "explanation": "Optional: why this form."
+  "explanation": "Optional: what makes this form and why, for this item only."
 }
 ```
 
@@ -27,8 +27,11 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
   what goes into the blank: no punctuation, no neighbouring words.
 - `hint` (optional): shown to the learner next to the blank. Lemma or feature
   tag, never the answer. No brackets: the UI adds them.
-- `explanation` (optional): one short sentence on why this form, in English or
-  Greek. Shown after a wrong attempt.
+- `explanation` (optional but expected): one short sentence (≤ ~120 characters)
+  shown after a wrong attempt. Specific to this item: what makes this form (stem,
+  augment, irregular form, accent, ending) and, in a deck that mixes tenses or
+  cases, the cue that picks this one. Never the same text on two tasks. One
+  language per deck, short English by default up to B1. See `item-rules`, rule 10.
 
 Checking: the learner's input and each answer are NFC-normalised, trimmed, inner
 spaces collapsed and lowercased, then compared exactly. Case and spacing do not
@@ -40,14 +43,18 @@ Pick one format per set (see `workflow`, spec table):
 
 | format      | example       | use when                                          |
 | ----------- | ------------- | ------------------------------------------------- |
-| lemma       | `γράφω`       | the instruction line fixes the tense or case      |
-| lemma + tag | `γράφω, αόρ.` | the set mixes tenses, or aspect needs forcing     |
+| lemma       | `γράφω`       | the instruction line or a cue fixes the tense     |
+| lemma + tag | `γράφω, αόρ.` | the set mixes tenses and no cue settles the item  |
 | tag only    | `γεν. πληθ.`  | the word is in the sentence's context, e.g. nouns |
 
 Tags: `ενεστ.` (ενεστώτας), `παρατ.` (παρατατικός), `αόρ.` (αόριστος),
 `στιγμ. μέλλ.`, `εξακ. μέλλ.`, `προστ.` (προστακτική), `ονομ.`, `γεν.`, `αιτ.`,
 `κλητ.`, `εν.`, `πληθ.`. Lemmas: verbs in 1st sg. present, nouns in nominative
 singular, adjectives in masculine nominative singular.
+
+In a deck that mixes aorist and imperfect (or other tenses, aspects, cases),
+a bare lemma is allowed only where the sentence forces the choice. Otherwise add
+the tag to that item's hint.
 
 ## Set (`create_set` arguments)
 
@@ -125,4 +132,11 @@ Warnings (the call succeeds; review them):
 
 - the same sentence already exists in the set;
 - an answer word of two or more syllables without an accent;
-- text longer than 20 words.
+- text longer than 20 words;
+- the same explanation (ignoring case, spacing and final punctuation) on more
+  than two tasks of the batch and the set;
+- in a batch of 10 or more: over half the tasks without an explanation;
+- in a batch of 10 or more: over 60% of sentences with a subject pronoun
+  (εγώ, εσύ, αυτός, αυτή, αυτό, εμείς, εσείς, αυτοί, αυτές, αυτά).
+
+The batch warnings are reported on the first task they concern.

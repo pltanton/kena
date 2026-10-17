@@ -15,7 +15,7 @@ type BlankIn struct {
 type TaskIn struct {
 	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
-	Explanation string    `json:"explanation,omitempty" jsonschema:"one short sentence on why this form, shown after a wrong attempt"`
+	Explanation string    `json:"explanation,omitempty" jsonschema:"one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case"`
 }
 
 type LintReport struct {
@@ -39,12 +39,12 @@ func fromGreekBlanks(in []greek.Blank) []BlankIn {
 	return out
 }
 
-func prepare(tasks []TaskIn, existingTexts []string) ([]greek.TaskInput, LintReport) {
+func prepare(tasks []TaskIn, existing []greek.TaskInput) ([]greek.TaskInput, LintReport) {
 	raw := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
 		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation}
 	}
-	out, issues := greek.Prepare(raw, existingTexts)
+	out, issues := greek.PrepareAgainst(raw, existing)
 	rep := LintReport{Errors: []string{}, Warnings: []string{}}
 	for _, iss := range issues {
 		line := fmt.Sprintf("task[%d].%s: %s", iss.Task, iss.Field, iss.Message)

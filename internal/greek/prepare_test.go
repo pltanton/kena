@@ -1,6 +1,8 @@
 package greek
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"golang.org/x/text/unicode/norm"
@@ -52,5 +54,97 @@ func TestPrepareExplanationLines(t *testing.T) {
 	out, _ := Prepare([]TaskInput{{Text: "Α ___.", Blanks: []Blank{{Answers: []string{"β"}}}, Explanation: " one \r\n\n  two\n"}}, nil)
 	if got := out[0].Explanation; got != "one\ntwo" {
 		t.Fatalf("explanation = %q", got)
+	}
+}
+
+func styleTask(text, explanation string) TaskInput {
+	return TaskInput{Text: text, Blanks: []Blank{{Answers: []string{"έγραψε"}, Hint: "γράφω"}}, Explanation: explanation}
+}
+
+func warningsFor(issues []TaskIssue, field string) []TaskIssue {
+	var out []TaskIssue
+	for _, iss := range issues {
+		if iss.Severity == Warning && iss.Field == field {
+			out = append(out, iss)
+		}
+	}
+	return out
+}
+
+func TestPrepareRepeatedExplanation(t *testing.T) {
+	generic := "Αόριστος: ολοκληρωμένη πράξη στο παρελθόν."
+	tasks := []TaskInput{
+		styleTask("Χθες η Μαρία ___ ένα γράμμα.", "Different one."),
+		styleTask("Ο Νίκος ___ στη γιαγιά του.", generic),
+		styleTask("Η Άννα ___ δύο σελίδες.", "  αόριστος:  ολοκληρωμένη πράξη στο παρελθόν "),
+	}
+	_, issues := PrepareAgainst(tasks, nil)
+	if w := warningsFor(issues, "explanation"); len(w) != 0 {
+		t.Fatalf("two repeats warned: %+v", w)
+	}
+	_, issues = PrepareAgainst(tasks, []TaskInput{{Text: "Πέρσι ___ πολύ.", Explanation: generic}})
+	w := warningsFor(issues, "explanation")
+	if len(w) != 1 || w[0].Task != 1 || !strings.Contains(w[0].Message, "repeated 3 times") {
+		t.Fatalf("warnings = %+v", w)
+	}
+}
+
+func TestPrepareMissingExplanations(t *testing.T) {
+	var tasks []TaskInput
+	for i := range 10 {
+		exp := ""
+		if i >= 6 {
+			exp = fmt.Sprintf("explanation %d", i)
+		}
+		tasks = append(tasks, styleTask(fmt.Sprintf("Η Μαρία ___ γράμμα %d.", i), exp))
+	}
+	_, issues := Prepare(tasks, nil)
+	w := warningsFor(issues, "explanation")
+	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "6 of 10 tasks have no explanation") {
+		t.Fatalf("warnings = %+v", w)
+	}
+	_, issues = Prepare(tasks[:9], nil)
+	if w := warningsFor(issues, "explanation"); len(w) != 0 {
+		t.Fatalf("batch under 10 warned: %+v", w)
+	}
+}
+
+func TestPrepareSubjectPronouns(t *testing.T) {
+	var tasks []TaskInput
+	for i, p := range []string{"Εγώ", "εσύ", "Αυτός", "εμείς", "Εσείς", "αυτοί", "αυτή", "Η Άννα", "Ο Νίκος", "Η Σοφία"} {
+		tasks = append(tasks, styleTask(fmt.Sprintf("Χθες %s ___ γράμμα %d.", p, i), fmt.Sprintf("e%d", i)))
+	}
+	_, issues := Prepare(tasks, nil)
+	w := warningsFor(issues, "text")
+	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "7 of 10 sentences") {
+		t.Fatalf("warnings = %+v", w)
+	}
+	tasks[6].Text = "Αυτή η ταινία ___ πολύ."
+	_, issues = Prepare(tasks, nil)
+	if w := warningsFor(issues, "text"); len(w) != 0 {
+		t.Fatalf("6 of 10 warned: %+v", w)
+	}
+}
+
+func TestPrepareVariedBatchNoStyleWarnings(t *testing.T) {
+	texts := []string{
+		"Χθες το βράδυ η Μαρία ___ δύο κεφάλαια από το βιβλίο.",
+		"— Πού ήσουν; — ___ στο σούπερ μάρκετ με τη μαμά.",
+		"Κάθε καλοκαίρι ___ στη Νάξο με τους γονείς μας.",
+		"Ενώ ο Νίκος ___ στο τηλέφωνο, χτύπησε η πόρτα.",
+		"Δεν ___ τίποτα στο πάρτι, γιατί είχα πονοκέφαλο.",
+		"Γιατί δεν ___ χθες στο μάθημα, Ελένη;",
+		"Όταν ήμουν μικρός, ___ κάθε μέρα με το ποδήλατο.",
+		"Ξαφνικά τα φώτα ___ και όλοι φώναξαν.",
+		"Αυτό το βιβλίο το ___ μία φορά, πριν από χρόνια.",
+		"Οι φίλοι μου ___ αργά, γιατί έχασαν το λεωφορείο.",
+	}
+	var tasks []TaskInput
+	for i, s := range texts {
+		tasks = append(tasks, styleTask(s, fmt.Sprintf("specific explanation %d", i)))
+	}
+	_, issues := Prepare(tasks, nil)
+	if len(issues) != 0 {
+		t.Fatalf("issues = %+v", issues)
 	}
 }
