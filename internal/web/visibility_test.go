@@ -69,7 +69,8 @@ func (e *env) as(name string, admin bool) *env {
 func (e *env) canOpen(set store.Set, task store.Task) bool {
 	e.t.Helper()
 	var codes []int
-	for _, p := range []string{"/s/" + set.Slug, fmt.Sprintf("/s/%s/next?after=0", set.Slug), fmt.Sprintf("/t/%d/item", task.ID)} {
+	for _, p := range []string{"/s/" + set.Slug, fmt.Sprintf("/s/%s/next?after=0", set.Slug), fmt.Sprintf("/t/%d/item", task.ID),
+		fmt.Sprintf("/s/%s/play/card?id=%d", set.Slug, task.ID), fmt.Sprintf("/s/%s/play?at=%d", set.Slug, task.ID)} {
 		resp, _ := e.get(p)
 		codes = append(codes, resp.StatusCode)
 	}

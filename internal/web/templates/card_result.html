@@ -1,4 +1,4 @@
-{{define "card_result"}}{{template "bar_oob" .Bar}}
+{{define "card_result"}}{{if not .InPage}}{{template "bar_oob" .Bar}}{{end}}
 <div class="card result {{if .Correct}}ok{{else}}bad{{end}}">
 {{template "info_button" .Info}}
 {{- if .Correct}}

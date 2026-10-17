@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"embed"
@@ -62,6 +63,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
 	mux.HandleFunc("GET /s/{slug}/play", h.play)
+	mux.HandleFunc("GET /s/{slug}/play/card", h.playCard)
 	mux.HandleFunc("GET /s/{slug}/list", h.list)
 	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
 	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
@@ -328,6 +330,32 @@ func nextURL(slug string, after int64, p params) string {
 	return "/s/" + url.PathEscape(slug) + "/next?" + v.Encode()
 }
 
+func playAtURL(slug string, p params, id int64) string {
+	v := p.query()
+	v.Del("mode")
+	v.Set("at", strconv.FormatInt(id, 10))
+	if p.Streak > 0 {
+		v.Set("streak", strconv.Itoa(p.Streak))
+	}
+	return "/s/" + url.PathEscape(slug) + "/play?" + v.Encode()
+}
+
+func cardURL(slug string, p params) string {
+	v := p.query()
+	v.Del("mode")
+	if p.N > 0 {
+		v.Set("n", strconv.Itoa(p.N))
+	}
+	if p.Streak > 0 {
+		v.Set("streak", strconv.Itoa(p.Streak))
+	}
+	u := "/s/" + url.PathEscape(slug) + "/play/card"
+	if q := v.Encode(); q != "" {
+		u += "?" + q
+	}
+	return u
+}
+
 func itemURL(id int64, p params) string {
 	return fmt.Sprintf("/t/%d/item?%s", id, p.query().Encode())
 }
@@ -448,6 +476,54 @@ func nudge(t store.Task, results []greek.BlankResult) string {
 
 type progressBar struct {
 	Index, Total int
+	Nav          *navView
+}
+
+type navView struct {
+	ID      int64
+	PrevID  int64
+	PrevURL string
+	SkipURL string
+	NextURL string
+	CardURL string
+}
+
+func newNav(slug string, id, prev int64, p params) *navView {
+	nv := &navView{ID: id, PrevID: prev, CardURL: cardURL(slug, p)}
+	if prev != 0 {
+		nv.PrevURL = playAtURL(slug, p, prev)
+	}
+	if id != 0 {
+		nv.SkipURL = setURLAfter(slug, p, id)
+		nv.NextURL = nextURL(slug, id, p)
+	}
+	return nv
+}
+
+func indexOf(tasks []store.Task, id int64) int {
+	for i, t := range tasks {
+		if t.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func prevInOrder(order []store.Task, filter string, last map[int64]bool, id int64) int64 {
+	pos := indexOf(order, id)
+	if pos < 0 {
+		pos = len(order)
+	}
+	before := filtered(order[:pos], filter, last)
+	if len(before) == 0 {
+		return 0
+	}
+	return before[len(before)-1].ID
+}
+
+func positionIn(order []store.Task, filter string, last map[int64]bool, id int64, n int) int {
+	i := n - len(filtered(order[indexOf(order, id)+1:], filter, last))
+	return max(1, min(i, n))
 }
 
 func (b progressBar) Pct() int {
@@ -481,6 +557,7 @@ type cardResultView struct {
 	Info    *cardInfo
 	Task    taskView
 	Bar     progressBar
+	InPage  bool
 	Correct bool
 	Streak  int
 	Notes   notes
@@ -500,6 +577,8 @@ type itemView struct {
 }
 
 type doneView struct {
+	Bar         *progressBar
+	InPage      bool
 	Empty       bool
 	Progress    store.Progress
 	AgainURL    string
@@ -990,6 +1069,7 @@ type playPage struct {
 	Set      store.Set
 	DeckURL  string
 	Card     *cardView
+	Result   *cardResultView
 	Done     *doneView
 	Filters  []link
 	Order    []link
@@ -1047,8 +1127,27 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 		data.ResetURL = "/s/" + url.PathEscape(set.Slug) + "/reset"
 	}
 
+	if a := q.Get("at"); a != "" {
+		id, err := strconv.ParseInt(a, 10, 64)
+		if err != nil {
+			h.fail(w, r, fmt.Errorf("at %q: %w", a, store.ErrInvalid))
+			return
+		}
+		if data.Card, data.Result, err = playState(d, order, p, id, len(todo), true); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		if data.Card != nil {
+			data.Bar = data.Card.Bar
+		} else {
+			data.Bar = data.Result.Bar
+		}
+		h.pageAs(w, r, http.StatusOK, "play", "focus", data)
+		return
+	}
 	if len(todo) == 0 {
 		data.Done = newDone(r, set.Slug, true, pr)
+		data.Done.InPage = true
 		h.pageAs(w, r, http.StatusOK, "play", "focus", data)
 		return
 	}
@@ -1077,6 +1176,8 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(rest) == 0 {
 		data.Done = newDone(r, set.Slug, false, pr)
+		data.Done.InPage = true
+		data.Bar = doneBar(set.Slug, todo, p, len(todo))
 		h.pageAs(w, r, http.StatusOK, "play", "focus", data)
 		return
 	}
@@ -1089,6 +1190,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Card = newCard(set, rest[0], idx, len(todo), p, true)
 	data.Card.InPage = true
+	data.Card.Bar.Nav = newNav(set.Slug, rest[0].ID, prevInOrder(order, p.Filter, last, rest[0].ID), data.Card.Params)
 	data.Bar = data.Card.Bar
 	h.pageAs(w, r, http.StatusOK, "play", "focus", data)
 }
@@ -1122,12 +1224,15 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rest := filtered(order[start:], p.Filter, last)
+	todo := filtered(order, p.Filter, last)
 	if len(rest) == 0 {
-		h.fragment(w, r, "done", newDone(r, set.Slug, false, progressOf(tasks, last)))
+		done := newDone(r, set.Slug, false, progressOf(tasks, last))
+		bar := doneBar(set.Slug, todo, p, cmp.Or(p.N, len(todo)))
+		done.Bar = &bar
+		h.fragment(w, r, "done", done)
 		return
 	}
 
-	todo := filtered(order, p.Filter, last)
 	i, n := p.N-len(rest)+1, p.N
 	if p.N == 0 || i < 1 {
 		n = len(todo)
@@ -1137,7 +1242,80 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(set, rest[0], i, n, p, false))
+	card := newCard(set, rest[0], i, n, p, false)
+	card.Bar.Nav = newNav(set.Slug, rest[0].ID, prevInOrder(order, p.Filter, last, rest[0].ID), card.Params)
+	h.fragment(w, r, "card", card)
+}
+
+func doneBar(slug string, todo []store.Task, p params, n int) progressBar {
+	p.N = n
+	var prev int64
+	if len(todo) > 0 {
+		prev = todo[len(todo)-1].ID
+	}
+	return progressBar{Index: n, Total: n, Nav: newNav(slug, 0, prev, p)}
+}
+
+func playState(d setData, order []store.Task, p params, id int64, n int, inPage bool) (*cardView, *cardResultView, error) {
+	pos := indexOf(order, id)
+	if pos < 0 {
+		return nil, nil, fmt.Errorf("task %d in set %d: %w", id, d.set.ID, store.ErrNotFound)
+	}
+	t := order[pos]
+	p.I, p.N = positionIn(order, p.Filter, d.last, id, n), n
+	bar := progressBar{Index: p.I, Total: n, Nav: newNav(d.set.Slug, id, prevInOrder(order, p.Filter, d.last, id), p)}
+	info := infoFor(d.set, t)
+	la, tried := d.attempts[id]
+	if !tried {
+		return &cardView{Info: info, Task: newTaskView(t, inPage, nil), Bar: bar, InPage: inPage, Params: p}, nil, nil
+	}
+	results, _ := greek.Check(t.Blanks, la.Answers)
+	if la.Correct || la.GaveUp {
+		return nil, &cardResultView{
+			Info:    info,
+			Task:    newTaskView(t, false, results),
+			Bar:     bar,
+			InPage:  inPage,
+			Correct: la.Correct,
+			Notes:   notesOf(d.set, t),
+			NextURL: nextURL(d.set.Slug, id, p),
+		}, nil
+	}
+	p.Tries = 1
+	return &cardView{Info: info, Task: retryTaskView(t, results), Bar: bar, InPage: inPage, Params: p, Retry: true, Nudge: nudge(t, results)}, nil, nil
+}
+
+func (h *handler) playCard(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	p, err := parseParams(q, "cards")
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	p.Mode = "cards"
+	p.I, p.Tries = 0, 0
+	id, err := strconv.ParseInt(q.Get("id"), 10, 64)
+	if err != nil {
+		h.fail(w, r, fmt.Errorf("id %q: %w", q.Get("id"), store.ErrInvalid))
+		return
+	}
+	d, err := h.loadSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	order := ordered(d.tasks, p)
+	n := cmp.Or(p.N, len(filtered(order, p.Filter, d.last)))
+	card, result, err := playState(d, order, p, id, n, false)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if card != nil {
+		h.fragment(w, r, "card", card)
+		return
+	}
+	h.fragment(w, r, "card_result", result)
 }
 
 func taskID(r *http.Request) (int64, error) {
@@ -1188,7 +1366,12 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	case p.Tries == 0:
 		p.Streak++
 	}
-	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
+	if !correct && r.PostForm.Get("giveup") == "1" {
+		err = h.st.RecordGiveUp(ctx, progressID(r), task.ID, answers)
+	} else {
+		err = h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct)
+	}
+	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
@@ -1209,7 +1392,8 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 			h.fragment(w, r, "list_item", itemView{Info: infoFor(set, task), Task: view, Params: p, Retry: true, Nudge: hint})
 			return
 		}
-		h.fragment(w, r, "card", &cardView{Info: infoFor(set, task), Task: view, Bar: progressBar{Index: p.I, Total: p.N}, Params: p, Retry: true, Nudge: hint})
+		bar := progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)}
+		h.fragment(w, r, "card", &cardView{Info: infoFor(set, task), Task: view, Bar: bar, Params: p, Retry: true, Nudge: hint})
 		return
 	}
 	p.Tries = 0
@@ -1230,7 +1414,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	h.fragment(w, r, "card_result", cardResultView{
 		Info:    infoFor(set, task),
 		Task:    view,
-		Bar:     progressBar{Index: p.I, Total: p.N},
+		Bar:     progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)},
 		Correct: correct,
 		Streak:  p.Streak,
 		Notes:   notesOf(set, task),

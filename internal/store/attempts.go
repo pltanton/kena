@@ -23,6 +23,14 @@ func validateDeviceID(deviceID string) error {
 }
 
 func (s *Store) RecordAttempt(ctx context.Context, deviceID string, taskID int64, answers []string, correct bool) error {
+	return s.record(ctx, deviceID, taskID, answers, correct, false)
+}
+
+func (s *Store) RecordGiveUp(ctx context.Context, deviceID string, taskID int64, answers []string) error {
+	return s.record(ctx, deviceID, taskID, answers, false, true)
+}
+
+func (s *Store) record(ctx context.Context, deviceID string, taskID int64, answers []string, correct, gaveUp bool) error {
 	if err := validateDeviceID(deviceID); err != nil {
 		return err
 	}
@@ -36,8 +44,8 @@ func (s *Store) RecordAttempt(ctx context.Context, deviceID string, taskID int64
 	}
 
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO attempts (device_id, task_id, answers, correct) VALUES ($1, $2, $3, $4)
-	`, deviceID, taskID, answersJSON, correct)
+		INSERT INTO attempts (device_id, task_id, answers, correct, gave_up) VALUES ($1, $2, $3, $4, $5)
+	`, deviceID, taskID, answersJSON, correct, gaveUp)
 	if err != nil {
 		return fmt.Errorf("recording attempt: %w", err)
 	}
@@ -47,6 +55,7 @@ func (s *Store) RecordAttempt(ctx context.Context, deviceID string, taskID int64
 type LastAttempt struct {
 	Answers []string
 	Correct bool
+	GaveUp  bool
 }
 
 func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) (map[int64]LastAttempt, error) {
@@ -55,7 +64,7 @@ func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) 
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT ON (a.task_id) a.task_id, a.answers, a.correct
+		SELECT DISTINCT ON (a.task_id) a.task_id, a.answers, a.correct, a.gave_up
 		FROM attempts a
 		JOIN tasks t ON t.id = a.task_id
 		WHERE a.device_id = $1 AND t.set_id = $2
@@ -70,7 +79,7 @@ func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) 
 	for rows.Next() {
 		var taskID int64
 		var la LastAttempt
-		if err := rows.Scan(&taskID, &la.Answers, &la.Correct); err != nil {
+		if err := rows.Scan(&taskID, &la.Answers, &la.Correct, &la.GaveUp); err != nil {
 			return nil, fmt.Errorf("scanning last attempt: %w", err)
 		}
 		out[taskID] = la

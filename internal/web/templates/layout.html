@@ -85,8 +85,10 @@
 <button type="button" class="secondary sheet-close" data-info-close>Close</button>
 </div>{{end}}
 
-{{define "bar"}}{{if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
-<span class="count">{{.Index}}/{{.Total}}</span>{{end}}{{end}}
+{{define "bar"}}{{with .Nav}}<a class="nav-btn" data-nav="prev"{{with .PrevURL}} href="{{.}}"{{else}} aria-disabled="true"{{end}}{{with .PrevID}} data-prev="{{.}}"{{end}} data-card="{{.CardURL}}" aria-label="Previous card" title="Previous card"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg></a>{{end}}
+{{- if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
+<span class="count">{{.Index}}/{{.Total}}</span>{{end}}
+{{- with .Nav}}<a class="nav-btn" data-nav="next"{{with .SkipURL}} href="{{.}}" data-id="{{$.Nav.ID}}" data-next="{{$.Nav.NextURL}}"{{else}} aria-disabled="true"{{end}} aria-label="Skip to the next card" title="Skip"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg></a>{{end}}{{end}}
 
 {{define "bar_oob"}}<div id="focus-pos" class="focus-pos" hx-swap-oob="true">{{template "bar" .}}</div>{{end}}
 

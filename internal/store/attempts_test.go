@@ -277,3 +277,44 @@ func TestResetProgressOnlyTouchesThatDeviceAndSet(t *testing.T) {
 		t.Errorf("bad device id: %v", err)
 	}
 }
+
+func TestRecordGiveUpIsAWrongLastAttempt(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+
+	task := newTaskForAttempts(ctx, t, s, "learner-giveup")
+	device := "33333333-3333-3333-3333-333333333333"
+
+	if err := s.RecordAttempt(ctx, device, task.ID, []string{"wrong"}, false); err != nil {
+		t.Fatalf("RecordAttempt: %v", err)
+	}
+	last, err := s.LastAttempts(ctx, device, task.SetID)
+	if err != nil {
+		t.Fatalf("LastAttempts: %v", err)
+	}
+	if la := last[task.ID]; la.Correct || la.GaveUp {
+		t.Fatalf("wrong check: got %+v, want neither correct nor given up", la)
+	}
+
+	if err := s.RecordGiveUp(ctx, device, task.ID, []string{"τρεχω"}); err != nil {
+		t.Fatalf("RecordGiveUp: %v", err)
+	}
+	last, err = s.LastAttempts(ctx, device, task.SetID)
+	if err != nil {
+		t.Fatalf("LastAttempts: %v", err)
+	}
+	if la := last[task.ID]; la.Correct || !la.GaveUp || len(la.Answers) != 1 || la.Answers[0] != "τρεχω" {
+		t.Fatalf("give-up: got %+v", la)
+	}
+
+	if err := s.RecordAttempt(ctx, device, task.ID, []string{"τρέχω"}, true); err != nil {
+		t.Fatalf("RecordAttempt: %v", err)
+	}
+	last, err = s.LastAttempts(ctx, device, task.SetID)
+	if err != nil {
+		t.Fatalf("LastAttempts: %v", err)
+	}
+	if la := last[task.ID]; !la.Correct || la.GaveUp {
+		t.Fatalf("solved after give-up: got %+v", la)
+	}
+}

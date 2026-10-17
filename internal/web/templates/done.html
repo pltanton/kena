@@ -1,4 +1,4 @@
-{{define "done"}}{{$all := and .Progress.Total (eq .Progress.Solved .Progress.Total)}}<div class="card done{{if or $all (not .Empty)}} complete{{end}}">
+{{define "done"}}{{if not .InPage}}{{with .Bar}}{{template "bar_oob" .}}{{end}}{{end}}{{$all := and .Progress.Total (eq .Progress.Solved .Progress.Total)}}<div class="card done{{if or $all (not .Empty)}} complete{{end}}">
 {{template "motif"}}
 <h2>{{if $all}}All solved{{else if .Empty}}Nothing to practise here{{else}}Done{{end}}</h2>
 {{if not $all}}<p class="muted">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}</p>{{end}}
