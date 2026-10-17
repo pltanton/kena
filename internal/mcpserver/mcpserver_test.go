@@ -213,7 +213,7 @@ func TestToolsAndInstructions(t *testing.T) {
 		}
 	}
 	want := []string{
-		"add_tasks", "admin_create_user", "admin_issue_token", "admin_list_users", "admin_reset_password", "admin_revoke_token",
+		"add_tasks", "admin_create_user", "admin_delete_user", "admin_issue_token", "admin_list_users", "admin_logout_user", "admin_reset_password", "admin_revoke_token", "admin_set_admin",
 		"create_set", "delete_set", "delete_task", "get_authoring_guide", "get_mistakes_report", "get_set", "list_sets",
 		"update_set", "update_task", "validate_tasks",
 	}

@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -30,6 +31,25 @@ type RevokeTokenIn struct {
 }
 
 type ListUsersIn struct{}
+
+type SetAdminIn struct {
+	Username string `json:"username" jsonschema:"existing username"`
+	IsAdmin  bool   `json:"is_admin" jsonschema:"true grants admin rights, false removes them"`
+}
+
+type UserNameIn struct {
+	Username string `json:"username" jsonschema:"existing username"`
+}
+
+type DeleteUserIn struct {
+	Username        string `json:"username" jsonschema:"existing username"`
+	ConfirmUsername string `json:"confirm_username" jsonschema:"the same username again; ask the user to confirm before deleting"`
+}
+
+type LogoutResult struct {
+	Username string `json:"username"`
+	Note     string `json:"note"`
+}
 
 type TokenInfo struct {
 	ID       int64  `json:"id"`
@@ -102,6 +122,21 @@ func (s *server) setNewPassphrase(ctx context.Context, userID int64) (string, er
 		return "", err
 	}
 	return pass, nil
+}
+
+func (s *server) userByName(ctx context.Context, name string) (store.User, error) {
+	u, err := s.st.UserByName(ctx, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.User{}, fail("user %q not found; see admin_list_users", name)
+	}
+	return u, err
+}
+
+func guard(err error) error {
+	if errors.Is(err, store.ErrForbidden) {
+		return fail("%s", strings.TrimSuffix(err.Error(), ": "+store.ErrForbidden.Error()))
+	}
+	return err
 }
 
 func adminOnly[In, Out any](fn func(context.Context, store.User, In) (Out, error)) mcp.ToolHandlerFor[In, Out] {
@@ -212,5 +247,54 @@ func (s *server) addAdminTools(srv *mcp.Server) {
 			out.Users = append(out.Users, info)
 		}
 		return out, nil
+	}))
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "admin_set_admin",
+		Description: "Admin only. Grant or remove admin rights. You cannot change your own, and the last admin keeps theirs.",
+		Annotations: destructive("Set admin", true),
+	}, adminOnly(func(ctx context.Context, me store.User, in SetAdminIn) (UserInfo, error) {
+		u, err := s.userByName(ctx, in.Username)
+		if err != nil {
+			return UserInfo{}, err
+		}
+		if err := s.st.SetAdmin(ctx, me.ID, u.ID, in.IsAdmin); err != nil {
+			return UserInfo{}, guard(err)
+		}
+		u.IsAdmin = in.IsAdmin
+		return userInfo(u), nil
+	}))
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "admin_logout_user",
+		Description: "Admin only. Log a user out on every device: ends their web sessions and disconnects their OAuth apps (Claude app, ChatGPT). Personal tokens keep working; revoke them with admin_revoke_token.",
+		Annotations: destructive("Log out user", true),
+	}, adminOnly(func(ctx context.Context, _ store.User, in UserNameIn) (LogoutResult, error) {
+		u, err := s.userByName(ctx, in.Username)
+		if err != nil {
+			return LogoutResult{}, err
+		}
+		if err := s.st.LogoutEverywhere(ctx, u.ID); err != nil {
+			return LogoutResult{}, err
+		}
+		return LogoutResult{Username: u.Username, Note: "sessions ended and apps disconnected; personal tokens still work"}, nil
+	}))
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "admin_delete_user",
+		Description: "Admin only. Delete a user with all their decks, tokens and progress. Cannot be undone: confirm with the person first and pass the username twice. You cannot delete yourself or the last admin.",
+		Annotations: destructive("Delete user", false),
+	}, adminOnly(func(ctx context.Context, me store.User, in DeleteUserIn) (DeleteResult, error) {
+		if in.ConfirmUsername != in.Username {
+			return DeleteResult{}, fail("confirm_username %q does not match username %q; nothing was deleted", in.ConfirmUsername, in.Username)
+		}
+		u, err := s.userByName(ctx, in.Username)
+		if err != nil {
+			return DeleteResult{}, err
+		}
+		if err := s.st.DeleteUser(ctx, me.ID, u.ID); err != nil {
+			return DeleteResult{}, guard(err)
+		}
+		return DeleteResult{Deleted: "user " + u.Username}, nil
 	}))
 }

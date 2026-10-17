@@ -111,9 +111,10 @@ sudo kena-admin user passwd maria           # new passphrase; logs maria out eve
 
 ## Accounts and connecting agents
 
-1. An admin creates the account: `sudo kena-admin user create maria`, or asks
-   an admin agent to call `admin_create_user`. Both return a generated
-   passphrase like `olive-tiger-harbor-seven`.
+1. An admin creates the account on the Admin page (Account → Admin, `/admin`),
+   with `sudo kena-admin user create maria`, or by asking an admin agent to
+   call `admin_create_user`. Each shows a generated passphrase like
+   `olive-tiger-harbor-seven` once.
 2. The admin sends maria the username and passphrase.
 3. Maria logs in on the site (header → Log in). She can change the passphrase
    on her Account page.
@@ -161,9 +162,14 @@ forms, explains the main patterns and offers a "Practice: …" set of new tasks.
 
 - Users revoke their own tokens and disconnect apps on the Account page.
   Changing the passphrase logs out other devices and disconnects all apps.
-- Forgotten passphrase: `sudo kena-admin user passwd maria` or
-  `admin_reset_password`. This also logs maria out everywhere and disconnects
-  her apps; her personal tokens keep working.
+- Forgotten passphrase: Admin → maria → Reset passphrase, `sudo kena-admin
+  user passwd maria` or `admin_reset_password`. This also logs maria out
+  everywhere and disconnects her apps; her personal tokens keep working.
+- Admin → a user also makes or removes admins, logs the user out everywhere
+  (tokens stay) and deletes the user with their decks and progress (type the
+  name to confirm). Nobody can change their own admin flag or delete
+  themselves, and the last admin stays. MCP: `admin_set_admin`,
+  `admin_logout_user`, `admin_delete_user` (with `confirm_username`).
 - Admins revoke a token with `admin_revoke_token` (ids from `admin_list_users`).
 
 ## Development
