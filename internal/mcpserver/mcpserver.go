@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -141,12 +142,9 @@ func (s *server) addGuide(srv *mcp.Server) {
 }
 
 func topicList() string {
-	var out string
-	for i, t := range guide.Topics() {
-		if i > 0 {
-			out += ", "
-		}
-		out += t.Name
+	var names []string
+	for _, t := range guide.Topics() {
+		names = append(names, t.Name)
 	}
-	return out
+	return strings.Join(names, ", ")
 }

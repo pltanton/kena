@@ -84,7 +84,7 @@ func (s *server) addRuleTools(srv *mcp.Server) {
 			r.General = *in.General
 		}
 		rules[i] = r
-		prepared, rep := prepareGreekRules(rules)
+		prepared, rep := prepareRules(rules)
 		if len(rep.Errors) > 0 {
 			return RuleResult{}, rep.failure()
 		}
@@ -92,7 +92,7 @@ func (s *server) addRuleTools(srv *mcp.Server) {
 		if err != nil {
 			return RuleResult{}, err
 		}
-		return RuleResult{SetID: st.ID, URL: s.url(st.Slug), Rule: ruleOut(prepared[i]), Rules: ruleKeys(updated.Rules), Warnings: rep.Warnings}, nil
+		return RuleResult{SetID: st.ID, URL: s.url(st.Slug), Rule: prepared[i], Rules: ruleKeys(updated.Rules), Warnings: rep.Warnings}, nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{

@@ -1,9 +1,10 @@
 package mcpserver
 
 import (
+	"cmp"
 	"context"
 	"math"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -149,7 +150,7 @@ func (s *server) mistakesOut(rep store.Report, days int) MistakesReport {
 				Explanation: tm.Task.Explanation, WrongCount: tm.WrongCount, AttemptCount: tm.AttemptCount,
 				Fixed: tm.LastCorrect, RecentWrong: []WrongAttemptOut{}}
 			for _, wa := range tm.RecentWrong {
-				wo := WrongAttemptOut{Given: wa.Answers, Kinds: make([]string, len(tm.Task.Blanks)), At: wa.CreatedAt.UTC().Format(time.RFC3339)}
+				wo := WrongAttemptOut{Given: wa.Answers, Kinds: make([]string, len(tm.Task.Blanks)), At: stamp(wa.CreatedAt)}
 				for i, b := range tm.Task.Blanks {
 					var given string
 					if i < len(wa.Answers) {
@@ -168,7 +169,7 @@ func (s *server) mistakesOut(rep store.Report, days int) MistakesReport {
 		}
 		out.Sets = append(out.Sets, ms)
 	}
-	sort.SliceStable(unfixed, func(i, j int) bool { return unfixed[i].WrongCount > unfixed[j].WrongCount })
+	slices.SortStableFunc(unfixed, func(a, b UnfixedTask) int { return cmp.Compare(b.WrongCount, a.WrongCount) })
 	if len(unfixed) > topUnfixedLimit {
 		unfixed = unfixed[:topUnfixedLimit]
 	}

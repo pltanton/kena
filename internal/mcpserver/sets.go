@@ -160,11 +160,15 @@ func (s *server) summary(st store.Set) SetSummary {
 func (s *server) detail(st store.Set, tasks []store.Task) SetDetail {
 	d := SetDetail{ID: st.ID, Slug: st.Slug, Title: st.Title, Topic: st.Topic, Level: st.Level,
 		Instructions: st.Instructions, SourceRef: st.SourceRef, Owner: st.OwnerName,
-		TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug), Rules: fromGreekRules(st.Rules)}
+		TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug), Rules: append([]RuleOut{}, st.Rules...)}
 	for _, t := range tasks {
 		d.Tasks = append(d.Tasks, taskOut(t))
 	}
 	return d
+}
+
+func (s *server) written(st store.Set, added, total int, warnings []string) WriteResult {
+	return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Visibility: string(st.Visibility), Added: added, Total: total, Warnings: warnings}
 }
 
 func taskOut(t store.Task) TaskOut {
@@ -195,10 +199,14 @@ func (s *server) editableSet(ctx context.Context, u store.User, ref string) (sto
 	if err != nil {
 		return store.Set{}, err
 	}
+	return st, canEdit(u, st)
+}
+
+func canEdit(u store.User, st store.Set) error {
 	if !store.CanEdit(u, st) {
-		return store.Set{}, fail("set %q belongs to %s; you can only edit your own sets", st.Slug, st.OwnerName)
+		return fail("set %q belongs to %s; you can only edit your own sets", st.Slug, st.OwnerName)
 	}
-	return st, nil
+	return nil
 }
 
 func (s *server) editableTask(ctx context.Context, u store.User, id int64) (store.Task, store.Set, error) {
@@ -216,10 +224,7 @@ func (s *server) editableTask(ctx context.Context, u store.User, id int64) (stor
 	if err != nil {
 		return store.Task{}, store.Set{}, err
 	}
-	if !store.CanEdit(u, st) {
-		return store.Task{}, store.Set{}, fail("set %q belongs to %s; you can only edit your own sets", st.Slug, st.OwnerName)
-	}
-	return t, st, nil
+	return t, st, canEdit(u, st)
 }
 
 func (s *server) existingTasks(ctx context.Context, setID int64, skipTask int64) ([]greek.TaskInput, error) {
@@ -312,7 +317,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 			}
 			vis = v
 		}
-		rules, rrep := prepareRules(in.Rules)
+		rules, rrep := prepareRules(toGreekRules(in.Rules))
 		inputs, rep := prepare(in.Tasks, nil, rules)
 		rep.Errors = append(rrep.Errors, rep.Errors...)
 		if len(rep.Errors) > 0 {
@@ -337,7 +342,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 				return WriteResult{}, err
 			}
 		}
-		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Visibility: string(st.Visibility), Added: len(inputs), Total: len(inputs), Warnings: rep.Warnings}, nil
+		return s.written(st, len(inputs), len(inputs), rep.Warnings), nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -368,8 +373,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if _, err := s.st.AddTasks(ctx, st.ID, inputs); err != nil {
 			return WriteResult{}, err
 		}
-		return WriteResult{SetID: st.ID, Slug: st.Slug, URL: s.url(st.Slug), Visibility: string(st.Visibility), Added: len(inputs),
-			Total: len(existing) + len(inputs), Warnings: rep.Warnings}, nil
+		return s.written(st, len(inputs), len(existing)+len(inputs), rep.Warnings), nil
 	}))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -397,7 +401,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		}
 		var rules *[]greek.Rule
 		if in.Rules != nil {
-			prepared, rep := prepareRules(*in.Rules)
+			prepared, rep := prepareRules(toGreekRules(*in.Rules))
 			if len(rep.Errors) > 0 {
 				return SetDetail{}, rep.failure()
 			}
@@ -527,7 +531,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		}
 		var rrep LintReport
 		if in.Rules != nil {
-			rules, rrep = prepareRules(in.Rules)
+			rules, rrep = prepareRules(toGreekRules(in.Rules))
 		}
 		_, rep := prepare(in.Tasks, existing, rules)
 		rep.Errors = append(rrep.Errors, rep.Errors...)

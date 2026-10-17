@@ -27,12 +27,7 @@ type RuleIn struct {
 	Text    string `json:"text,omitempty" jsonschema:"deprecated one-line form; read as body when body is empty"`
 }
 
-type RuleOut struct {
-	Key     string `json:"key"`
-	Title   string `json:"title"`
-	Body    string `json:"body"`
-	General bool   `json:"general"`
-}
+type RuleOut = greek.Rule
 
 func toGreekRules(in []RuleIn) []greek.Rule {
 	out := make([]greek.Rule, len(in))
@@ -46,34 +41,22 @@ func toGreekRules(in []RuleIn) []greek.Rule {
 	return out
 }
 
-func ruleOut(r greek.Rule) RuleOut {
-	return RuleOut{Key: r.Key, Title: r.Title, Body: r.Body, General: r.General}
-}
-
-func fromGreekRules(in []greek.Rule) []RuleOut {
-	out := make([]RuleOut, len(in))
-	for i, r := range in {
-		out[i] = ruleOut(r)
-	}
-	return out
-}
-
-func prepareRules(in []RuleIn) ([]greek.Rule, LintReport) {
-	return prepareGreekRules(toGreekRules(in))
-}
-
-func prepareGreekRules(in []greek.Rule) ([]greek.Rule, LintReport) {
+func prepareRules(in []greek.Rule) ([]greek.Rule, LintReport) {
 	rules, issues := greek.PrepareRules(in)
+	return rules, lintReport(issues)
+}
+
+func lintReport(issues []greek.Issue) LintReport {
 	rep := LintReport{Errors: []string{}, Warnings: []string{}}
 	for _, iss := range issues {
-		line := fmt.Sprintf("%s: %s", iss.Field, iss.Message)
+		line := iss.Field + ": " + iss.Message
 		if iss.Severity == greek.Error {
 			rep.Errors = append(rep.Errors, line)
 		} else {
 			rep.Warnings = append(rep.Warnings, line)
 		}
 	}
-	return rules, rep
+	return rep
 }
 
 type LintReport struct {
@@ -84,7 +67,7 @@ type LintReport struct {
 func toGreekBlanks(in []BlankIn) []greek.Blank {
 	out := make([]greek.Blank, len(in))
 	for i, b := range in {
-		out[i] = greek.Blank{Answers: b.Answers, Hint: b.Hint}
+		out[i] = greek.Blank(b)
 	}
 	return out
 }
@@ -92,7 +75,7 @@ func toGreekBlanks(in []BlankIn) []greek.Blank {
 func fromGreekBlanks(in []greek.Blank) []BlankIn {
 	out := make([]BlankIn, len(in))
 	for i, b := range in {
-		out[i] = BlankIn{Answers: b.Answers, Hint: b.Hint}
+		out[i] = BlankIn(b)
 	}
 	return out
 }
@@ -103,16 +86,12 @@ func prepare(tasks []TaskIn, existing []greek.TaskInput, rules []greek.Rule) ([]
 		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
 	}
 	out, issues := greek.PrepareDeck(raw, existing, rules)
-	rep := LintReport{Errors: []string{}, Warnings: []string{}}
-	for _, iss := range issues {
-		line := fmt.Sprintf("task[%d].%s: %s", iss.Task, iss.Field, iss.Message)
-		if iss.Severity == greek.Error {
-			rep.Errors = append(rep.Errors, line)
-		} else {
-			rep.Warnings = append(rep.Warnings, line)
-		}
+	flat := make([]greek.Issue, len(issues))
+	for i, iss := range issues {
+		flat[i] = iss.Issue
+		flat[i].Field = fmt.Sprintf("task[%d].%s", iss.Task, iss.Field)
 	}
-	return out, rep
+	return out, lintReport(flat)
 }
 
 func (r LintReport) failure() error {

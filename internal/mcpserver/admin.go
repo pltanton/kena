@@ -118,10 +118,7 @@ func (s *server) setNewPassphrase(ctx context.Context, userID int64) (string, er
 	if err != nil {
 		return "", err
 	}
-	if err := s.st.SetPassword(ctx, userID, pass, ""); err != nil {
-		return "", err
-	}
-	return pass, nil
+	return pass, s.st.SetPassword(ctx, userID, pass, "")
 }
 
 func (s *server) userByName(ctx context.Context, name string) (store.User, error) {
@@ -176,10 +173,7 @@ func (s *server) addAdminTools(srv *mcp.Server) {
 		Description: "Admin only. Give a user a new generated passphrase, e.g. when they forgot theirs. Logs the user out everywhere and disconnects their OAuth apps (Claude app, ChatGPT); personal tokens keep working. The passphrase appears only in this result.",
 		Annotations: destructive("Reset passphrase", false),
 	}, adminOnly(func(ctx context.Context, _ store.User, in ResetPasswordIn) (ResetPassword, error) {
-		u, err := s.st.UserByName(ctx, in.Username)
-		if errors.Is(err, store.ErrNotFound) {
-			return ResetPassword{}, fail("user %q not found; see admin_list_users", in.Username)
-		}
+		u, err := s.userByName(ctx, in.Username)
 		if err != nil {
 			return ResetPassword{}, err
 		}
