@@ -45,34 +45,21 @@ func TestSlugifyLongTitleTruncated(t *testing.T) {
 }
 
 func TestCreateSetSlugCollision(t *testing.T) {
-	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner1", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	owner := mkUser(t, s, "owner1", false)
 
-	set1, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "My Title"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	set1 := mkSet(t, s, owner.ID, store.SetInput{Title: "My Title"})
 	if set1.Slug != "my-title" {
 		t.Fatalf("expected slug my-title, got %q", set1.Slug)
 	}
 
-	set2, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "My Title"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	set2 := mkSet(t, s, owner.ID, store.SetInput{Title: "My Title"})
 	if set2.Slug != "my-title-2" {
 		t.Fatalf("expected slug my-title-2, got %q", set2.Slug)
 	}
 
-	set3, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "My Title"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	set3 := mkSet(t, s, owner.ID, store.SetInput{Title: "My Title"})
 	if set3.Slug != "my-title-3" {
 		t.Fatalf("expected slug my-title-3, got %q", set3.Slug)
 	}
@@ -82,30 +69,20 @@ func TestCreateSetBlankTitle(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner2", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	owner := mkUser(t, s, "owner2", false)
 
-	_, err = s.CreateSet(ctx, owner.ID, store.SetInput{Title: "   "})
+	_, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "   "})
 	if !errors.Is(err, store.ErrInvalid) {
 		t.Fatalf("expected ErrInvalid, got %v", err)
 	}
 }
 
 func TestCreateSetExplicitSlug(t *testing.T) {
-	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner3", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	owner := mkUser(t, s, "owner3", false)
 
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Whatever", Slug: "Custom Slug!"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Whatever", Slug: "Custom Slug!"})
 	if set.Slug != "custom-slug" {
 		t.Fatalf("expected slug custom-slug, got %q", set.Slug)
 	}
@@ -115,15 +92,9 @@ func TestGetSetByIDAndSlug(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner4", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	owner := mkUser(t, s, "owner4", false)
 
-	created, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Aorist Verbs"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	created := mkSet(t, s, owner.ID, store.SetInput{Title: "Aorist Verbs"})
 
 	byID, err := s.GetSet(ctx, fmt.Sprintf("%d", created.ID))
 	if err != nil {
@@ -156,32 +127,20 @@ func TestAddTasksPositionsContiguous(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner5", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set A"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	owner := mkUser(t, s, "owner5", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Set A"})
 
-	first, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	first := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "___ ένα", Blanks: []greek.Blank{{Answers: []string{"ένα"}}}},
 		{Text: "___ δύο", Blanks: []greek.Blank{{Answers: []string{"δύο"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 	if len(first) != 2 || first[0].Position != 1 || first[1].Position != 2 {
 		t.Fatalf("unexpected positions: %+v", first)
 	}
 
-	second, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	second := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "___ τρία", Blanks: []greek.Blank{{Answers: []string{"τρία"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 	if len(second) != 1 || second[0].Position != 3 {
 		t.Fatalf("unexpected position for third task: %+v", second)
 	}
@@ -222,24 +181,15 @@ func TestTaskBlanksJSONRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner6", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set B"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	owner := mkUser(t, s, "owner6", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Set B"})
 
 	blanks := []greek.Blank{
 		{Answers: []string{"γράφω", "γράφεις"}, Hint: "ενεστώτας"},
 	}
-	created, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	created := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "εγώ ___", Blanks: blanks, Explanation: "επεξήγηση"},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
 	got, err := s.GetTask(ctx, created[0].ID)
 	if err != nil {
@@ -258,20 +208,11 @@ func TestUpdateTaskPartial(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner7", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set C"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	created, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	owner := mkUser(t, s, "owner7", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Set C"})
+	created := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "εγώ ___", Blanks: []greek.Blank{{Answers: []string{"τρέχω"}}}, Explanation: "old"},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
 	newExplanation := "new explanation"
 	updated, err := s.UpdateTask(ctx, created[0].ID, store.TaskPatch{Explanation: &newExplanation})
@@ -301,14 +242,8 @@ func TestUpdateSetPartial(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner8", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Original", Topic: "topic1", Level: "A1"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	owner := mkUser(t, s, "owner8", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Original", Topic: "topic1", Level: "A1"})
 
 	newTopic := "topic2"
 	updated, err := s.UpdateSet(ctx, set.ID, store.SetPatch{Topic: &newTopic})
@@ -341,20 +276,11 @@ func TestDeleteSetCascadesTasks(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner9", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Doomed"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	created, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	owner := mkUser(t, s, "owner9", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Doomed"})
+	created := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "___", Blanks: []greek.Blank{{Answers: []string{"x"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
 	if err := s.DeleteSet(ctx, set.ID); err != nil {
 		t.Fatalf("DeleteSet: %v", err)
@@ -376,22 +302,13 @@ func TestDeleteTaskLeavesOtherPositions(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "owner10", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set D"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	created, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	owner := mkUser(t, s, "owner10", false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Set D"})
+	created := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "a", Blanks: []greek.Blank{{Answers: []string{"a"}}}},
 		{Text: "b", Blanks: []greek.Blank{{Answers: []string{"b"}}}},
 		{Text: "c", Blanks: []greek.Blank{{Answers: []string{"c"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
 	if err := s.DeleteTask(ctx, created[1].ID); err != nil {
 		t.Fatalf("DeleteTask: %v", err)
@@ -431,19 +348,10 @@ func TestListSetsOwnerNameAndTaskCount(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	ann, err := s.CreateUser(ctx, "ann", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	bob, err := s.CreateUser(ctx, "bob2", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	ann := mkUser(t, s, "ann", false)
+	bob := mkUser(t, s, "bob2", false)
 
-	annSet, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann Set"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
+	annSet := mkSet(t, s, ann.ID, store.SetInput{Title: "Ann Set"})
 	if _, err := s.AddTasks(ctx, annSet.ID, []greek.TaskInput{
 		{Text: "x", Blanks: []greek.Blank{{Answers: []string{"x"}}}},
 	}); err != nil {
@@ -474,30 +382,15 @@ func TestListSetsOwnerNameAndTaskCount(t *testing.T) {
 func TestVisibility(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	ann, err := s.CreateUser(ctx, "ann", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bob, err := s.CreateUser(ctx, "bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ann := mkUser(t, s, "ann", false)
+	bob := mkUser(t, s, "bob", false)
 
-	private, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann private"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	private := mkSet(t, s, ann.ID, store.SetInput{Title: "Ann private"})
 	if private.Visibility != store.Private {
 		t.Fatalf("new set visibility = %q, want private", private.Visibility)
 	}
-	friends, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann friends", Visibility: store.Friends})
-	if err != nil {
-		t.Fatal(err)
-	}
-	public, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Ann public", Visibility: store.Public})
-	if err != nil {
-		t.Fatal(err)
-	}
+	friends := mkSet(t, s, ann.ID, store.SetInput{Title: "Ann friends", Visibility: store.Friends})
+	public := mkSet(t, s, ann.ID, store.SetInput{Title: "Ann public", Visibility: store.Public})
 	if friends.Visibility != store.Friends || public.Visibility != store.Public {
 		t.Fatalf("Visibility input ignored: %q %q", friends.Visibility, public.Visibility)
 	}

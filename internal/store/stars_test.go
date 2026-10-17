@@ -25,20 +25,11 @@ func deckTitles(decks []store.Deck) []string {
 func TestStars(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	ann, err := s.CreateUser(ctx, "ann", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bob, err := s.CreateUser(ctx, "bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ann := mkUser(t, s, "ann", false)
+	bob := mkUser(t, s, "bob", false)
 	mk := func(owner int64, title string, v store.Visibility) store.Set {
 		t.Helper()
-		set, err := s.CreateSet(ctx, owner, store.SetInput{Title: title, Visibility: v})
-		if err != nil {
-			t.Fatal(err)
-		}
+		set := mkSet(t, s, owner, store.SetInput{Title: title, Visibility: v})
 		return set
 	}
 	annPrivate := mk(ann.ID, "Ann private", store.Private)

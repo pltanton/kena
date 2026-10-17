@@ -16,10 +16,7 @@ func TestLoginCodes(t *testing.T) {
 	ctx := context.Background()
 	pool := dbtest.New(t)
 	s := store.New(pool)
-	u, err := s.CreateUser(ctx, "anna", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "anna", false)
 
 	code, err := s.CreateLoginCode(ctx, u.ID, 5*time.Minute)
 	if err != nil || !strings.HasPrefix(code, "kena_q_") {
@@ -80,10 +77,7 @@ func TestConcurrentLoginCodesLeaveOne(t *testing.T) {
 	ctx := context.Background()
 	pool := dbtest.New(t)
 	s := store.New(pool)
-	u, err := s.CreateUser(ctx, "anna", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "anna", false)
 	for round := 0; round < 20; round++ {
 		var wg sync.WaitGroup
 		for i := 0; i < 4; i++ {

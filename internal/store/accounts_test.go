@@ -15,10 +15,7 @@ import (
 func TestSetAndCheckPassword(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	u, err := s.CreateUser(ctx, "maria", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "maria", false)
 	if u.ProgressID == "" || u.ProgressID == "00000000-0000-0000-0000-000000000000" {
 		t.Fatalf("ProgressID = %q", u.ProgressID)
 	}
@@ -61,10 +58,7 @@ func TestSetAndCheckPassword(t *testing.T) {
 func TestSessions(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	u, err := s.CreateUser(ctx, "maria", true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "maria", true)
 
 	secret, err := s.CreateSession(ctx, u.ID, time.Hour)
 	if err != nil {
@@ -116,10 +110,7 @@ func TestMergeAttempts(t *testing.T) {
 	task := newTaskForAttempts(ctx, t, s, "owner")
 	anon := "11111111-1111-1111-1111-111111111111"
 	other := "22222222-2222-2222-2222-222222222222"
-	u, err := s.CreateUser(ctx, "maria", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "maria", false)
 
 	if err := s.RecordAttempt(ctx, anon, task.ID, []string{"τρέχω"}, true); err != nil {
 		t.Fatal(err)
@@ -157,14 +148,8 @@ func TestMergeAttempts(t *testing.T) {
 func TestSetPasswordRevokesGrantsAndOtherSessions(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	u, err := s.CreateUser(ctx, "maria", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	other, err := s.CreateUser(ctx, "nina", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "maria", false)
+	other := mkUser(t, s, "nina", false)
 	current, _ := s.CreateSession(ctx, u.ID, time.Hour)
 	stale, _ := s.CreateSession(ctx, u.ID, time.Hour)
 	otherSession, _ := s.CreateSession(ctx, other.ID, time.Hour)

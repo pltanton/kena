@@ -14,15 +14,12 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "alice", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "alice", false)
 	if u.Username != "alice" || u.IsAdmin || u.ID == 0 {
 		t.Fatalf("unexpected user: %+v", u)
 	}
 
-	_, err = s.CreateUser(ctx, "alice", false)
+	_, err := s.CreateUser(ctx, "alice", false)
 	if !errors.Is(err, store.ErrConflict) {
 		t.Fatalf("expected ErrConflict, got %v", err)
 	}
@@ -91,10 +88,7 @@ func TestUserByID(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "carol", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "carol", false)
 
 	got, err := s.UserByID(ctx, u.ID)
 	if err != nil {
@@ -134,10 +128,7 @@ func TestIssueTokenAndUserByToken(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "dave", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "dave", false)
 
 	secret, tok, err := s.IssueToken(ctx, u.ID, "laptop")
 	if err != nil {
@@ -166,15 +157,12 @@ func TestUserByTokenWrongSecret(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "erin", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "erin", false)
 	if _, _, err := s.IssueToken(ctx, u.ID, ""); err != nil {
 		t.Fatalf("IssueToken: %v", err)
 	}
 
-	_, err = s.UserByToken(ctx, "kena_wrongsecretvaluexxxxxxxxxxxxxxxxxxxxxx")
+	_, err := s.UserByToken(ctx, "kena_wrongsecretvaluexxxxxxxxxxxxxxxxxxxxxx")
 	if !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
@@ -184,10 +172,7 @@ func TestRevokeToken(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "frank", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "frank", false)
 	secret, tok, err := s.IssueToken(ctx, u.ID, "")
 	if err != nil {
 		t.Fatalf("IssueToken: %v", err)
@@ -211,10 +196,7 @@ func TestListTokens(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	u, err := s.CreateUser(ctx, "gina", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	u := mkUser(t, s, "gina", false)
 	if _, _, err := s.IssueToken(ctx, u.ID, "work laptop"); err != nil {
 		t.Fatalf("IssueToken: %v", err)
 	}

@@ -16,15 +16,9 @@ import (
 func TestDeckRulesRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	u, err := s.CreateUser(ctx, "anna", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	u := mkUser(t, s, "anna", false)
 	rules := []greek.Rule{{Key: "agree", Title: "Συμφωνία", Body: "Το πόσος συμφωνεί με το ουσιαστικό.\n\n| α | β |\n|---|---|\n| 1 | 2 |", General: true}}
-	set, err := s.CreateSet(ctx, u.ID, store.SetInput{Title: "Rules", Rules: rules})
-	if err != nil {
-		t.Fatal(err)
-	}
+	set := mkSet(t, s, u.ID, store.SetInput{Title: "Rules", Rules: rules})
 	if got, _ := s.GetSet(ctx, set.Slug); !reflect.DeepEqual(got.Rules, rules) {
 		t.Fatalf("rules = %+v", got.Rules)
 	}
@@ -88,21 +82,15 @@ func TestReplaceRules(t *testing.T) {
 	s := store.New(dbtest.New(t))
 	u, _ := s.CreateUser(ctx, "anna", false)
 	rules := []greek.Rule{{Key: "a", Body: "Α"}, {Key: "b", Title: "Β", Body: "Β", General: true}}
-	set, err := s.CreateSet(ctx, u.ID, store.SetInput{Title: "R", Rules: rules})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tasks, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	set := mkSet(t, s, u.ID, store.SetInput{Title: "R", Rules: rules})
+	tasks := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "Α ___.", Blanks: []greek.Blank{{Answers: []string{"β"}}}, Rule: "a"},
 		{Text: "Γ ___.", Blanks: []greek.Blank{{Answers: []string{"δ"}}}, Rule: "a"},
 		{Text: "Ε ___.", Blanks: []greek.Blank{{Answers: []string{"ζ"}}}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	set, _ = s.GetSet(ctx, set.Slug)
 
-	_, err = s.ReplaceRules(ctx, set.ID, set.UpdatedAt, rules[1:], nil)
+	_, err := s.ReplaceRules(ctx, set.ID, set.UpdatedAt, rules[1:], nil)
 	var inUse *store.RulesInUseError
 	if !errors.As(err, &inUse) || len(inUse.Uses) != 1 || inUse.Uses[0].Key != "a" ||
 		!reflect.DeepEqual(inUse.Uses[0].Tasks, []store.TaskRef{{ID: tasks[0].ID, Position: 1}, {ID: tasks[1].ID, Position: 2}}) {

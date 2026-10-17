@@ -13,29 +13,17 @@ import (
 
 func mistakesFixture(ctx context.Context, t *testing.T, s *store.Store) (store.User, []store.Set, [][]store.Task) {
 	t.Helper()
-	owner, err := s.CreateUser(ctx, "author", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	learner, err := s.CreateUser(ctx, "learner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	owner := mkUser(t, s, "author", false)
+	learner := mkUser(t, s, "learner", false)
 	var sets []store.Set
 	var tasks [][]store.Task
 	for _, title := range []string{"Alpha", "Beta"} {
-		st, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: title, Topic: "aorist", Level: "A2", Visibility: store.Public})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ts, err := s.AddTasks(ctx, st.ID, []greek.TaskInput{
+		st := mkSet(t, s, owner.ID, store.SetInput{Title: title, Topic: "aorist", Level: "A2", Visibility: store.Public})
+		ts := mkTasks(t, s, st.ID, []greek.TaskInput{
 			{Text: "Χθες ___ γράμμα.", Blanks: []greek.Blank{{Answers: []string{"έγραψα"}, Hint: "γράφω"}}, Explanation: "αόριστος"},
 			{Text: "Εμείς ___ καφέ.", Blanks: []greek.Blank{{Answers: []string{"ήπιαμε"}, Hint: "πίνω"}}},
 			{Text: "Αυτός ___ γρήγορα.", Blanks: []greek.Blank{{Answers: []string{"έτρεξε"}, Hint: "τρέχω"}}},
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
 		sets = append(sets, st)
 		tasks = append(tasks, ts)
 	}

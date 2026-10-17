@@ -19,18 +19,9 @@ func ti(text, answer string) greek.TaskInput {
 func TestSaveDeck(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
-	ann, err := s.CreateUser(ctx, "ann", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	set, err := s.CreateSet(ctx, ann.ID, store.SetInput{Title: "Deck"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	orig, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{ti("Α ___.", "α"), ti("Β ___.", "β"), ti("Γ ___.", "γ"), ti("Δ ___.", "δ")})
-	if err != nil {
-		t.Fatal(err)
-	}
+	ann := mkUser(t, s, "ann", false)
+	set := mkSet(t, s, ann.ID, store.SetInput{Title: "Deck"})
+	orig := mkTasks(t, s, set.ID, []greek.TaskInput{ti("Α ___.", "α"), ti("Β ___.", "β"), ti("Γ ___.", "γ"), ti("Δ ___.", "δ")})
 	const device = "11111111-1111-4111-8111-111111111111"
 	for _, task := range orig {
 		if err := s.RecordAttempt(ctx, device, task.ID, task.Blanks[0].Answers, true); err != nil {
@@ -110,18 +101,12 @@ func newDeck(t *testing.T, s *store.Store, texts ...string) (store.Set, []store.
 	if err != nil {
 		t.Fatal(err)
 	}
-	set, err := s.CreateSet(ctx, u.ID, store.SetInput{Title: "Deck " + texts[0]})
-	if err != nil {
-		t.Fatal(err)
-	}
+	set := mkSet(t, s, u.ID, store.SetInput{Title: "Deck " + texts[0]})
 	var in []greek.TaskInput
 	for _, x := range texts {
 		in = append(in, ti(x+" ___.", x))
 	}
-	tasks, err := s.AddTasks(ctx, set.ID, in)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tasks := mkTasks(t, s, set.ID, in)
 	return set, tasks
 }
 

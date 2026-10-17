@@ -12,21 +12,12 @@ import (
 
 func newTaskForAttempts(ctx context.Context, t *testing.T, s *store.Store, username string) store.Task {
 	t.Helper()
-	owner, err := s.CreateUser(ctx, username, false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	set, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Attempts Set " + username})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	tasks, err := s.AddTasks(ctx, set.ID, []greek.TaskInput{
+	owner := mkUser(t, s, username, false)
+	set := mkSet(t, s, owner.ID, store.SetInput{Title: "Attempts Set " + username})
+	tasks := mkTasks(t, s, set.ID, []greek.TaskInput{
 		{Text: "εγώ ___", Blanks: []greek.Blank{{Answers: []string{"τρέχω"}}}},
 		{Text: "εσύ ___", Blanks: []greek.Blank{{Answers: []string{"τρέχεις"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 	return tasks[0]
 }
 
@@ -138,33 +129,18 @@ func TestProgressBySetCoversTwoSets(t *testing.T) {
 	ctx := context.Background()
 	s := store.New(dbtest.New(t))
 
-	owner, err := s.CreateUser(ctx, "learner5", false)
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
+	owner := mkUser(t, s, "learner5", false)
 
-	setA, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set A for progress"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	tasksA, err := s.AddTasks(ctx, setA.ID, []greek.TaskInput{
+	setA := mkSet(t, s, owner.ID, store.SetInput{Title: "Set A for progress"})
+	tasksA := mkTasks(t, s, setA.ID, []greek.TaskInput{
 		{Text: "a1", Blanks: []greek.Blank{{Answers: []string{"a"}}}},
 		{Text: "a2", Blanks: []greek.Blank{{Answers: []string{"b"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
-	setB, err := s.CreateSet(ctx, owner.ID, store.SetInput{Title: "Set B for progress"})
-	if err != nil {
-		t.Fatalf("CreateSet: %v", err)
-	}
-	tasksB, err := s.AddTasks(ctx, setB.ID, []greek.TaskInput{
+	setB := mkSet(t, s, owner.ID, store.SetInput{Title: "Set B for progress"})
+	tasksB := mkTasks(t, s, setB.ID, []greek.TaskInput{
 		{Text: "b1", Blanks: []greek.Blank{{Answers: []string{"c"}}}},
 	})
-	if err != nil {
-		t.Fatalf("AddTasks: %v", err)
-	}
 
 	device := "66666666-6666-6666-6666-666666666666"
 	if err := s.RecordAttempt(ctx, device, tasksA[0].ID, []string{"a"}, true); err != nil {
