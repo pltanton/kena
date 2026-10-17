@@ -15,12 +15,12 @@ func TestFirstUnsolvedLink(t *testing.T) {
 	wantNone(t, "list when the first task is the first unsolved", body, "First unsolved")
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}}, true)
-	_, body = e.get("/s/" + e.set.Slug + "/list")
+	_, body = e.get("/s/" + e.set.Slug + "/list?filter=all")
 	wantAll(t, "list", body, fmt.Sprintf(`href="#t-%d"`, e.tasks[1].ID), "First unsolved")
 
 	e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}, "mode": {"list"}}, true)
 	e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}, "mode": {"list"}}, true)
-	_, body = e.get("/s/" + e.set.Slug + "/list")
+	_, body = e.get("/s/" + e.set.Slug + "/list?filter=all")
 	wantNone(t, "all solved list", body, "First unsolved")
 	_, body = e.get("/s/" + e.set.Slug + "/play")
 	wantNone(t, "all solved play menu", body, "First unsolved")

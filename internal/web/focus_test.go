@@ -13,21 +13,33 @@ func TestDeckOverview(t *testing.T) {
 	path := "/s/" + e.set.Slug
 	resp, body := e.get(path)
 	wantStatus(t, resp, http.StatusOK)
-	wantAll(t, "overview", body, e.set.Title, `class="button start-button" href="`+path+`/play">Start<`,
-		`href="`+path+`/play?shuffle=1">Shuffled<`, `href="`+path+`/list">See all tasks<`, `<header class="site"`)
-	wantNone(t, "overview", body, "All tasks<", `id="card"`, `<input name="a"`, "kbd-keeper", "Reset progress", "Only mistakes", "Options", ">Cards<", ">List<", `class="seg"`)
+	wantAll(t, "fresh overview", body, e.set.Title, `<header class="site"`,
+		`href="`+path+`?filter=all" aria-current="true">All <span class="n">3</span>`,
+		`href="`+path+`?filter=unsolved">Unsolved <span class="n">3</span>`,
+		`href="`+path+`?filter=all&amp;shuffle=1" class="toggle">Shuffle<`,
+		`class="button go-practise" href="`+path+`/play?filter=all"><span>Practise</span><small>one at a time</small>`,
+		`class="button secondary go-sheet" href="`+path+`/list?filter=all"><span>Worksheet</span><small>all on one page</small>`)
+	wantNone(t, "fresh overview", body, ">Mistakes <", "Reset progress", `id="card"`, `<input name="a"`, "kbd-keeper",
+		">Start<", "Continue", "Only mistakes", "All tasks", "Shuffled", "See all tasks", "All solved")
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
 	e.check(e.tasks[1].ID, url.Values{"a": {"λάθος"}, "mode": {"cards"}, "giveup": {"1"}}, true)
 	_, body = e.get(path)
-	wantAll(t, "overview after two", body, `href="`+path+`/play?filter=unsolved">Continue · 2 left<`,
-		`href="`+path+`/play?filter=mistakes">Only mistakes (1)<`, `href="`+path+`/play">All tasks<`, "Reset progress")
+	wantAll(t, "overview in progress", body,
+		`href="`+path+`?filter=unsolved" aria-current="true">Unsolved <span class="n">2</span>`,
+		`href="`+path+`?filter=mistakes">Mistakes <span class="n">1</span>`,
+		`href="`+path+`/play?filter=unsolved"`, `href="`+path+`/list?filter=unsolved"`, "Reset progress")
+
+	_, body = e.get(path + "?filter=mistakes&shuffle=1")
+	wantAll(t, "chosen mistakes, shuffled", body, `aria-current="true">Mistakes`,
+		`href="`+path+`/play?filter=mistakes&amp;shuffle=1"`, `href="`+path+`/list?filter=mistakes&amp;shuffle=1"`,
+		`href="`+path+`?filter=mistakes" class="toggle" aria-current="true">Shuffle<`)
 
 	e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}, "mode": {"cards"}}, true)
 	e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}, "mode": {"cards"}}, true)
-	_, body = e.get(path)
-	wantAll(t, "overview all solved", body, `href="`+path+`/play">Practise again<`)
-	wantNone(t, "overview all solved", body, "Only mistakes")
+	_, body = e.get(path + "?filter=unsolved")
+	wantAll(t, "all solved", body, "All solved ✓", `aria-current="true">All <span class="n">3</span>`, `href="`+path+`/play?filter=all"`)
+	wantNone(t, "all solved", body, ">Unsolved <", ">Mistakes <")
 
 	for _, page := range []string{"/", "/browse"} {
 		_, body := e.get(page)
@@ -45,7 +57,7 @@ func TestPlayIsFocusMode(t *testing.T) {
 	wantAll(t, "play", body,
 		`class="focus"`, "interactive-widget=resizes-content", `class="focus-bar"`, `href="`+path+`" aria-label="Back to deck"`,
 		`id="focus-pos"`, "1/3", `id="card"`, `id="kbd-keeper"`, "Εσύ", "pointerdown", "visualViewport",
-		`class="focus-menu"`, "See all tasks", `href="`+path+`/list"`, `href="`+path+`/play?filter=mistakes"`, ">In order<", ">Shuffled<", "shuffle=1", "Back to deck")
+		`class="focus-menu"`, "Switch to worksheet", `href="`+path+`/list"`, `href="`+path+`/play?filter=mistakes"`, ">In order<", ">Shuffled<", "shuffle=1", "Back to deck")
 	wantNone(t, "play", body, `<header class="site"`, "site-foot", `class="theme-switch"`, `class="controls"`, `class="strip"`, "Reset progress", "γράφεις")
 
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)

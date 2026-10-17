@@ -8,14 +8,13 @@ of a textbook exercise, it writes new tasks on the same grammar point and upload
 them through kena's MCP server. The MCP server also hands the agent an authoring
 guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate.
 
-- Web: `/` lists your decks, `/s/<slug>` is a deck's overview: progress and
-  one button (Start, Continue · N left, Practise again), with "Only
-  mistakes", "All tasks" and "Shuffled" under it. Practice runs in a
-  full-screen focus mode (`/s/<slug>/play`: a thin bar with back, progress and
-  a ⋯ menu; one task per screen, Enter for the next one, a streak counter,
-  resumes at the first unsolved task). "See all tasks" (`/s/<slug>/list`)
-  lists every task with your latest result, filterable by all, unsolved,
-  mistakes. A wrong answer is not revealed:
+- Web: `/` lists your decks, `/s/<slug>` is a deck's overview: progress, a
+  "which tasks" chooser (Unsolved N · Mistakes N · All N, Shuffle; Unsolved
+  by default once you have started) and two buttons: Practise (one task at a
+  time in a full-screen focus mode, `/s/<slug>/play`: a thin bar with back,
+  progress and a ⋯ menu; Enter for the next task, a streak counter, resumes at
+  the first unsolved task) and Worksheet (all chosen tasks on one page,
+  `/s/<slug>/list`). A wrong answer is not revealed:
   you try again (with a nudge for a wrong accent, final ς or a letter or two
   off) or press Give up to see it; only first-try answers grow the streak, and
   every wrong try still counts in Mistakes. "First unsolved" jumps back,

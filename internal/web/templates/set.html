@@ -1,10 +1,10 @@
 {{define "title"}}{{.Set.Title}} · kena{{end}}
 {{define "main"}}{{template "deck_head" .}}
-<div class="start">
-<a class="button start-button" href="{{.StartURL}}">{{.StartLabel}}</a>
-<p class="start-alt">{{with .MistakesURL}}<a href="{{.}}">Only mistakes ({{$.Progress.Mistakes}})</a> · {{end}}{{with .AllURL}}<a href="{{.}}">All tasks</a> · {{end}}<a href="{{.ShuffledURL}}">Shuffled</a></p>
+{{template "chooser" .Chooser}}
+<div class="go">
+<a class="button go-practise" href="{{.PracticeURL}}"><span>Practise</span><small>one at a time</small></a>
+<a class="button secondary go-sheet" href="{{.WorksheetURL}}"><span>Worksheet</span><small>all on one page</small></a>
 </div>
-<p class="see-all"><a href="{{.ListURL}}">See all tasks</a></p>
 {{- if or .Progress.Solved .Progress.Mistakes}}
 <p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
 {{- end}}
@@ -14,6 +14,7 @@
 <h1>{{.Set.Title}}</h1>
 {{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
 <div class="meta deck-meta"><span>{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}
+{{- if and .Progress.Total (eq .Progress.Solved .Progress.Total)}} · <span class="ok">All solved ✓</span>{{end}}
 {{- if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">Edit deck</a>{{end}}</span>
 {{- if .CanStar}}
 <form class="star-toggle" method="post" action="/s/{{.Set.Slug}}/star">

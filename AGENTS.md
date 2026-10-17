@@ -35,7 +35,7 @@ nix flake check
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`), focus-mode practice (`/s/{slug}/play`), task list (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 

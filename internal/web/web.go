@@ -809,20 +809,71 @@ func listItem(set store.Set, t store.Task, p params, attempts map[int64]store.La
 }
 
 type deckPage struct {
-	Set         store.Set
-	Owner       bool
-	Saved       bool
-	Warnings    []string
-	CanStar     bool
-	Starred     bool
-	Here        string
-	Progress    store.Progress
-	StartURL    string
-	StartLabel  string
-	MistakesURL string
-	AllURL      string
-	ShuffledURL string
-	ListURL     string
+	Set          store.Set
+	Owner        bool
+	Saved        bool
+	Warnings     []string
+	CanStar      bool
+	Starred      bool
+	Here         string
+	Progress     store.Progress
+	Chooser      chooser
+	PracticeURL  string
+	WorksheetURL string
+}
+
+type choice struct {
+	Label   string
+	Count   int
+	URL     string
+	Current bool
+}
+
+type chooser struct {
+	Choices []choice
+	Shuffle link
+}
+
+func pickFilter(want string, pr store.Progress) string {
+	switch want {
+	case "all":
+		return want
+	case "unsolved":
+		if pr.Total-pr.Solved > 0 {
+			return want
+		}
+	case "mistakes":
+		if pr.Mistakes > 0 {
+			return want
+		}
+	}
+	if pr.Solved+pr.Mistakes > 0 && pr.Total-pr.Solved > 0 {
+		return "unsolved"
+	}
+	return "all"
+}
+
+func pickURL(base, filter string, shuffle bool) string {
+	v := url.Values{"filter": {filter}}
+	if shuffle {
+		v.Set("shuffle", "1")
+	}
+	return base + "?" + v.Encode()
+}
+
+func newChooser(base string, pr store.Progress, filter string, shuffle bool) chooser {
+	var c chooser
+	for _, o := range []struct {
+		filter, label string
+		count         int
+	}{{"unsolved", "Unsolved", pr.Total - pr.Solved}, {"mistakes", "Mistakes", pr.Mistakes}, {"all", "All", pr.Total}} {
+		if o.count == 0 && o.filter != "all" {
+			continue
+		}
+		c.Choices = append(c.Choices, choice{o.label, o.count, pickURL(base, o.filter, shuffle), o.filter == filter})
+	}
+	c.Shuffle = link{"Shuffle", pickURL(base, filter, !shuffle), shuffle}
+	return c
 }
 
 func (h *handler) deckHead(w http.ResponseWriter, r *http.Request, d setData) (deckPage, bool) {
@@ -864,36 +915,20 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slug, pr := d.set.Slug, data.Progress
-	all := params{Mode: "cards", Filter: "all"}
-	unsolved, mistakes := all, all
-	unsolved.Filter, mistakes.Filter = "unsolved", "mistakes"
-	switch left := pr.Total - pr.Solved; {
-	case pr.Solved+pr.Mistakes == 0:
-		data.StartURL, data.StartLabel = playURL(slug, all), "Start"
-	case left > 0:
-		data.StartURL, data.StartLabel = playURL(slug, unsolved), fmt.Sprintf("Continue · %d left", left)
-	default:
-		data.StartURL, data.StartLabel = playURL(slug, all), "Practise again"
-	}
-	if pr.Mistakes > 0 {
-		data.MistakesURL = playURL(slug, mistakes)
-	}
-	if all := playURL(slug, all); all != data.StartURL {
-		data.AllURL = all
-	}
-	data.ShuffledURL = playURL(slug, all) + "?shuffle=1"
-	data.ListURL = "/s/" + url.PathEscape(slug) + "/list"
+	filter, shuffle := pickFilter(q.Get("filter"), pr), q.Get("shuffle") == "1"
+	base := "/s/" + url.PathEscape(slug)
+	data.Chooser = newChooser(base, pr, filter, shuffle)
+	data.PracticeURL = pickURL(base+"/play", filter, shuffle)
+	data.WorksheetURL = pickURL(base+"/list", filter, shuffle)
 	h.page(w, r, http.StatusOK, "set", data)
 }
 
 type listPage struct {
 	deckPage
-	Params  params
-	Filters []link
-	PlayURL string
-	Items   []itemView
-	First   int64
-	Done    *doneView
+	Params params
+	Items  []itemView
+	First  int64
+	Done   *doneView
 }
 
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
@@ -919,16 +954,12 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	p.Filter = pickFilter(q.Get("filter"), head.Progress)
 	data := listPage{deckPage: head, Params: p}
 	slug, last := d.set.Slug, d.last
-	for _, f := range []string{"all", "unsolved", "mistakes"} {
-		lp := p
-		lp.Filter = f
-		data.Filters = append(data.Filters, link{strings.ToUpper(f[:1]) + f[1:], setURL(slug, lp), f == p.Filter})
-	}
-	pp := p
-	pp.Mode = "cards"
-	data.PlayURL = playURL(slug, pp)
+	base := "/s/" + url.PathEscape(slug)
+	data.Chooser = newChooser(base+"/list", head.Progress, p.Filter, p.Shuffle)
+	data.PracticeURL = pickURL(base+"/play", p.Filter, p.Shuffle)
 	todo := filtered(ordered(d.tasks, p), p.Filter, last)
 	if len(todo) == 0 {
 		data.Done = newDone(r, slug, true, head.Progress)

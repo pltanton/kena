@@ -139,3 +139,8 @@
   });
 })();
 </script>{{end}}
+
+{{define "chooser"}}<nav class="controls chooser" aria-label="Which tasks">
+<span class="seg">{{range .Choices}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}} <span class="n">{{.Count}}</span></a>{{end}}</span>
+<span class="seg">{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>Shuffle</a>{{end}}</span>
+</nav>{{end}}

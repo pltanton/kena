@@ -18,7 +18,7 @@
 <p class="sheet-title">{{.Set.Title}}</p>
 <div class="sheet-row"><span class="sheet-label">Practise</span><span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
 <div class="sheet-row"><span class="sheet-label">Order</span><span class="seg">{{range .Order}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
-<div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">First unsolved</a>{{end}}<a href="{{.ListURL}}">See all tasks</a>{{with .ResetURL}}<a href="{{.}}">Reset progress</a>{{end}}<a href="{{.DeckURL}}">Back to deck</a></div>
+<div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">First unsolved</a>{{end}}<a href="{{.ListURL}}">Switch to worksheet</a>{{with .ResetURL}}<a href="{{.}}">Reset progress</a>{{end}}<a href="{{.DeckURL}}">Back to deck</a></div>
 <button type="button" class="secondary sheet-close" data-close>Close</button>
 </div>
 </details>

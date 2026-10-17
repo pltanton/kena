@@ -329,8 +329,8 @@ func TestListView(t *testing.T) {
 			t.Fatalf("kena_mode cookie still set: %+v", c)
 		}
 	}
-	wantAll(t, "list view", body, `href="/s/`+e.set.Slug+`"`, "All tasks", `href="/s/`+e.set.Slug+`/play"`, ">Unsolved<")
-	wantNone(t, "list view", body, ">Cards<", ">Shuffle<")
+	wantAll(t, "worksheet", body, `href="/s/`+e.set.Slug+`"`, "Worksheet", `href="/s/`+e.set.Slug+`/play?filter=all"`, ">Unsolved <", ">Shuffle<")
+	wantNone(t, "worksheet", body, ">Cards<")
 
 	resp, _ = e.get("/s/" + e.set.Slug + "?mode=list&filter=unsolved")
 	wantStatus(t, resp, http.StatusMovedPermanently)
@@ -486,7 +486,7 @@ func TestListShowsLatestResults(t *testing.T) {
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"list"}}, true)
 	e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"list"}}, true)
 
-	_, body := e.get("/s/" + e.set.Slug + "/list")
+	_, body := e.get("/s/" + e.set.Slug + "/list?filter=all")
 	for _, want := range []string{
 		fmt.Sprintf(`<li id="t-%d" class="item ok">`, e.tasks[0].ID), `<span class="filled ok">γράφεις</span>`,
 		fmt.Sprintf(`<li id="t-%d" class="item">`, e.tasks[1].ID), `value="τρεχει"`, "Give up",
