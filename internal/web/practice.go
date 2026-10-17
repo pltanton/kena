@@ -521,7 +521,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	data.Rules = overviewRules(d.set)
+	data.Rules = append(ruleViews(d.set, true), ruleViews(d.set, false)...)
 	h.page(w, r, http.StatusOK, "set", data)
 }
 
@@ -550,7 +550,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	p.Filter = pickFilter(r.URL.Query().Get("filter"), head.Progress)
 	data := listPage{deckPage: head, Params: p}
-	data.General = generalRules(d.set)
+	data.General = ruleViews(d.set, true)
 	todo := filtered(ordered(d.tasks, p), p.Filter, d.last)
 	if len(todo) == 0 {
 		data.Done = newDone(r, d.set.Slug, true, head.Progress)
@@ -619,7 +619,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	todo := filtered(order, p.Filter, last)
 	pr := progressOf(d.tasks, last)
 
-	data := playPage{Set: set, DeckURL: deckPath(set.Slug), General: generalRules(set)}
+	data := playPage{Set: set, DeckURL: deckPath(set.Slug), General: ruleViews(set, true)}
 	for _, f := range []struct{ filter, label string }{{"all", "filter.all"}, {"unsolved", "filter.unsolved"}, {"mistakes", "filter.mistakes"}} {
 		lp := p
 		lp.Filter = f.filter

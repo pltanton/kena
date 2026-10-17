@@ -54,20 +54,10 @@ func hasGeneral(set store.Set) bool {
 	return slices.ContainsFunc(set.Rules, func(r greek.Rule) bool { return r.General })
 }
 
-func generalRules(set store.Set) []*ruleView {
+func ruleViews(set store.Set, general bool) []*ruleView {
 	var out []*ruleView
 	for _, r := range set.Rules {
-		if r.General {
-			out = append(out, newRuleView(r))
-		}
-	}
-	return out
-}
-
-func overviewRules(set store.Set) []*ruleView {
-	out := generalRules(set)
-	for _, r := range set.Rules {
-		if !r.General {
+		if r.General == general {
 			out = append(out, newRuleView(r))
 		}
 	}
