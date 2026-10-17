@@ -48,9 +48,9 @@
 <form class="card stack" method="post" action="/account/passphrase">
 <input type="text" name="username" value="{{.User.Username}}" autocomplete="username" hidden>
 <label for="current">Current passphrase</label>
-<input id="current" name="current" type="password" autocomplete="current-password" required>
+<div class="pass"><input id="current" name="current" type="password" autocomplete="current-password" required><button type="button" class="reveal" aria-controls="current" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
 <label for="new">New passphrase</label>
-<input id="new" name="new" type="password" autocomplete="new-password" minlength="10" required>
+<div class="pass"><input id="new" name="new" type="password" autocomplete="new-password" minlength="10" required><button type="button" class="reveal" aria-controls="new" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
 <p class="muted">At least 10 characters. Other devices and connected apps will be signed out.</p>
 <button type="submit">Change passphrase</button>
 </form>

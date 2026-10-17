@@ -1322,6 +1322,40 @@ button.quiet:hover {
   box-shadow: var(--shadow);
 }
 
+.pass {
+  position: relative;
+}
+
+.pass input {
+  padding-right: 64px;
+}
+
+.pass .reveal,
+.stack .pass .reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 2px;
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 0 6px 0 0;
+}
+
+.pass .reveal:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.pass .reveal[aria-pressed="true"] {
+  color: var(--text);
+}
+
 @media (max-width: 389px) {
   .nav a {
     padding: 0 5px;

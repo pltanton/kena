@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/static/app.css">
+<script src="/static/reveal.js" defer></script>
 <style>
 main.oauth-authorize,header.site{max-width:28rem}
 .choices{display:flex;gap:8px;flex-wrap:wrap}
@@ -49,7 +50,7 @@ main.oauth-authorize,header.site{max-width:28rem}
 <label for="username">Username</label>
 <input id="username" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if not .Username}} autofocus{{end}}>
 <label for="passphrase">Passphrase</label>
-<input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}>
+<div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
 <button type="submit">Log in</button>
 </form>
 {{end}}
