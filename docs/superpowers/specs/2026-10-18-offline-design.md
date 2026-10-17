@@ -86,8 +86,9 @@ device (filled in by the script) and a Try again link.
 - `msgs` / `plurals` are the raw catalog entries the card, bar and done
   templates use, in the request's UI language.
 - Version: `<sets.updated_at µs hex>.<viewer's attempt count in the deck>.<max
-attempt id>`; every task, rule, title or visibility change bumps
-  `updated_at`, every recorded attempt bumps the rest.
+attempt id>.<UI language>`; every task, rule, title or visibility change
+  bumps `updated_at`, every recorded attempt bumps the counts, and a language
+  switch changes the strings.
 
 `GET /offline/decks.json?s=<slug>…` lists `{slug, version}` for the logged-in
 viewer's own and starred (non-private) decks (`auto`) and for the requested

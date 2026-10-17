@@ -156,14 +156,17 @@ func TestPack(t *testing.T) {
 	if etag != `"`+p.Version+`"` {
 		t.Fatalf("ETag %q for version %q", etag, p.Version)
 	}
-	resp, _, _ = e.pack(e.set.Slug, "If-None-Match", etag)
+	resp, _, _ = e.pack(e.set.Slug, "If-None-Match", etag, "Accept-Language", "ru")
 	wantStatus(t, resp, http.StatusNotModified)
+	resp, _, _ = e.pack(e.set.Slug, "If-None-Match", etag, "Accept-Language", "el")
+	wantStatus(t, resp, http.StatusOK)
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}}, true)
-	resp, p2, _ := e.pack(e.set.Slug, "If-None-Match", etag)
+	resp, p2, _ := e.pack(e.set.Slug, "If-None-Match", etag, "Accept-Language", "ru")
 	wantStatus(t, resp, http.StatusOK)
 	if p2.Version == p.Version || p2.Key == p.Key {
 		t.Errorf("version %q and key %q unchanged after an attempt", p2.Version, p2.Key)
 	}
+
 
 	other := e.as("", false)
 	if _, p3, _ := other.pack(e.set.Slug); len(p3.State) != 0 {

@@ -106,7 +106,7 @@
   function fetchPack(slug, flags) {
     return get("packs", slug).then(function (rec) {
       var headers = {};
-      if (rec && rec.lang === lang) headers["If-None-Match"] = '"' + rec.version + '"';
+      if (rec) headers["If-None-Match"] = '"' + rec.version + '"';
       var fetched = Date.now();
       return timed("/s/" + encodeURIComponent(slug) + "/pack.json", {headers: headers}).then(function (r) {
         if (r.status === 404) return drop(slug).then(function () { return null; });

@@ -85,8 +85,8 @@ type deckPack struct {
 	Plurals  map[string]i18n.Plural `json:"plurals"`
 }
 
-func offlineVersion(set store.Set, st store.AttemptStamp) string {
-	return fmt.Sprintf("%x.%d.%d", set.UpdatedAt.UnixMicro(), st.Count, st.MaxID)
+func offlineVersion(set store.Set, st store.AttemptStamp, l i18n.Lang) string {
+	return fmt.Sprintf("%x.%d.%d.%s", set.UpdatedAt.UnixMicro(), st.Count, st.MaxID, l)
 }
 
 func xorBase64(key, plain []byte) string {
@@ -118,7 +118,7 @@ func (h *handler) pack(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	version := offlineVersion(d.set, stamps[d.set.ID])
+	version := offlineVersion(d.set, stamps[d.set.ID], langOf(r))
 	etag := `"` + version + `"`
 	w.Header().Set("Cache-Control", "private, no-cache")
 	w.Header().Set("ETag", etag)
@@ -217,7 +217,7 @@ func (h *handler) offlineDecks(w http.ResponseWriter, r *http.Request) {
 	versions := func(sets []store.Set) []deckVersion {
 		out := []deckVersion{}
 		for _, s := range sets {
-			out = append(out, deckVersion{Slug: s.Slug, Version: offlineVersion(s, stamps[s.ID])})
+			out = append(out, deckVersion{Slug: s.Slug, Version: offlineVersion(s, stamps[s.ID], langOf(r))})
 		}
 		return out
 	}
