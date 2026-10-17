@@ -31,12 +31,13 @@ nix flake check
 - `internal/store`: all SQL. Does not lint.
 - `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `Prepare`/`PrepareAgainst` (NFC + lint + duplicate, repeated-explanation and batch style warnings).
 - `internal/deckfmt`: the editor's plain-text deck format; `Format` and `Parse` round-trip, parse errors carry line numbers.
+- `internal/markdown`: goldmark rendering for rule bodies (no raw HTML, safe link schemes, tables wrapped for scrolling), `Preview`, `Issues`.
 - `internal/guide`: authoring guide markdown served by `get_authoring_guide`, `skill://kena/<topic>` and server instructions.
 - `internal/mcpserver`: tools; every write goes through `prepare` (`greek.PrepareAgainst`, with the set's existing tasks) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
@@ -50,5 +51,6 @@ nix flake check
 - `/admin` answers 404 to everyone but logged-in admins. The store enforces the user guards (no changing your own admin flag, no deleting yourself, never zero admins) for web and MCP alike.
 - Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
 - Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, empty lines or lines starting with `>` in text, line breaks outside text and explanation, control characters), so every lint-clean task round-trips through `deckfmt`. Text may span lines (dialogues); `deckfmt` reads consecutive non-`>` lines as one task.
+- Rule bodies reach HTML only through `markdown.Render`; never `template.HTML` a body yourself.
 - Keep MCP tool names stable; agents and the guide reference them.
 - The guide must pass the task lint itself (tests enforce no polytonic, no final σ).

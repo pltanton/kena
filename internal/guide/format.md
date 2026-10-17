@@ -41,27 +41,55 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
 
 ## Deck rules
 
-The general grammar of a deck, written once: `rules` on `create_set` /
-`update_set`, a list of `{key, text}`. Key: a–z, 0–9 and `-`, at most 32
-characters; text: one line, at most 400 characters; at most 30 rules.
-`update_set` replaces the whole list and refuses to drop a key a task still
-uses.
+The grammar of a deck, written once and shown to the learner behind the ⓘ on
+each card: `rules` on `create_set` / `update_set` (the whole list), or one at a
+time with `set_rule` / `delete_rule`. Each rule:
+
+- `key`: a–z, 0–9 and `-`, at most 32 characters; tasks name it in `rule`;
+- `title` (optional): one line, at most 80 characters;
+- `body`: Markdown, at most 4000 characters: short paragraphs, `**bold**`,
+  lists, and a table for a paradigm. No HTML, no images (they are not shown);
+- `general` (optional): `true` for deck-wide theory, shown on every card and
+  first on the deck page; `false` (default) for the point a group of tasks
+  practises, shown only with the tasks whose `rule` is this key.
+
+At most 30 rules. A key a task still uses cannot be removed (`update_set`,
+`delete_rule`); the error lists the tasks. The old shape `{key, text}` is still
+read: `text` becomes the body.
 
 ```json
 {
   "rules": [
-    { "key": "aorist-stem", "text": "Aorist = finished action; stem + ψ/ξ or -σα (γράφω → έγραψα), augment έ- only when stressed." },
-    { "key": "irregular", "text": "Irregular aorists to learn: πηγαίνω → πήγα, βλέπω → είδα, τρώω → έφαγα, έρχομαι → ήρθα." }
+    {
+      "key": "posos-forms",
+      "title": "Πόσος: γένος, αριθμός, πτώση",
+      "general": true,
+      "body": "Το **πόσος** συμφωνεί με το ουσιαστικό σε γένος, αριθμό και πτώση.\n\n| | αρσενικό | θηλυκό | ουδέτερο |\n|---|---|---|---|\n| ονομ. εν. | πόσος | πόση | πόσο |\n| αιτ. εν. | πόσο | πόση | πόσο |\n| γεν. εν. | πόσου | πόσης | πόσου |\n| ονομ. πληθ. | πόσοι | πόσες | πόσα |\n| αιτ. πληθ. | πόσους | πόσες | πόσα |\n| γεν. πληθ. | πόσων | πόσων | πόσων |"
+    },
+    {
+      "key": "masc-pl-acc",
+      "title": "Αρσενικό πληθυντικού, αιτιατική: πόσους",
+      "body": "Το ουσιαστικό είναι αντικείμενο: **πόσους** φίλους; — πολλούς, λίγους, αρκετούς."
+    }
   ]
 }
 ```
 
-In the deck editor (Edit deck) rules are lines at the top, and a task names
-its rule with an `@key` line under its sentence:
+The table above, as the learner sees it:
+
+|             | αρσενικό | θηλυκό | ουδέτερο |
+|-------------|----------|--------|----------|
+| ονομ. εν.   | πόσος    | πόση   | πόσο     |
+| αιτ. εν.    | πόσο     | πόση   | πόσο     |
+| γεν. εν.    | πόσου    | πόσης  | πόσου    |
+| ονομ. πληθ. | πόσοι    | πόσες  | πόσα     |
+| αιτ. πληθ.  | πόσους   | πόσες  | πόσα     |
+| γεν. πληθ.  | πόσων    | πόσων  | πόσων    |
+
+In the deck editor (Edit deck) a task names its rule with an `@key` line under
+its sentence; the rules themselves are edited on the deck's Rules page:
 
 ```
-= aorist-stem: Aorist = finished action; stem + ψ/ξ or -σα, augment έ- only when stressed.
-
 Χθες η Μαρία {έγραψε | γράφω} δύο γράμματα.
 @aorist-stem
 ```
@@ -168,7 +196,8 @@ task index):
 - empty text, or a blank with no answers;
 - an empty line inside the text, or a text line starting with `>`, `@` or `=`;
 - a `rule` that is not a key of the deck's rules; a malformed rule (key,
-  length, line break, more than 30);
+  title over 80 characters or with a line break, empty body or over 4000
+  characters, more than 30 rules);
 - Latin letters or digits mixed into a Greek word (lookalikes such as Latin o);
 - polytonic characters (U+1F00–U+1FFF);
 - medial sigma (U+03C3) at the end of a word, or final ς inside a word, in text or answers;
@@ -177,6 +206,7 @@ task index):
 Warnings (the call succeeds; review them):
 
 - the same sentence already exists in the set;
+- a rule body with raw HTML, an image or a link that is not http(s): not shown;
 - an answer word of two or more syllables without an accent;
 - text longer than 20 words;
 - the same explanation (ignoring case, spacing and final punctuation) on more

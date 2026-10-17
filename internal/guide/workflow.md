@@ -78,13 +78,20 @@ Before each batch, write its 20 grid rows: item number, lemma, slot
 
 ## 3b. Define the deck rules
 
-Before writing items, write 2–6 deck rules from the grammar point: the general
-facts a learner needs again and again (how the form is built, agreement, the
-cue words that pick a tense or case, the irregular group). One line each, in
-the deck's explanation language, with a short key (`aorist-stem`,
-`agree-noun`). Pass them as `rules` to `create_set` (or `update_set` later);
-every item then points at the rule it practises with `rule`. See
-`item-rules`, rule 11, and `format`.
+Before writing items, write the deck's rules from the grammar point (`format`,
+Deck rules; `item-rules`, rule 11):
+
+- one or two `general` rules with the theory of the whole deck: the paradigm
+  as a Markdown table (forms by gender, number and case, or by person and
+  tense), the agreement rule, the cue words. Every card shows them behind ⓘ;
+- 2–6 rules for the points the items practise (`aorist-stem`,
+  `masc-pl-acc`), each a title and two or three short lines, a small table
+  only when the point is a set of forms. Every item points at one with `rule`.
+
+Keep them short: a learner reads them on a phone, mid-exercise. One language
+per deck, the deck's explanation language. Pass them as `rules` to
+`create_set`, or add them one by one with `set_rule`; fix one later with
+`set_rule`, remove an unused one with `delete_rule`.
 
 ## 4. Write in batches of 20
 

@@ -44,8 +44,6 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   paragraph, blanks in braces, `>` lines for the explanation:
 
   ```
-  = present: Present tense: stem + ending of the person (γράφ-εις, γράφ-ει).
-
   Εσύ {γράφεις | γράφω} πολύ.
   @present
   > Explanation, only what is specific to this task.
@@ -54,9 +52,12 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   ```
 
   `{a / b}` accepts both answers, `| hint` is shown next to the blank. A task
-  may span several lines (one dialogue turn per line). `= key: text` lines at
-  the top are deck rules, the grammar many tasks share; `@key` under a task
-  points it at one, and the learner sees the rule with the explanation. Saving
+  may span several lines (one dialogue turn per line). `@key` under a task
+  points it at a deck rule. Rules live on the deck's **Rules** page (owner,
+  linked from the deck and the editor): a title, a short Markdown body (lists,
+  tables for paradigms) and a "deck-wide" switch. A task's rule and the
+  deck-wide rules open from the ⓘ on its card, show after a wrong answer and
+  are listed on the deck page. Saving
   runs the same checks as the MCP tools: any error is listed as `line N: …`
   and nothing is saved; warnings show after the save. Unchanged tasks keep
   everyone's progress even when you insert or reorder tasks. If the deck

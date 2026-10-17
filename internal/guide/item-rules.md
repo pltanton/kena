@@ -180,19 +180,38 @@ Good:
 ## 11. Deck rules: the general grammar, once
 
 What applies to many items — how the form is built, agreement, the cue words,
-an irregular group — is a deck rule, written once and shown with every item
-that uses it. The explanation is left for what only this item needs.
+an irregular group — is a deck rule, written once. The learner opens it with
+the ⓘ on the card, before or after answering, and sees it after a wrong
+answer. The explanation is left for what only this item needs.
 
-- 2–6 rules per deck, one line each (at most 400 characters), in the deck's
-  explanation language, each with a short key: `aorist-stem`, `agree-noun`.
-- Each item names the rule it practises with `rule`; at most one per item.
+- A rule is short Markdown: a title, two or three lines, `**bold**` for the
+  forms, and a table where the point is a paradigm. No HTML, no images.
+- Mark deck-wide theory `general: true` (the full paradigm, the agreement
+  rule): it shows on every card. Give the other rules to the items that
+  practise them with `rule`; at most one per item.
+- 2–6 item rules per deck, plus one or two general ones, each with a short key:
+  `aorist-stem`, `masc-pl-acc`.
 - An explanation that would read the same on several items with a word or a
   number swapped is a rule: move it.
 
 Bad (on every item, a word swapped):
 `Η απάντηση «πολλούς» συμφωνεί με το ουσιαστικό της πρότασης.`
 
-Good — a rule `agree-polys`:
-`Το πολύς συμφωνεί με το ουσιαστικό σε γένος, αριθμό και πτώση: πολλοί φίλοι, πολλές φίλες, πολλά παιδιά.`
-and on one item only, as its explanation: `φίλος is masculine: πολλούς φίλους, not πολλές.`
+Good — a general rule `posos-forms`, title `Πόσος: γένος, αριθμός, πτώση`:
 
+```
+Το **πόσος** συμφωνεί με το ουσιαστικό σε γένος, αριθμό και πτώση.
+
+|             | αρσενικό | θηλυκό | ουδέτερο |
+|-------------|----------|--------|----------|
+| ονομ. εν.   | πόσος    | πόση   | πόσο     |
+| αιτ. εν.    | πόσο     | πόση   | πόσο     |
+| γεν. εν.    | πόσου    | πόσης  | πόσου    |
+| ονομ. πληθ. | πόσοι    | πόσες  | πόσα     |
+| αιτ. πληθ.  | πόσους   | πόσες  | πόσα     |
+| γεν. πληθ.  | πόσων    | πόσων  | πόσων    |
+```
+
+an item rule `masc-pl-acc`, title `Αρσενικό πληθυντικού, αιτιατική: πόσους`:
+`Το ουσιαστικό είναι αντικείμενο: **πόσους** φίλους; — πολλούς, λίγους, αρκετούς.`
+and on one item only, as its explanation: `φίλος is masculine: πολλούς φίλους, not πολλές.`

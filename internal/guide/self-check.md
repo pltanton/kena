@@ -67,6 +67,9 @@ List the batch's explanations one under another, without the sentences.
       what is specific to its item (an irregular form, an accent shift, the cue).
 - [ ] If two explanations are identical or interchangeable, they are a rule:
       add it to the deck's rules and point both items at it.
+- [ ] Rules are short Markdown with a title; a paradigm is a table, and its
+      forms are checked like answers (accents, final ς). Deck-wide theory is
+      `general`, item points are not.
 
 ## 6. Mechanical lint
 

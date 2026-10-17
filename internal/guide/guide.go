@@ -91,12 +91,12 @@ Critical rules:
 5. Monotonic Greek only; ς at word end.
 6. hint = lemma or tag, never the answer.
 7. validate_tasks first; max 50 tasks per create_set/add_tasks call.
-8. Shared grammar → 2-6 deck rules (task.rule); explanation only item-specific.
+8. Explanation item-specific; shared grammar → deck rules (Markdown, tables; general=deck-wide).
 More rules:
 - 6-14 words, A2-B1 vocabulary unless the book is higher; everyday scenes.
 - Vary person, number, gender, lexical class, polarity, questions, frames and blank position.
 - No subject pronouns unless contrastive: Greek is pro-drop.
-- Mixed tenses or θα/να aspect: force each item by a cue (κάθε μέρα vs μόλις) or a hint tag.
+- Mixed tenses/aspect: force each item by a cue (κάθε μέρα vs μόλις) or a hint tag.
 - Write in batches of 20; self-check each (blind re-solve, derive each form).
 - Default 100 tasks: ~30 blocked, then ~70 interleaved.
 - Set: Greek/English title, Greek instruction line, source_ref = book/unit/exercise; report the URL.
