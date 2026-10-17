@@ -31,22 +31,19 @@ func Secret(r *http.Request) string {
 }
 
 func Set(w http.ResponseWriter, r *http.Request, secret string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
-		Value:    secret,
-		Path:     "/",
-		MaxAge:   int(TTL / time.Second),
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   Secure(r),
-	})
+	setCookie(w, r, secret, int(TTL/time.Second))
 }
 
 func Clear(w http.ResponseWriter, r *http.Request) {
+	setCookie(w, r, "", -1)
+}
+
+func setCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
+		Value:    value,
 		Path:     "/",
-		MaxAge:   -1,
+		MaxAge:   maxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   Secure(r),
