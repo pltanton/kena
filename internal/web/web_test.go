@@ -293,6 +293,9 @@ func TestNextWalksOrderAndEndsWithDone(t *testing.T) {
 	if strings.Contains(body, "<html") {
 		t.Fatal("next returned a full page instead of a fragment")
 	}
+	if strings.Contains(body, "autofocus") || !strings.Contains(body, "show:none") {
+		t.Fatalf("next card must leave focus and scrolling to the page script:\n%s", body)
+	}
 
 	resp, body = e.get(fmt.Sprintf("/s/%s/next?after=%d", e.set.Slug, e.tasks[2].ID))
 	wantStatus(t, resp, http.StatusOK)
