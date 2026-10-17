@@ -2,7 +2,6 @@ package greek
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -24,6 +23,7 @@ func normalizeTask(t TaskInput) TaskInput {
 		Text:        normalizeLines(t.Text),
 		Blanks:      blanks,
 		Explanation: normalizeLines(t.Explanation),
+		Rule:        strings.TrimSpace(t.Rule),
 	}
 }
 
@@ -47,6 +47,14 @@ func Prepare(tasks []TaskInput, existingTexts []string) ([]TaskInput, []TaskIssu
 }
 
 func PrepareAgainst(tasks []TaskInput, existing []TaskInput) ([]TaskInput, []TaskIssue) {
+	return PrepareDeck(tasks, existing, nil)
+}
+
+func PrepareDeck(tasks []TaskInput, existing []TaskInput, rules []Rule) ([]TaskInput, []TaskIssue) {
+	keys := make(map[string]bool, len(rules))
+	for _, r := range rules {
+		keys[strings.TrimSpace(r.Key)] = true
+	}
 	var issues []TaskIssue
 	seen := make(map[string]bool, len(existing)+len(tasks))
 	for _, t := range existing {
@@ -59,6 +67,9 @@ func PrepareAgainst(tasks []TaskInput, existing []TaskInput) ([]TaskInput, []Tas
 		out[i] = in
 		for _, iss := range LintTask(in) {
 			issues = append(issues, TaskIssue{Task: i, Issue: iss})
+		}
+		if in.Rule != "" && !keys[in.Rule] {
+			issues = append(issues, TaskIssue{Task: i, Issue: Issue{Error, "rule", fmt.Sprintf("rule %q is not defined in the deck; add it to the deck's rules or drop it", in.Rule)}})
 		}
 		if in.Text != "" && seen[in.Text] {
 			issues = append(issues, TaskIssue{Task: i, Issue: Issue{Warning, "text", "duplicate of another task's text"}})
@@ -102,79 +113,10 @@ func repeatedExplanations(batch, existing []TaskInput) []TaskIssue {
 		count[k]++
 	}
 	var issues []TaskIssue
-	flagged := map[int]bool{}
 	for _, k := range order {
 		if n := count[k]; n > maxSameExplanation {
-			flagged[first[k]] = true
 			issues = append(issues, TaskIssue{Task: first[k], Issue: Issue{Warning, "explanation",
-				fmt.Sprintf("explanation repeated %d times — make each explanation specific to its item (what makes this form, and the cue for this tense or case)", n)}})
-		}
-	}
-	return append(issues, templatedExplanations(batch, existing, flagged)...)
-}
-
-var (
-	quotedSpan = regexp.MustCompile(`«[^»]*»|"[^"]*"|“[^”]*”`)
-	digits     = regexp.MustCompile(`\p{Nd}+`)
-)
-
-func templateKey(t TaskInput) string {
-	s := strings.ToLower(NFC(t.Explanation))
-	s = quotedSpan.ReplaceAllString(s, " ")
-	s = digits.ReplaceAllString(s, " ")
-	var words []string
-	for _, b := range t.Blanks {
-		words = append(words, strings.ToLower(b.Hint))
-		for _, a := range b.Answers {
-			words = append(words, strings.ToLower(a))
-		}
-	}
-	for _, w := range words {
-		for _, f := range strings.Fields(w) {
-			s = replaceWord(s, f)
-		}
-	}
-	return strings.TrimRight(strings.Join(strings.Fields(s), " "), ".;:!·… ")
-}
-
-func replaceWord(s, w string) string {
-	var out []string
-	for _, f := range strings.Fields(s) {
-		if strings.Trim(f, ".,;:!·…()[]→-–—") != strings.Trim(w, ".,;:!·…()[]") {
-			out = append(out, f)
-		}
-	}
-	return strings.Join(out, " ")
-}
-
-func templatedExplanations(batch, existing []TaskInput, flagged map[int]bool) []TaskIssue {
-	count := map[string]int{}
-	for _, t := range existing {
-		if k := templateKey(t); k != "" {
-			count[k]++
-		}
-	}
-	first := map[string]int{}
-	exact := map[string]map[string]bool{}
-	var order []string
-	for i, t := range batch {
-		k := templateKey(t)
-		if k == "" {
-			continue
-		}
-		if _, ok := first[k]; !ok {
-			first[k] = i
-			order = append(order, k)
-			exact[k] = map[string]bool{}
-		}
-		exact[k][explanationKey(t.Explanation)] = true
-		count[k]++
-	}
-	var issues []TaskIssue
-	for _, k := range order {
-		if n := count[k]; n > maxSameExplanation && (len(exact[k]) > 1 || !flagged[first[k]]) {
-			issues = append(issues, TaskIssue{Task: first[k], Issue: Issue{Warning, "explanation",
-				fmt.Sprintf("%d explanations are templated: the same sentence with only the quoted words, numbers or answers swapped — say what makes each form and the cue for it", n)}})
+				fmt.Sprintf("explanation repeated %d times — put it in a deck rule and reference it with `rule`; keep explanation for what is specific to the item", n)}})
 		}
 	}
 	return issues

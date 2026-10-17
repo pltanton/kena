@@ -2,7 +2,6 @@ package greek
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode"
 
@@ -26,6 +25,7 @@ type TaskInput struct {
 	Text        string
 	Blanks      []Blank
 	Explanation string
+	Rule        string
 }
 
 func LintTask(t TaskInput) []Issue {
@@ -45,7 +45,6 @@ func LintTask(t TaskInput) []Issue {
 	issues = append(issues, charIssues("text", t.Text, "{}|", true)...)
 	issues = append(issues, textLineIssues(t.Text)...)
 	issues = append(issues, charIssues("explanation", t.Explanation, "", true)...)
-	issues = append(issues, abbreviationIssues(t.Explanation)...)
 
 	textNoMarker := strings.ReplaceAll(t.Text, Marker, " ")
 	issues = append(issues, scriptIssues("text", textNoMarker)...)
@@ -86,37 +85,15 @@ func textLineIssues(text string) []Issue {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		empty = empty || (line == "" && len(lines) > 1)
-		quoted = quoted || strings.HasPrefix(line, ">")
+		quoted = quoted || strings.HasPrefix(line, ">") || strings.HasPrefix(line, "@") || strings.HasPrefix(line, "=")
 	}
 	if empty {
 		issues = append(issues, Issue{Error, "text", "empty line inside the text; the editor reads an empty line as the end of a task"})
 	}
 	if quoted {
-		issues = append(issues, Issue{Error, "text", "a text line must not start with >; the editor reads such lines as explanations"})
+		issues = append(issues, Issue{Error, "text", "a text line must not start with >, @ or =; the editor reads such lines as explanations and rules"})
 	}
 	return issues
-}
-
-var parenAbbrev = regexp.MustCompile(`\(([A-Za-z]{1,4})\)`)
-
-func abbreviationIssues(explanation string) []Issue {
-	m := parenAbbrev.FindStringSubmatch(explanation)
-	if m == nil {
-		return nil
-	}
-	greek, latin := 0, 0
-	for _, r := range explanation {
-		switch {
-		case unicode.Is(unicode.Greek, r):
-			greek++
-		case unicode.Is(unicode.Latin, r):
-			latin++
-		}
-	}
-	if greek <= latin {
-		return nil
-	}
-	return []Issue{{Warning, "explanation", fmt.Sprintf("unexplained abbreviation %q in a Greek explanation; write it out or drop it", m[0])}}
 }
 
 func scriptIssues(field, s string) []Issue {

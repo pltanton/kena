@@ -24,7 +24,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("querying schema_migrations: %v", err)
 	}
-	if count != 7 {
+	if count != 8 {
 		t.Fatalf("schema_migrations count = %d, want 7", count)
 	}
 

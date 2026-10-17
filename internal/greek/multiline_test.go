@@ -36,35 +36,6 @@ func hasWarning(issues []TaskIssue, field, msg string) bool {
 	return false
 }
 
-func TestTemplatedExplanationsWarn(t *testing.T) {
-	var batch []TaskInput
-	for _, c := range []struct{ noun, quant, n string }{
-		{"συναδέλφους", "πολλούς", "1"},
-		{"φίλες", "πολλές", "2"},
-		{"βιβλία", "πολλά", "3"},
-	} {
-		batch = append(batch, TaskInput{
-			Text:        "Α: Πόσους ___ κάλεσες;\nΒ: Κάλεσα ___.",
-			Blanks:      []Blank{{Answers: []string{c.noun}, Hint: "πόσος"}, {Answers: []string{c.quant}, Hint: "πολύς"}},
-			Explanation: "Η ερώτηση παίρνει «πόσους» (ma); η απάντηση «" + c.quant + "» συμφωνεί με το ουσιαστικό της πρότασης " + c.n + ".",
-		})
-	}
-	_, issues := Prepare(batch, nil)
-	if !hasWarning(issues, "explanation", "templated") {
-		t.Fatalf("templated explanations not flagged: %+v", issues)
-	}
-
-	distinct := []TaskInput{
-		{Text: "Χθες ___.", Blanks: []Blank{{Answers: []string{"έφυγε"}}}, Explanation: "Irregular aorist: φεύγω → έφυγα."},
-		{Text: "Πέρσι ___.", Blanks: []Blank{{Answers: []string{"πήγε"}}}, Explanation: "Irregular aorist: πηγαίνω → πήγα."},
-		{Text: "Τότε ___.", Blanks: []Blank{{Answers: []string{"είδε"}}}, Explanation: "Irregular aorist: βλέπω → είδα."},
-	}
-	_, issues = Prepare(distinct, nil)
-	if hasWarning(issues, "explanation", "templated") || hasWarning(issues, "explanation", "repeated") {
-		t.Fatalf("explanations that differ in their substance flagged: %+v", issues)
-	}
-}
-
 func TestSameHintPatternWarns(t *testing.T) {
 	var batch []TaskInput
 	nouns := []string{"φίλους", "φίλες", "παιδιά", "βιβλία", "γάτες", "σκύλους", "πόλεις", "δρόμους", "μήλα", "ώρες"}
@@ -85,23 +56,6 @@ func TestSameHintPatternWarns(t *testing.T) {
 	_, issues = Prepare(batch[:9], nil)
 	if hasWarning(issues, "blanks", "hint pattern") {
 		t.Fatal("hint monotony flagged in a batch under 10")
-	}
-}
-
-func TestLatinAbbreviationInGreekExplanation(t *testing.T) {
-	in := TaskInput{Text: "Πόσους ___ κάλεσες;", Blanks: []Blank{{Answers: []string{"φίλους"}}},
-		Explanation: "Η ερώτηση παίρνει «πόσους» (ma) γιατί το ουσιαστικό είναι αρσενικό."}
-	if !hasLint(LintTask(in), Warning, "explanation", "unexplained abbreviation") {
-		t.Fatalf("(ma) not flagged: %+v", LintTask(in))
-	}
-	for _, ok := range []string{
-		"Aorist (past) of πηγαίνω: πήγα.",
-		"Ο αόριστος του ρήματος (αόρ.) έχει αύξηση.",
-	} {
-		in.Explanation = ok
-		if hasLint(LintTask(in), Warning, "explanation", "abbreviation") {
-			t.Errorf("%q flagged", ok)
-		}
 	}
 }
 

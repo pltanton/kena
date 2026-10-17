@@ -17,7 +17,7 @@ type DeckChanges struct {
 }
 
 func sameTask(t Task, in greek.TaskInput) bool {
-	return t.Text == in.Text && t.Explanation == in.Explanation &&
+	return t.Text == in.Text && t.Explanation == in.Explanation && t.Rule == in.Rule &&
 		slices.EqualFunc(t.Blanks, in.Blanks, func(a, b greek.Blank) bool {
 			return a.Hint == b.Hint && slices.Equal(a.Answers, b.Answers)
 		})
@@ -102,15 +102,15 @@ func (s *Store) SaveDeck(ctx context.Context, setID int64, version time.Time, p 
 		}
 		if j >= 0 {
 			if _, err := tx.Exec(ctx, `
-				UPDATE tasks SET position = $2, text = $3, blanks = $4, explanation = $5, updated_at = now() WHERE id = $1
-			`, existing[j].ID, pos, in.Text, blanks, in.Explanation); err != nil {
+				UPDATE tasks SET position = $2, text = $3, blanks = $4, explanation = $5, rule = NULLIF($6, ''), updated_at = now() WHERE id = $1
+			`, existing[j].ID, pos, in.Text, blanks, in.Explanation, in.Rule); err != nil {
 				return ch, fmt.Errorf("updating task: %w", err)
 			}
 			continue
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO tasks (set_id, position, text, blanks, explanation) VALUES ($1, $2, $3, $4, $5)
-		`, setID, pos, in.Text, blanks, in.Explanation); err != nil {
+			INSERT INTO tasks (set_id, position, text, blanks, explanation, rule) VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+		`, setID, pos, in.Text, blanks, in.Explanation, in.Rule); err != nil {
 			return ch, fmt.Errorf("inserting task: %w", err)
 		}
 		ch.Added++

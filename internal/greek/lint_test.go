@@ -266,6 +266,8 @@ func TestLintTaskFormatCharacters(t *testing.T) {
 		{"bar in text", "text", `"|"`, func(t *TaskInput) { t.Text = "Εσύ ___ | πολύ." }},
 		{"empty line in text", "text", "empty line", func(t *TaskInput) { t.Text = "— Εσύ ___;\n\n— Ναι." }},
 		{"quote marker on a later text line", "text", "must not start with >", func(t *TaskInput) { t.Text = "— Εσύ ___;\n> Ναι." }},
+		{"rule marker on a text line", "text", "must not start with", func(t *TaskInput) { t.Text = "— Εσύ ___;\n@ Ναι." }},
+		{"rule definition marker on a text line", "text", "must not start with", func(t *TaskInput) { t.Text = "= Εσύ ___;" }},
 		{"carriage return in text", "text", "control character", func(t *TaskInput) { t.Text = "Εσύ ___\rπολύ." }},
 		{"slash in answer", "blanks[0].answers[0]", `"/"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "γράφεις/γράφει" }},
 		{"brace in answer", "blanks[0].answers[0]", `"{"`, func(t *TaskInput) { t.Blanks[0].Answers[0] = "{γράφεις" }},

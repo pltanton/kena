@@ -84,7 +84,7 @@ func TestPrepareRepeatedExplanation(t *testing.T) {
 	}
 	_, issues = PrepareAgainst(tasks, []TaskInput{{Text: "Πέρσι ___ πολύ.", Explanation: generic}})
 	w := warningsFor(issues, "explanation")
-	if len(w) != 1 || w[0].Task != 1 || !strings.Contains(w[0].Message, "repeated 3 times") {
+	if len(w) != 1 || w[0].Task != 1 || !strings.Contains(w[0].Message, "repeated 3 times — put it in a deck rule") {
 		t.Fatalf("warnings = %+v", w)
 	}
 }

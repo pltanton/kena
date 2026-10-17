@@ -30,6 +30,7 @@ type Set struct {
 	SourceRef    string
 	TaskCount    int
 	Visibility   Visibility
+	Rules        []greek.Rule
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -41,6 +42,7 @@ type Task struct {
 	Text        string
 	Blanks      []greek.Blank
 	Explanation string
+	Rule        string
 }
 
 type SetInput struct {
@@ -51,6 +53,7 @@ type SetInput struct {
 	SourceRef    string
 	Slug         string
 	Visibility   Visibility
+	Rules        []greek.Rule
 }
 
 type SetPatch struct {
@@ -60,6 +63,7 @@ type SetPatch struct {
 	Instructions *string
 	SourceRef    *string
 	Visibility   *Visibility
+	Rules        *[]greek.Rule
 }
 
 type Visibility string
@@ -87,6 +91,7 @@ type TaskPatch struct {
 	Text        *string
 	Blanks      *[]greek.Blank
 	Explanation *string
+	Rule        *string
 }
 
 var greekTranslit = map[rune]string{
@@ -154,7 +159,7 @@ func marshalBlanks(blanks []greek.Blank) ([]byte, error) {
 
 const setColumns = `
 	s.id, s.owner_id, u.username, s.slug, s.title, s.topic, s.level, s.instructions, s.source_ref,
-	COALESCE(t.task_count, 0), s.visibility, s.created_at, s.updated_at
+	COALESCE(t.task_count, 0), s.visibility, s.rules, s.created_at, s.updated_at
 `
 
 const setFromJoin = `
@@ -165,7 +170,24 @@ const setFromJoin = `
 
 func (st *Set) dest() []any {
 	return []any{&st.ID, &st.OwnerID, &st.OwnerName, &st.Slug, &st.Title, &st.Topic, &st.Level,
-		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.CreatedAt, &st.UpdatedAt}
+		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.Rules, &st.CreatedAt, &st.UpdatedAt}
+}
+
+func marshalRules(rules []greek.Rule) ([]byte, error) {
+	if rules == nil {
+		rules = []greek.Rule{}
+	}
+	b, err := json.Marshal(rules)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling rules: %w", err)
+	}
+	return b, nil
+}
+
+const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, '')`
+
+func (t *Task) dest() []any {
+	return []any{&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule}
 }
 
 func scanSet(row pgx.Row) (Set, error) {
@@ -205,6 +227,10 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 		return Set{}, fmt.Errorf("visibility %q: %w", vis, ErrInvalid)
 	}
 
+	rules, err := marshalRules(in.Rules)
+	if err != nil {
+		return Set{}, err
+	}
 	base := in.Slug
 	if base == "" {
 		base = in.Title
@@ -219,10 +245,10 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 
 		var id int64
 		err := s.pool.QueryRow(ctx, `
-			INSERT INTO sets (owner_id, slug, title, topic, level, instructions, source_ref, visibility)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO sets (owner_id, slug, title, topic, level, instructions, source_ref, visibility, rules)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id
-		`, ownerID, slug, title, in.Topic, in.Level, in.Instructions, in.SourceRef, vis).Scan(&id)
+		`, ownerID, slug, title, in.Topic, in.Level, in.Instructions, in.SourceRef, vis, rules).Scan(&id)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -289,6 +315,14 @@ func updateSet(ctx context.Context, db querier, setID int64, p SetPatch) error {
 	if p.Visibility != nil && !p.Visibility.valid() {
 		return fmt.Errorf("visibility %q: %w", *p.Visibility, ErrInvalid)
 	}
+	var rules []byte
+	if p.Rules != nil {
+		b, err := marshalRules(*p.Rules)
+		if err != nil {
+			return err
+		}
+		rules = b
+	}
 	tag, err := db.Exec(ctx, `
 		UPDATE sets SET
 			title = COALESCE($2, title),
@@ -297,9 +331,10 @@ func updateSet(ctx context.Context, db querier, setID int64, p SetPatch) error {
 			instructions = COALESCE($5, instructions),
 			source_ref = COALESCE($6, source_ref),
 			visibility = COALESCE($7, visibility),
+			rules = COALESCE($8::jsonb, rules),
 			updated_at = now()
 		WHERE id = $1
-	`, setID, p.Title, p.Topic, p.Level, p.Instructions, p.SourceRef, p.Visibility)
+	`, setID, p.Title, p.Topic, p.Level, p.Instructions, p.SourceRef, p.Visibility, rules)
 	if err != nil {
 		return fmt.Errorf("updating set: %w", err)
 	}
@@ -350,11 +385,10 @@ func (s *Store) AddTasks(ctx context.Context, setID int64, inputs []greek.TaskIn
 
 		var t Task
 		err = tx.QueryRow(ctx, `
-			INSERT INTO tasks (set_id, position, text, blanks, explanation)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id, set_id, position, text, blanks, explanation
-		`, setID, maxPos+i+1, in.Text, blanksJSON, in.Explanation,
-		).Scan(&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation)
+			INSERT INTO tasks (set_id, position, text, blanks, explanation, rule)
+			VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+			RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanksJSON, in.Explanation, in.Rule,
+		).Scan(t.dest()...)
 		if err != nil {
 			return nil, fmt.Errorf("inserting task: %w", err)
 		}
@@ -377,7 +411,7 @@ func (s *Store) ListTasks(ctx context.Context, setID int64) ([]Task, error) {
 
 func listTasks(ctx context.Context, db querier, setID int64) ([]Task, error) {
 	rows, err := db.Query(ctx, `
-		SELECT id, set_id, position, text, blanks, explanation
+		SELECT `+taskColumns+`
 		FROM tasks WHERE set_id = $1 ORDER BY position
 	`, setID)
 	if err != nil {
@@ -388,7 +422,7 @@ func listTasks(ctx context.Context, db querier, setID int64) ([]Task, error) {
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation); err != nil {
+		if err := rows.Scan(t.dest()...); err != nil {
 			return nil, fmt.Errorf("scanning task: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -401,9 +435,7 @@ func listTasks(ctx context.Context, db querier, setID int64) ([]Task, error) {
 
 func (s *Store) GetTask(ctx context.Context, taskID int64) (Task, error) {
 	var t Task
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, set_id, position, text, blanks, explanation FROM tasks WHERE id = $1
-	`, taskID).Scan(&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation)
+	err := s.pool.QueryRow(ctx, `SELECT `+taskColumns+` FROM tasks WHERE id = $1`, taskID).Scan(t.dest()...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Task{}, ErrNotFound
@@ -429,11 +461,11 @@ func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task
 			text = COALESCE($2, text),
 			blanks = COALESCE($3, blanks),
 			explanation = COALESCE($4, explanation),
+			rule = CASE WHEN $5::text IS NULL THEN rule ELSE NULLIF($5, '') END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING id, set_id, position, text, blanks, explanation
-	`, taskID, p.Text, blanksJSON, p.Explanation,
-	).Scan(&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation)
+		RETURNING `+taskColumns, taskID, p.Text, blanksJSON, p.Explanation, p.Rule,
+	).Scan(t.dest()...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Task{}, ErrNotFound

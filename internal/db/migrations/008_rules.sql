@@ -1,0 +1,2 @@
+ALTER TABLE sets ADD COLUMN rules jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN rule text;
