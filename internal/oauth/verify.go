@@ -39,7 +39,7 @@ func (s *Server) Verify(ctx context.Context, token string, _ *http.Request) (*au
 		if err != nil {
 			return nil, err
 		}
-		return tokenInfo(u, s.now().Add(personalTokenTTL)), nil
+		return tokenInfo(u, time.Now().Add(personalTokenTTL)), nil
 	default:
 		return nil, fmt.Errorf("%w: unrecognised token format", auth.ErrInvalidToken)
 	}

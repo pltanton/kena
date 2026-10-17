@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,17 +20,6 @@ const cimdMaxBytes = 64 << 10
 
 var errUnknownClient = errors.New("unknown client")
 
-func (s *Server) fetchClientMetadata(ctx context.Context, clientID string) (store.OAuthClient, error) {
-	c, err := s.fetchClientDoc(ctx, clientID)
-	if err != nil {
-		return store.OAuthClient{}, fmt.Errorf("%w: %w", errUnknownClient, err)
-	}
-	if err := s.Store.SaveClient(ctx, c); err != nil {
-		return store.OAuthClient{}, err
-	}
-	return c, nil
-}
-
 func (s *Server) fetchClientDoc(ctx context.Context, clientID string) (store.OAuthClient, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -38,8 +28,8 @@ func (s *Server) fetchClientDoc(ctx context.Context, clientID string) (store.OAu
 		return store.OAuthClient{}, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", s.userAgent())
-	resp, err := s.httpClient().Do(req)
+	req.Header.Set("User-Agent", cmp.Or(s.UserAgent, "kena"))
+	resp, err := cmp.Or(s.HTTP, defaultCIMDClient).Do(req)
 	if err != nil {
 		return store.OAuthClient{}, err
 	}
@@ -105,11 +95,4 @@ func cimdCheckRedirect(req *http.Request, via []*http.Request) error {
 		return errors.New("redirect to non-https URL")
 	}
 	return nil
-}
-
-func (s *Server) httpClient() *http.Client {
-	if s.HTTP != nil {
-		return s.HTTP
-	}
-	return defaultCIMDClient
 }

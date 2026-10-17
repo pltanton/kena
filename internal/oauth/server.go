@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -57,22 +59,7 @@ type Server struct {
 	Store     *store.Store
 	PublicURL string
 	HTTP      *http.Client
-	Now       func() time.Time
 	UserAgent string
-}
-
-func (s *Server) userAgent() string {
-	if s.UserAgent != "" {
-		return s.UserAgent
-	}
-	return "kena"
-}
-
-func (s *Server) now() time.Time {
-	if s.Now != nil {
-		return s.Now()
-	}
-	return time.Now()
 }
 
 func (s *Server) ResourceURL() string {
@@ -192,7 +179,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		RedirectURIs []string `json:"redirect_uris"`
 		ClientName   string   `json:"client_name"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
+	err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req)
+	if err != nil {
 		oauthError(w, http.StatusBadRequest, "invalid_client_metadata", "request body must be a JSON object")
 		return
 	}
@@ -200,7 +188,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_redirect_uri", fmt.Sprintf("at most %d redirect_uris are allowed", maxRedirectURIs))
 		return
 	}
-	if err := validateRedirectURIs(req.RedirectURIs); err != nil {
+	if err = validateRedirectURIs(req.RedirectURIs); err != nil {
 		oauthError(w, http.StatusBadRequest, "invalid_redirect_uri", err.Error())
 		return
 	}
@@ -208,21 +196,19 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_client_metadata", fmt.Sprintf("client_name must be at most %d characters", maxClientNameRunes))
 		return
 	}
-	id, err := store.NewSecret("kc_")
+	c := store.OAuthClient{RedirectURIs: req.RedirectURIs, ClientName: req.ClientName}
+	c.ClientID, err = store.NewSecret("kc_")
+	if err == nil {
+		err = s.Store.SaveClient(r.Context(), c)
+	}
 	if err != nil {
 		slog.Error("oauth: register", "err", err)
 		oauthError(w, http.StatusInternalServerError, "server_error", "internal error")
 		return
 	}
-	c := store.OAuthClient{ClientID: id, RedirectURIs: req.RedirectURIs, ClientName: req.ClientName}
-	if err := s.Store.SaveClient(r.Context(), c); err != nil {
-		slog.Error("oauth: register", "err", err)
-		oauthError(w, http.StatusInternalServerError, "server_error", "internal error")
-		return
-	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"client_id":                  id,
-		"client_id_issued_at":        s.now().Unix(),
+		"client_id":                  c.ClientID,
+		"client_id_issued_at":        time.Now().Unix(),
 		"redirect_uris":              req.RedirectURIs,
 		"client_name":                req.ClientName,
 		"token_endpoint_auth_method": "none",
@@ -237,7 +223,7 @@ type param struct{ Name, Value string }
 
 type authorizePage struct {
 	lang         i18n.Lang
-	formAction   string
+	formAction   []string
 	Fatal        string
 	ClientName   string
 	ClientHost   string
@@ -250,7 +236,11 @@ type authorizePage struct {
 
 func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuthClient, error) {
 	if strings.HasPrefix(clientID, "https://") {
-		return s.fetchClientMetadata(ctx, clientID)
+		c, err := s.fetchClientDoc(ctx, clientID)
+		if err != nil {
+			return c, fmt.Errorf("%w: %w", errUnknownClient, err)
+		}
+		return c, s.Store.SaveClient(ctx, c)
 	}
 	c, err := s.Store.GetClient(ctx, clientID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -306,7 +296,9 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := authorizePage{lang: lang, ClientName: client.ClientName}
-	page.formAction, _ = csp.Source(redirectURI)
+	if src, ok := csp.Source(redirectURI); ok {
+		page.formAction = []string{src}
+	}
 	if strings.HasPrefix(client.ClientID, "https://") {
 		page.ClientHost = hostOf(client.ClientID)
 	}
@@ -326,11 +318,6 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		page.User = user.Username
 	}
 
-	if r.Method == http.MethodGet {
-		renderAuthorize(w, http.StatusOK, page)
-		return
-	}
-
 	switch r.PostForm.Get("action") {
 	case "cancel":
 		s.redirectError(w, r, redirectURI, "access_denied", "the user declined the request")
@@ -338,52 +325,43 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	case "login":
 		page.Username = strings.TrimSpace(r.PostForm.Get("username"))
 		u, err := session.Login(w, r, s.Store, page.Username, r.PostForm.Get("passphrase"))
-		if errors.Is(err, store.ErrNotFound) {
-			page.User = ""
-			page.Error = "login.wrong"
-			renderAuthorize(w, http.StatusOK, page)
-			return
-		}
-		if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			page.User, page.Error = "", "login.wrong"
+		case err != nil:
 			s.authorizeServerError(w, lang, "login", err)
 			return
+		default:
+			page.User = u.Username
 		}
-		page.User = u.Username
-		renderAuthorize(w, http.StatusOK, page)
-		return
 	case "allow":
-		if !loggedIn {
-			renderAuthorize(w, http.StatusOK, page)
+		if loggedIn {
+			s.issueCode(w, r, lang, store.AuthCode{
+				ClientID:      client.ClientID,
+				UserID:        user.ID,
+				RedirectURI:   redirectURI,
+				CodeChallenge: get("code_challenge"),
+				Resource:      cmp.Or(get("resource"), s.ResourceURL()),
+				Scope:         scope,
+				ExpiresAt:     time.Now().Add(codeTTL),
+			})
 			return
 		}
-	default:
-		renderAuthorize(w, http.StatusOK, page)
-		return
 	}
+	renderAuthorize(w, http.StatusOK, page)
+}
 
+func (s *Server) issueCode(w http.ResponseWriter, r *http.Request, lang i18n.Lang, ac store.AuthCode) {
 	code, err := store.NewSecret("kena_ac_")
 	if err != nil {
 		s.authorizeServerError(w, lang, "generate code", err)
 		return
 	}
-	resource := get("resource")
-	if resource == "" {
-		resource = s.ResourceURL()
-	}
-	err = s.Store.SaveCode(r.Context(), code, store.AuthCode{
-		ClientID:      client.ClientID,
-		UserID:        user.ID,
-		RedirectURI:   redirectURI,
-		CodeChallenge: get("code_challenge"),
-		Resource:      resource,
-		Scope:         scope,
-		ExpiresAt:     s.now().Add(codeTTL),
-	})
-	if err != nil {
+	if err := s.Store.SaveCode(r.Context(), code, ac); err != nil {
 		s.authorizeServerError(w, lang, "save code", err)
 		return
 	}
-	s.redirectWith(w, r, redirectURI, url.Values{"code": {code}})
+	s.redirectWith(w, r, ac.RedirectURI, url.Values{"code": {code}})
 }
 
 func (s *Server) authorizeServerError(w http.ResponseWriter, lang i18n.Lang, op string, err error) {
@@ -410,9 +388,7 @@ func (s *Server) redirectWith(w http.ResponseWriter, r *http.Request, redirectUR
 		return
 	}
 	q := u.Query()
-	for k, vs := range extra {
-		q[k] = vs
-	}
+	maps.Copy(q, extra)
 	if st := r.Form.Get("state"); st != "" {
 		q.Set("state", st)
 	}
@@ -425,17 +401,9 @@ func renderAuthorize(w http.ResponseWriter, status int, page authorizePage) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Add("Vary", "Accept-Language")
-	if page.formAction != "" {
-		csp.Set(w.Header(), page.formAction)
-	} else {
-		csp.Set(w.Header())
-	}
+	csp.Set(w.Header(), page.formAction...)
 	w.WriteHeader(status)
-	t, ok := authorizeTmpl[page.lang]
-	if !ok {
-		t = authorizeTmpl[i18n.En]
-	}
-	if err := t.Execute(w, page); err != nil {
+	if err := authorizeTmpl[page.lang].Execute(w, page); err != nil {
 		slog.Error("oauth: rendering authorize page", "err", err)
 	}
 }
