@@ -9,7 +9,7 @@
 <script src="/static/play.js" defer></script>
 <script src="/static/offline.js" defer></script>
 </head>
-<body class="focus"{{if .User}} data-auth{{end}}{{template "body_strings"}}>
+<body class="focus"{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}}>
 {{with .Data}}<div class="focus-app" id="focus-app" data-slug="{{.Set.Slug}}">
 <header class="focus-bar">
 <a class="focus-close" href="{{.DeckURL}}" aria-label="{{t "play.back_to_deck"}}" title="{{t "play.back_to_deck"}}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>

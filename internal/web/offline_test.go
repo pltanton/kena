@@ -288,9 +288,21 @@ func (e *env) syncRaw(body []byte, header ...string) (*http.Response, string) {
 	return e.do(req)
 }
 
+var identityRe = regexp.MustCompile(`data-identity="([^"]+)"`)
+
+func (e *env) identity() string {
+	e.t.Helper()
+	_, body := e.get("/offline")
+	m := identityRe.FindStringSubmatch(body)
+	if m == nil {
+		e.t.Fatalf("no data-identity:\n%s", body)
+	}
+	return m[1]
+}
+
 func (e *env) sync(items ...syncItem) map[string]syncResult {
 	e.t.Helper()
-	b, err := json.Marshal(map[string]any{"attempts": items})
+	b, err := json.Marshal(map[string]any{"identity": e.identity(), "attempts": items})
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -431,7 +443,8 @@ func TestSyncLoggedInUsesProgressID(t *testing.T) {
 func TestSyncRejects(t *testing.T) {
 	e := setup(t)
 	item := fmt.Sprintf(`{"id":%q,"task":%d,"answers":["x"],"at":%d}`, cid(1), e.tasks[0].ID, time.Now().UnixMilli())
-	body := []byte(`{"attempts":[` + item + `]}`)
+	id := fmt.Sprintf(`"identity":%q,`, e.identity())
+	body := []byte(`{` + id + `"attempts":[` + item + `]}`)
 
 	resp, _ := e.syncRaw(body, "Origin", "https://evil.example")
 	wantStatus(t, resp, http.StatusForbidden)
@@ -441,9 +454,9 @@ func TestSyncRejects(t *testing.T) {
 	wantStatus(t, resp, http.StatusUnsupportedMediaType)
 	resp, _ = e.syncRaw([]byte(`{"attempts":`))
 	wantStatus(t, resp, http.StatusBadRequest)
-	resp, _ = e.syncRaw([]byte(`{"attempts":[` + strings.Repeat(item+",", 200) + item + `]}`))
+	resp, _ = e.syncRaw([]byte(`{` + id + `"attempts":[` + strings.Repeat(item+",", 200) + item + `]}`))
 	wantStatus(t, resp, http.StatusBadRequest)
-	big := fmt.Sprintf(`{"attempts":[{"id":%q,"task":%d,"answers":[%q]}]}`, cid(2), e.tasks[0].ID, strings.Repeat("α", 140<<10))
+	big := fmt.Sprintf(`{`+id+`"attempts":[{"id":%q,"task":%d,"answers":[%q]}]}`, cid(2), e.tasks[0].ID, strings.Repeat("α", 140<<10))
 	resp, _ = e.syncRaw([]byte(big))
 	wantStatus(t, resp, http.StatusRequestEntityTooLarge)
 	resp, _ = e.get("/sync")
@@ -558,4 +571,44 @@ func TestManifest(t *testing.T) {
 			t.Errorf("%s: %s, %d bytes; manifest says %s", s.Src, got, len(img), s.Sizes)
 		}
 	}
+}
+
+func TestSyncIdentity(t *testing.T) {
+	e := setup(t)
+	anon := e.identity()
+	if !strings.HasPrefix(anon, "anon:") || strings.Contains(anon, e.deviceID()) {
+		t.Fatalf("anonymous identity %q must not expose the device cookie", anon)
+	}
+	item := syncItem{ID: cid(1), Task: e.tasks[0].ID, Answers: []string{"γράφεις"}, At: time.Now().UnixMilli()}
+	post := func(who *env, identity string) (*http.Response, string) {
+		b, _ := json.Marshal(map[string]any{"identity": identity, "attempts": []syncItem{item}})
+		return who.syncRaw(b)
+	}
+
+	other := e.as("", false)
+	resp, body := post(other, anon)
+	wantStatus(t, resp, http.StatusConflict)
+	if !strings.Contains(body, other.identity()) {
+		t.Errorf("409 should name the current identity: %s", body)
+	}
+	e.user("anna")
+	e.login("anna")
+	user := e.identity()
+	if user == anon || !strings.HasPrefix(user, "user:") {
+		t.Fatalf("logged-in identity %q", user)
+	}
+	resp, _ = post(e, anon)
+	wantStatus(t, resp, http.StatusConflict)
+	resp, _ = post(e, "")
+	wantStatus(t, resp, http.StatusBadRequest)
+	if _, n := e.attemptByClientID(cid(1)); n != 0 {
+		t.Fatal("a mismatched sync recorded an attempt")
+	}
+	resp, _ = post(e, user)
+	wantStatus(t, resp, http.StatusOK)
+	if _, n := e.attemptByClientID(cid(1)); n != 1 {
+		t.Fatal("matching sync not recorded")
+	}
+	_, page := e.get("/s/" + e.set.Slug + "/play")
+	wantAll(t, "focus page", page, `data-identity="`+user+`"`)
 }

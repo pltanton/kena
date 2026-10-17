@@ -1,10 +1,24 @@
-(function () {
+(function (global) {
   "use strict";
-  if (!("indexedDB" in window) || !window.fetch || !window.Promise) return;
+  var DORMANT_FOR = 30 * 24 * 60 * 60 * 1000;
+
+  function queue(items, identity, now) {
+    var out = {send: [], drop: []};
+    items.forEach(function (a) {
+      if (a.synced) return;
+      if (a.identity && a.identity === identity) out.send.push(a);
+      else if (now - a.at > DORMANT_FOR) out.drop.push(a);
+    });
+    return out;
+  }
+
+  if (typeof module === "object" && module.exports) module.exports = {queue: queue};
+  if (typeof window === "undefined" || !("indexedDB" in window) || !window.fetch || !window.Promise) return;
 
   var body = document.body;
   var strings = body.dataset;
   var authed = body.hasAttribute("data-auth");
+  var identity = body.dataset.identity || "";
   var lang = document.documentElement.lang;
   var offlinePage = document.documentElement.dataset.offline;
   var OFFLINE_FOR = 30 * 1000;
@@ -188,6 +202,7 @@
 
   function record(a, synced) {
     a.at = Date.now();
+    a.identity = identity;
     a.synced = !!synced;
     return put("attempts", a).then(function () {
       paint();
@@ -199,7 +214,8 @@
 
   function pending() {
     return all("attempts").then(function (list) {
-      return list.filter(function (a) { return !a.synced; });
+      var q = queue(list, identity, Date.now());
+      return Promise.all(q.drop.map(function (a) { return del("attempts", a.id); })).then(function () { return q.send; });
     });
   }
 
@@ -207,19 +223,21 @@
     if (syncing) return syncing;
     syncing = pending().then(function (list) {
       if (!list.length) return true;
-      if (!navigator.onLine) return false;
+      if (!navigator.onLine || !identity) return false;
       paint("syncing");
       var batch = list.slice(0, 100);
       return timed("/sync", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({attempts: batch.map(function (a) {
+        body: JSON.stringify({identity: identity, attempts: batch.map(function (a) {
           return {id: a.id, task: a.task, answers: a.answers, gaveUp: a.gaveUp, correct: a.correct, at: a.at};
         })}),
       }).then(function (r) {
+        if (r.status === 409) return {results: []};
         if (!r.ok) throw new Error("sync " + r.status);
         return r.json();
       }).then(function (res) {
+        if (!res.results.length) return false;
         var done = {};
         res.results.forEach(function (x) { done[x.id] = true; });
         return Promise.all(batch.filter(function (a) { return done[a.id]; }).map(function (a) {
@@ -459,4 +477,4 @@
     syncNow().then(function () { return refresh(false); });
     if (navigator.serviceWorker) navigator.serviceWorker.ready.then(refreshOfflinePage);
   }
-})();
+})(typeof window !== "undefined" ? window : globalThis);

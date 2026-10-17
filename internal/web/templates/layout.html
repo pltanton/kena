@@ -6,7 +6,7 @@
 <title>{{block "title" .Data}}kena{{end}}</title>
 {{template "head_links" .}}
 </head>
-<body{{if .User}} data-auth{{end}}{{template "body_strings"}}>
+<body{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}}>
 <header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a>
 <div class="site-right">
 {{template "sync_ind" "site-sync"}}

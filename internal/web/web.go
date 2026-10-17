@@ -257,6 +257,7 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, status int, t *
 
 type layoutData struct {
 	User     *store.User
+	Identity string
 	LoginURL string
 	Page     string
 	Theme    string
@@ -282,7 +283,7 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 }
 
 func (h *handler) pageAs(w http.ResponseWriter, r *http.Request, status int, page, layout string, data any) {
-	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Prefs: newPrefs(r, here(r))}
+	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Prefs: newPrefs(r, here(r)), Identity: identity(r)}
 	if u, ok := currentUser(r); ok {
 		ld.User = &u
 	}

@@ -115,10 +115,17 @@ Downloading a pack also caches `/s/{slug}` and `/s/{slug}/play` in
   Anonymous: only saved decks are checked.
 - A pack is also refreshed (conditional GET) when its deck's overview or
   practice page loads online, or when its language differs from the page's.
+- Every queued attempt carries the identity it was recorded under
+  (`<body data-identity>`: `user:<id>` logged in, `anon:<first 16 hex of
+  SHA-256(device id)>` otherwise, so the HttpOnly device cookie never reaches
+  the page). Only attempts of the page's current identity are synced or
+  counted by the indicator; others stay dormant until that identity is back
+  and are dropped after 30 days. Untagged attempts (queued before this rule)
+  are treated as foreign.
 - Logout: pending attempts are synced first (3 s at most), then user packs,
   synced attempts and every cached page are removed, then the form submits.
-  Attempts that still could not be sent stay queued (rare: logging out needs
-  the network) and go to whoever is signed in when they sync.
+  Attempts that could not be sent stay queued and dormant under their
+  identity.
 - Deck overview: a line under Practise / Worksheet. Own and starred decks
   (logged in): "Available offline ✓" (or "Saving for offline…"). Others:
   a "Save for offline" toggle button (`aria-pressed`); saved, it reads
@@ -168,12 +175,14 @@ TestOfflineGolden`), and the JS test replays the sequence against the
 
 ## Sync
 
-`POST /sync`, JSON `{"attempts": [{"id", "task", "answers", "gaveUp",
-"correct", "at"}]}` (`at` = ms since epoch), same-origin `fetch` with
+`POST /sync`, JSON `{"identity", "attempts": [{"id", "task", "answers",
+"gaveUp", "correct", "at"}]}`; `identity` is required (400) and must equal the
+session's (409 for the whole batch, with the current identity in the body);
+`at` = ms since epoch; same-origin `fetch` with
 credentials, `session.CrossOrigin` applies, `Content-Type: application/json`
 required (415), body ≤ 256 KiB (413), at most 200 attempts (400).
 
-Per attempt, under the viewer's progress (`progress_id` or device cookie):
+Then per attempt, under the viewer's progress (`progress_id` or device cookie):
 
 - id not a UUID or answers ≠ blanks → `invalid`;
 - task missing or its deck not visible to the viewer → `skipped`;

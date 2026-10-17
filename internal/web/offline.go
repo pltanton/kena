@@ -85,6 +85,15 @@ type deckPack struct {
 	Plurals  map[string]i18n.Plural `json:"plurals"`
 }
 
+// The device id stays in its HttpOnly cookie; pages only see a hash of it.
+func identity(r *http.Request) string {
+	if u, ok := currentUser(r); ok {
+		return "user:" + itoa(u.ID)
+	}
+	sum := sha256.Sum256([]byte(deviceID(r)))
+	return "anon:" + hex.EncodeToString(sum[:8])
+}
+
 func offlineVersion(set store.Set, st store.AttemptStamp, l i18n.Lang) string {
 	return fmt.Sprintf("%x.%d.%d.%s", set.UpdatedAt.UnixMicro(), st.Count, st.MaxID, l)
 }
@@ -247,6 +256,7 @@ func (h *handler) sync(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxSyncBody)
 	var req struct {
+		Identity string     `json:"identity"`
 		Attempts []syncItem `json:"attempts"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -260,6 +270,17 @@ func (h *handler) sync(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Attempts) > maxSyncItems {
 		h.fail(w, r, invalid("sync items", len(req.Attempts)))
+		return
+	}
+	if req.Identity == "" {
+		h.fail(w, r, invalid("sync identity", ""))
+		return
+	}
+	if current := identity(r); req.Identity != current {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]string{"identity": current})
 		return
 	}
 	type found struct {
