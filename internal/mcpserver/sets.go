@@ -20,7 +20,7 @@ const authoringRules = "Rules: call get_authoring_guide first if you have not ye
 	"answers = every accepted form, accents exact: checking is strict, a missing accent or wrong final ς marks the learner wrong. " +
 	"Monotonic Greek only, ς at word end, σ elsewhere. " +
 	"hint = lemma or tag, never the answer. " +
-	"General grammar that applies to many items (formation, agreement, cue words) goes into deck rules (create_set/update_set rules: [{key, text}]) and each task points at one with rule = key; " +
+	"General grammar that applies to many items (formation, agreement, cue words) goes into deck rules (short Markdown, a table for a paradigm; set_rule or create_set rules) and each task points at one with rule = key; " +
 	"explanation = optional, one short sentence only for what is specific to this item, never a copy of a rule or the same text on several tasks. " +
 	"At most 50 tasks per create_set/add_tasks call; send larger sets in batches."
 
@@ -42,7 +42,7 @@ type CreateSetIn struct {
 	SourceRef    string   `json:"source_ref,omitempty" jsonschema:"book title, unit, exercise number the spec was taken from"`
 	Slug         string   `json:"slug,omitempty" jsonschema:"URL slug; derived from the title when omitted"`
 	Visibility   string   `json:"visibility,omitempty" jsonschema:"private (default: only you), friends (every logged-in user) or public (everyone, also without login); ask the user"`
-	Rules        []RuleIn `json:"rules,omitempty" jsonschema:"deck rules: 2-6 general grammar points of the deck as {key, text}; tasks reference them with rule = key"`
+	Rules        []RuleIn `json:"rules,omitempty" jsonschema:"deck rules: 2-6 grammar points as {key, title, body (Markdown), general}; tasks reference them with rule = key; general = deck-wide theory"`
 	Tasks        []TaskIn `json:"tasks,omitempty" jsonschema:"first tasks of the set, at most 50; add the rest with add_tasks"`
 }
 
@@ -117,7 +117,7 @@ type SetDetail struct {
 	TaskCount    int       `json:"task_count"`
 	Visibility   string    `json:"visibility"`
 	URL          string    `json:"url"`
-	Rules        []RuleIn  `json:"rules"`
+	Rules        []RuleOut `json:"rules"`
 	Tasks        []TaskOut `json:"tasks,omitempty"`
 }
 
@@ -276,7 +276,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "get_set",
-		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, text}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task.",
+		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, title, body, general}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task.",
 		Annotations: readOnly("Get set"),
 	}, handle(func(ctx context.Context, u store.User, in SetRef) (SetDetail, error) {
 		st, err := s.visibleSet(ctx, u, in.Set)

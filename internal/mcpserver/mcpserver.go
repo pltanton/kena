@@ -28,6 +28,7 @@ func New(st *store.Store, publicURL string) *mcp.Server {
 	s := &server{st: st, publicURL: publicURL}
 	s.addGuide(srv)
 	s.addSetTools(srv)
+	s.addRuleTools(srv)
 	s.addMistakeTools(srv)
 	s.addAdminTools(srv)
 	return srv

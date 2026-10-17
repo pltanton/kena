@@ -20,28 +20,50 @@ type TaskIn struct {
 }
 
 type RuleIn struct {
-	Key  string `json:"key" jsonschema:"short id used by tasks' rule field: a-z, 0-9 and -, at most 32 characters, e.g. aorist-stem"`
-	Text string `json:"text" jsonschema:"the general grammar point in one line (at most 400 characters), in the deck's explanation language"`
+	Key     string `json:"key" jsonschema:"short id that tasks use in their rule field: a-z, 0-9 and -, at most 32 characters, e.g. aorist-stem"`
+	Title   string `json:"title,omitempty" jsonschema:"short heading, one line, at most 80 characters, e.g. Πόσος: γένος, αριθμός, πτώση"`
+	Body    string `json:"body,omitempty" jsonschema:"the rule in Markdown, at most 4000 characters: a few short lines, **bold**, lists and a table for a paradigm; no HTML, no images"`
+	General bool   `json:"general,omitempty" jsonschema:"true = deck-wide theory, shown on every card's info sheet and first on the deck page; false = shown only with the tasks whose rule is this key"`
+	Text    string `json:"text,omitempty" jsonschema:"deprecated one-line form; read as body when body is empty"`
+}
+
+type RuleOut struct {
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Body    string `json:"body"`
+	General bool   `json:"general"`
 }
 
 func toGreekRules(in []RuleIn) []greek.Rule {
 	out := make([]greek.Rule, len(in))
 	for i, r := range in {
-		out[i] = greek.Rule{Key: r.Key, Text: r.Text}
+		body := r.Body
+		if body == "" {
+			body = r.Text
+		}
+		out[i] = greek.Rule{Key: r.Key, Title: r.Title, Body: body, General: r.General}
 	}
 	return out
 }
 
-func fromGreekRules(in []greek.Rule) []RuleIn {
-	out := make([]RuleIn, len(in))
+func ruleOut(r greek.Rule) RuleOut {
+	return RuleOut{Key: r.Key, Title: r.Title, Body: r.Body, General: r.General}
+}
+
+func fromGreekRules(in []greek.Rule) []RuleOut {
+	out := make([]RuleOut, len(in))
 	for i, r := range in {
-		out[i] = RuleIn{Key: r.Key, Text: r.Text}
+		out[i] = ruleOut(r)
 	}
 	return out
 }
 
 func prepareRules(in []RuleIn) ([]greek.Rule, LintReport) {
-	rules, issues := greek.PrepareRules(toGreekRules(in))
+	return prepareGreekRules(toGreekRules(in))
+}
+
+func prepareGreekRules(in []greek.Rule) ([]greek.Rule, LintReport) {
+	rules, issues := greek.PrepareRules(in)
 	rep := LintReport{Errors: []string{}, Warnings: []string{}}
 	for _, iss := range issues {
 		line := fmt.Sprintf("%s: %s", iss.Field, iss.Message)
