@@ -316,7 +316,6 @@ func (h *handler) sync(w http.ResponseWriter, r *http.Request) {
 var swSource string
 
 type serviceWorker struct {
-	build  string
 	script []byte
 }
 
@@ -350,7 +349,7 @@ func newServiceWorker(static fs.FS) serviceWorker {
 	}
 	build := hex.EncodeToString(sum.Sum(nil))[:12]
 	script := strings.NewReplacer("__BUILD__", build, "__ASSETS__", string(list)).Replace(swSource)
-	return serviceWorker{build: build, script: []byte(script)}
+	return serviceWorker{script: []byte(script)}
 }
 
 func (sw serviceWorker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
