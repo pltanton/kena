@@ -36,12 +36,6 @@
   document.body.addEventListener("htmx:beforeRequest", function (e) {
     if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
   });
-  document.body.addEventListener("htmx:afterSettle", function (e) {
-    if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
-    if (el) el.focus({preventScroll: true});
-    main.scrollTop = 0;
-  });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && menu.open) {
       menu.open = false;
@@ -152,6 +146,9 @@
   }
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
+    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    if (el) el.focus({preventScroll: true});
+    main.scrollTop = 0;
     var p = pending;
     sync();
     pending = null;
@@ -166,11 +163,10 @@
       pending = null;
     }
   });
-  bar.addEventListener("pointerdown", function (e) {
-    if (e.target.closest("[data-nav]")) e.preventDefault();
-  });
-  bar.addEventListener("mousedown", function (e) {
-    if (e.target.closest("[data-nav]")) e.preventDefault();
+  ["pointerdown", "mousedown"].forEach(function (type) {
+    bar.addEventListener(type, function (e) {
+      if (e.target.closest("[data-nav]")) e.preventDefault();
+    });
   });
   bar.addEventListener("click", function (e) {
     var b = e.target.closest("[data-nav]");

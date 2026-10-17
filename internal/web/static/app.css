@@ -967,8 +967,7 @@ button.danger:hover {
 }
 
 .copy-btn,
-.card .copy-btn,
-#ask-copy {
+.card .copy-btn {
   width: auto;
   margin-top: 0;
 }
@@ -1413,7 +1412,7 @@ button.quiet:hover {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin: -14px 0;
+  margin: 0;
   font-size: 0.8rem;
   color: var(--muted);
   white-space: nowrap;
@@ -1422,10 +1421,6 @@ button.quiet:hover {
 .jump {
   margin: 0.25rem 0 -0.5rem;
   text-align: right;
-}
-
-.jump a {
-  margin: 0;
 }
 
 .qr-box {
