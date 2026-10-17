@@ -77,3 +77,16 @@ func TestCookie(t *testing.T) {
 		t.Fatalf("clear cookie %+v", c)
 	}
 }
+
+func TestRedactPath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/login/qr/kena_q_abc": "/login/qr/…",
+		"/login/qr/":           "/login/qr/…",
+		"/login":               "/login",
+		"/s/deck":              "/s/deck",
+	} {
+		if got := RedactPath(in); got != want {
+			t.Errorf("RedactPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

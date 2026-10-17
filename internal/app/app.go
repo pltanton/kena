@@ -11,6 +11,7 @@ import (
 	"github.com/pltanton/kena/internal/config"
 	"github.com/pltanton/kena/internal/mcpserver"
 	"github.com/pltanton/kena/internal/oauth"
+	"github.com/pltanton/kena/internal/session"
 	"github.com/pltanton/kena/internal/store"
 	"github.com/pltanton/kena/internal/web"
 )
@@ -63,7 +64,7 @@ func withLogging(next http.Handler) http.Handler {
 		next.ServeHTTP(sw, r)
 		slog.Info("http request",
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", session.RedactPath(r.URL.Path),
 			"status", sw.status,
 			"duration", time.Since(start),
 		)

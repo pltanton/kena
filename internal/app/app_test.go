@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -157,5 +158,22 @@ func TestMCPInitializeWithValidToken(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "kena") {
 		t.Fatalf("response %q does not contain kena", buf.String())
+	}
+}
+
+func TestAccessLogRedactsQRSecret(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ts, url, _ := newServer(t)
+	resp, err := ts.Client().Get(url + "/login/qr/kena_q_supersecretvalue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if strings.Contains(buf.String(), "supersecretvalue") || !strings.Contains(buf.String(), "/login/qr/…") {
+		t.Fatalf("access log leaks the QR secret:\n%s", buf.String())
 	}
 }

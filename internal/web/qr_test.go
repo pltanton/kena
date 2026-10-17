@@ -45,18 +45,30 @@ func TestQRLoginOnPhone(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		resp, body := phone.get(path)
 		wantStatus(t, resp, http.StatusOK)
-		wantAll(t, "phone confirm", body, "anna", `action="`+path+`"`)
+		wantAll(t, "phone confirm", body, "anna", `action="`+path+`"`, "Your anonymous progress on this phone moves to that account")
+		if resp.Header.Get("Referrer-Policy") != "no-referrer" || resp.Header.Get("Cache-Control") != "no-store" {
+			t.Errorf("confirm GET headers: %v", resp.Header)
+		}
 	}
+	e.user("bob")
+	bobPhone := e.clone()
+	bobPhone.login("bob")
+	_, body := bobPhone.get(path)
+	wantAll(t, "logged-in phone confirm", body, "You’re logged in as <strong>bob</strong> here — you’ll switch to <strong>anna</strong>")
+	wantNone(t, "logged-in phone confirm", body, "anonymous progress")
 
 	resp, _ := phone.post(path, nil, "https://evil.example")
 	wantStatus(t, resp, http.StatusForbidden)
 
 	resp, _ = phone.post(path, nil, e.srv.URL)
 	wantStatus(t, resp, http.StatusSeeOther)
+	if resp.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Errorf("confirm POST lacks Referrer-Policy: %v", resp.Header)
+	}
 	if loc := resp.Header.Get("Location"); loc != "/" {
 		t.Fatalf("redirect to %q", loc)
 	}
-	_, body := phone.get("/")
+	_, body = phone.get("/")
 	wantAll(t, "phone home", body, `aria-label="Account (anna)"`)
 
 	desktop := e.clone()

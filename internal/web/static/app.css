@@ -78,6 +78,35 @@
   }
 }
 
+@supports not (color: light-dark(#000, #fff)) {
+  :root,
+  :root[data-theme] {
+    color-scheme: light;
+    --bg: #f4efe4;
+    --surface: #fbf8f1;
+    --sunken: #ece5d5;
+    --text: #22201c;
+    --muted: #665f53;
+    --line: #ddd4c2;
+    --line-strong: #c4b89f;
+    --primary: #2f4a6d;
+    --on-primary: #fbf8f1;
+    --button: #2f4a6d;
+    --button-hover: #253c59;
+    --gold: #c9962e;
+    --gold-line: #9c7320;
+    --gold-soft: rgb(201 150 46 / 14%);
+    --ok: #37704c;
+    --ok-bg: #e4ebdc;
+    --bad: #ab3f2a;
+    --bad-bg: #f6e6de;
+    --tile: #ddd0b4;
+    --tile-slate: #2f4a6d;
+    --shadow: 0 1px 0 rgb(80 62 30 / 6%), 0 2px 11px -4px rgb(80 62 30 / 14%);
+    --strip: url("/static/brand/strip.svg");
+  }
+}
+
 *,
 *::before,
 *::after {

@@ -207,6 +207,7 @@ func (h *handler) changePassphrase(w http.ResponseWriter, r *http.Request, u sto
 }
 
 func (h *handler) createToken(w http.ResponseWriter, r *http.Request, u store.User) {
+	w.Header().Set("Cache-Control", "no-store")
 	if err := r.ParseForm(); err != nil {
 		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
 		return

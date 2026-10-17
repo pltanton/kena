@@ -1,6 +1,8 @@
 {{define "title"}}Log in · kena{{end}}
 {{define "main"}}{{if .Username}}<h1>Log in on this device</h1>
-<p class="lede">Log in as <strong>{{.Username}}</strong> on this device? Your progress here moves to that account.</p>
+<p class="lede">Log in as <strong>{{.Username}}</strong> on this device?
+{{- if .Current}} You’re logged in as <strong>{{.Current}}</strong> here — you’ll switch to <strong>{{.Username}}</strong>.
+{{- else}} Your anonymous progress on this phone moves to that account.{{end}}</p>
 <form method="post" action="{{.Action}}">
 <button type="submit">Log in as {{.Username}}</button>
 </form>

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pltanton/kena/internal/store"
@@ -115,4 +116,13 @@ func CrossOrigin(publicURL string) *http.CrossOriginProtection {
 		http.Error(w, "Cross-site request rejected.", http.StatusForbidden)
 	}))
 	return cop
+}
+
+const qrLoginPrefix = "/login/qr/"
+
+func RedactPath(p string) string {
+	if strings.HasPrefix(p, qrLoginPrefix) {
+		return qrLoginPrefix + "…"
+	}
+	return p
 }

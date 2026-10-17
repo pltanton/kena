@@ -38,7 +38,7 @@ nix flake check
 ## Rules
 
 - Answers never reach the practice page before Give up or a correct check: a wrong check re-renders the form with the typed text and right blanks locked; checking is server-side. `/mistakes` shows expected answers, but only for tasks already attempted.
-- QR login codes (`login_codes`) are hashed, one-time, 5 minutes, one unused code per user; the GET page never consumes a code, only the POST does.
+- QR login codes (`login_codes`) are hashed, one-time, 5 minutes, one unused code per user; the GET page never consumes a code, only the POST does. kena's logs redact `/login/qr/<secret>` (`session.RedactPath`); a reverse proxy's own access log still records full paths, so keep that log private or redact there too.
 - `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts. The report (MCP and `/mistakes`) leaves out other users' private sets.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
 - MCP tool errors the model should see are returned as Go errors from handlers (the SDK then omits structuredContent).

@@ -19,6 +19,13 @@ func (s *Store) CreateLoginCode(ctx context.Context, userID int64, ttl time.Dura
 		return "", fmt.Errorf("beginning tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	var locked int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&locked); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("locking user: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM login_codes WHERE user_id = $1 AND used_at IS NULL`, userID); err != nil {
 		return "", fmt.Errorf("deleting old login codes: %w", err)
 	}

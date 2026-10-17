@@ -558,7 +558,7 @@ func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, 
 }
 
 func (h *handler) serverError(w http.ResponseWriter, r *http.Request, err error) {
-	slog.Error("web request failed", "method", r.Method, "path", r.URL.Path, "err", err)
+	slog.Error("web request failed", "method", r.Method, "path", session.RedactPath(r.URL.Path), "err", err)
 	http.Error(w, "Something went wrong.", http.StatusInternalServerError)
 }
 

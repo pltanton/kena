@@ -53,3 +53,12 @@ func TestThemeSwitch(t *testing.T) {
 		t.Errorf("account page should carry the theme switch in its body and footer:\n%s", body)
 	}
 }
+
+func TestCSSFallsBackToLightWithoutLightDark(t *testing.T) {
+	e := setup(t)
+	_, css := e.get("/static/app.css")
+	i := strings.Index(css, "@supports not (color: light-dark(")
+	if i < 0 || !strings.Contains(css[i:], "--bg: #f4efe4;") || strings.Index(css, "@supports not") < strings.Index(css, `:root[data-theme="dark"]`) {
+		t.Fatal("app.css lacks a light fallback after the theme rules for browsers without light-dark()")
+	}
+}

@@ -36,6 +36,7 @@ func qrSVG(text string) (template.HTML, error) {
 }
 
 func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.User) {
+	w.Header().Set("Cache-Control", "no-store")
 	code, err := h.st.CreateLoginCode(r.Context(), u.ID, loginCodeTTL)
 	if err != nil {
 		h.serverError(w, r, err)
@@ -51,11 +52,13 @@ func (h *handler) createLoginQR(w http.ResponseWriter, r *http.Request, u store.
 
 type qrLoginView struct {
 	Username string
+	Current  string
 	Action   string
 }
 
 func (h *handler) qrLoginPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	secret := r.PathValue("secret")
 	u, err := h.st.PeekLoginCode(r.Context(), secret)
 	if errors.Is(err, store.ErrNotFound) {
@@ -66,11 +69,16 @@ func (h *handler) qrLoginPage(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
-	h.page(w, r, http.StatusOK, "qr_login", qrLoginView{Username: u.Username, Action: "/login/qr/" + url.PathEscape(secret)})
+	v := qrLoginView{Username: u.Username, Action: "/login/qr/" + url.PathEscape(secret)}
+	if cur, ok := currentUser(r); ok {
+		v.Current = cur.Username
+	}
+	h.page(w, r, http.StatusOK, "qr_login", v)
 }
 
 func (h *handler) qrLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	u, err := h.st.UseLoginCode(r.Context(), r.PathValue("secret"))
 	if errors.Is(err, store.ErrNotFound) {
 		h.page(w, r, http.StatusGone, "qr_login", qrLoginView{})
