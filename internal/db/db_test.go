@@ -24,8 +24,8 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("querying schema_migrations: %v", err)
 	}
-	if count != 8 {
-		t.Fatalf("schema_migrations count = %d, want 7", count)
+	if count != 9 {
+		t.Fatalf("schema_migrations count = %d, want 9", count)
 	}
 
 	if _, err := pool.Exec(ctx, "INSERT INTO users (username) VALUES ($1)", "anton"); err != nil {
@@ -76,5 +76,43 @@ func TestVisibilityMigration(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `UPDATE sets SET visibility = 'everyone' WHERE slug = 'new'`); err == nil {
 		t.Fatal("check constraint accepts an unknown level")
+	}
+}
+
+func TestRichRulesMigration(t *testing.T) {
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbtest.NewURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if err := db.MigrateTo(ctx, pool, "008_rules.sql"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (username) VALUES ('rita');
+		INSERT INTO sets (owner_id, slug, title, rules) SELECT u.id, v.slug, v.title, v.rules::jsonb FROM users u, (VALUES
+			('old', 'Old', '[{"key": "b", "text": "Β κανόνας"}, {"key": "a", "text": "Α κανόνας"}]'),
+			('none', 'None', '[]'),
+			('new', 'New', '[{"key": "c", "title": "Γ", "body": "| x |\n|---|\n| 1 |", "general": true}]')
+		) AS v(slug, title, rules) WHERE u.username = 'rita';
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"old":  `[{"key": "b", "body": "Β κανόνας", "title": "", "general": false}, {"key": "a", "body": "Α κανόνας", "title": "", "general": false}]`,
+		"none": `[]`,
+		"new":  `[{"key": "c", "body": "| x |\n|---|\n| 1 |", "title": "Γ", "general": true}]`,
+	}
+	for slug, w := range want {
+		var same bool
+		if err := pool.QueryRow(ctx, `SELECT rules = $2::jsonb FROM sets WHERE slug = $1`, slug, w).Scan(&same); err != nil || !same {
+			var got string
+			_ = pool.QueryRow(ctx, `SELECT rules::text FROM sets WHERE slug = $1`, slug).Scan(&got)
+			t.Errorf("%s: rules = %s, want %s (%v)", slug, got, w, err)
+		}
 	}
 }

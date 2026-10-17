@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/pltanton/kena/internal/greek"
 )
 
 const recentWrongLimit = 5
@@ -26,7 +28,7 @@ type TaskMistakes struct {
 	WrongCount   int
 	AttemptCount int
 	LastCorrect  bool
-	RuleText     string
+	Rule         greek.Rule
 	RecentWrong  []WrongAttempt
 }
 
@@ -65,7 +67,7 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		)
 		SELECT s.id, s.slug, s.title, s.topic, s.level,
 			t.id, t.set_id, t.position, t.text, t.blanks, t.explanation, COALESCE(t.rule, ''),
-			COALESCE((SELECT r->>'text' FROM jsonb_array_elements(s.rules) r WHERE r->>'key' = t.rule LIMIT 1), ''),
+			COALESCE((SELECT r FROM jsonb_array_elements(s.rules) r WHERE r->>'key' = t.rule LIMIT 1), '{}'::jsonb),
 			w.attempts, w.wrong, last.correct
 		FROM w
 		JOIN last ON last.task_id = w.task_id
@@ -85,7 +87,7 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		var tm TaskMistakes
 		t := &tm.Task
 		if err := rows.Scan(&ref.ID, &ref.Slug, &ref.Title, &ref.Topic, &ref.Level,
-			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &tm.RuleText,
+			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &tm.Rule,
 			&tm.AttemptCount, &tm.WrongCount, &tm.LastCorrect); err != nil {
 			return Report{}, fmt.Errorf("scanning mistakes: %w", err)
 		}

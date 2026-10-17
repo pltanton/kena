@@ -1,32 +1,43 @@
 package greek
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
 
 func TestPrepareRules(t *testing.T) {
-	rules, issues := PrepareRules([]Rule{{Key: " agree ", Text: "  Το πόσος συμφωνεί με το ουσιαστικό. "}, {Key: "polys-2", Text: "πολλοί, πολλές, πολλά"}})
-	if len(issues) != 0 || rules[0].Key != "agree" || rules[0].Text != "Το πόσος συμφωνεί με το ουσιαστικό." {
+	table := "Πόσος:  \r\n\r\n| | αρσ. | θηλ. |\r\n|---|---|---|\r\n| ονομ. | πόσος | πόση |   \n\n"
+	rules, issues := PrepareRules([]Rule{
+		{Key: " agree ", Title: " Συμφωνία ", Body: "  Το πόσος συμφωνεί με το ουσιαστικό. ", General: true},
+		{Key: "polys-2", Body: table},
+	})
+	want := []Rule{
+		{Key: "agree", Title: "Συμφωνία", Body: "Το πόσος συμφωνεί με το ουσιαστικό.", General: true},
+		{Key: "polys-2", Body: "Πόσος:\n\n| | αρσ. | θηλ. |\n|---|---|---|\n| ονομ. | πόσος | πόση |"},
+	}
+	if len(issues) != 0 || !reflect.DeepEqual(rules, want) {
 		t.Fatalf("rules = %+v, issues = %+v", rules, issues)
 	}
 	many := make([]Rule, 31)
 	for i := range many {
-		many[i] = Rule{Key: "r" + strings.Repeat("x", i%5) + string(rune('a'+i%26)) + string(rune('a'+i/26)), Text: "t"}
+		many[i] = Rule{Key: "r" + strings.Repeat("x", i%5) + string(rune('a'+i%26)) + string(rune('a'+i/26)), Body: "t"}
 	}
 	for _, c := range []struct {
 		name  string
 		rules []Rule
 		msg   string
 	}{
-		{"bad key", []Rule{{Key: "Agree", Text: "x"}}, "key"},
-		{"key with space", []Rule{{Key: "a b", Text: "x"}}, "key"},
-		{"long key", []Rule{{Key: strings.Repeat("a", 33), Text: "x"}}, "key"},
-		{"duplicate", []Rule{{Key: "a", Text: "x"}, {Key: "a", Text: "y"}}, "duplicate"},
-		{"empty text", []Rule{{Key: "a", Text: "  "}}, "empty"},
-		{"long text", []Rule{{Key: "a", Text: strings.Repeat("α", 401)}}, "400"},
-		{"line break", []Rule{{Key: "a", Text: "one\ntwo"}}, "line break"},
-		{"control", []Rule{{Key: "a", Text: "x\x00"}}, "control"},
+		{"bad key", []Rule{{Key: "Agree", Body: "x"}}, "key"},
+		{"key with space", []Rule{{Key: "a b", Body: "x"}}, "key"},
+		{"long key", []Rule{{Key: strings.Repeat("a", 33), Body: "x"}}, "key"},
+		{"duplicate", []Rule{{Key: "a", Body: "x"}, {Key: "a", Body: "y"}}, "duplicate"},
+		{"empty body", []Rule{{Key: "a", Body: " \n "}}, "empty"},
+		{"long body", []Rule{{Key: "a", Body: strings.Repeat("α", 4001)}}, "4000"},
+		{"control in body", []Rule{{Key: "a", Body: "x\x00"}}, "control"},
+		{"long title", []Rule{{Key: "a", Title: strings.Repeat("α", 81), Body: "x"}}, "80"},
+		{"title line break", []Rule{{Key: "a", Title: "one\ntwo", Body: "x"}}, "line break"},
+		{"title control", []Rule{{Key: "a", Title: "x\x07", Body: "x"}}, "control"},
 		{"too many", many, "at most 30"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -43,7 +54,7 @@ func TestPrepareRules(t *testing.T) {
 }
 
 func TestPrepareDeckChecksTaskRules(t *testing.T) {
-	rules := []Rule{{Key: "agree", Text: "x"}}
+	rules := []Rule{{Key: "agree", Body: "x"}}
 	tasks := []TaskInput{
 		{Text: "Πόσους ___;", Blanks: []Blank{{Answers: []string{"φίλους"}}}, Rule: " agree "},
 		{Text: "Πόσες ___;", Blanks: []Blank{{Answers: []string{"φίλες"}}}, Rule: "nope"},
@@ -71,10 +82,36 @@ func TestRuleCountsAsExplained(t *testing.T) {
 	for i := range 10 {
 		tasks = append(tasks, TaskInput{Text: "Χθες ___ " + strings.Repeat("πολύ ", i) + ".", Blanks: []Blank{{Answers: []string{"έγραψε"}, Hint: []string{"γράφω", "λέω"}[i%2]}}, Rule: "past"})
 	}
-	_, issues := PrepareDeck(tasks, nil, []Rule{{Key: "past", Text: "x"}})
+	_, issues := PrepareDeck(tasks, nil, []Rule{{Key: "past", Body: "x"}})
 	for _, iss := range issues {
 		if iss.Field == "explanation" {
 			t.Fatalf("tasks with a rule reported as unexplained: %+v", iss)
+		}
+	}
+}
+
+func TestPrepareRulesBodyMarkdown(t *testing.T) {
+	body := strings.Repeat("α", 3990) + "\n\n- β\n\tγ"
+	if _, issues := PrepareRules([]Rule{{Key: "a", Body: body}}); len(issues) != 0 {
+		t.Fatalf("multi-line body with a tab: %+v", issues)
+	}
+	_, issues := PrepareRules([]Rule{{Key: "a", Body: "<b>x</b> ![i](https://x.example/i.png)"}})
+	if len(issues) != 2 || issues[0].Severity != Warning || issues[0].Field != "rules[0].body" {
+		t.Fatalf("raw HTML and image should warn: %+v", issues)
+	}
+}
+
+func TestRuleLabel(t *testing.T) {
+	for _, c := range []struct {
+		r    Rule
+		want string
+	}{
+		{Rule{Key: "k", Title: "Τίτλος", Body: "σώμα"}, "Τίτλος"},
+		{Rule{Key: "k", Body: "Το **πόσος** συμφωνεί."}, "Το πόσος συμφωνεί."},
+		{Rule{Key: "k", Body: "| a |\n|---|\n| 1 |"}, "k"},
+	} {
+		if got := c.r.Label(); got != c.want {
+			t.Errorf("Label(%+v) = %q, want %q", c.r, got, c.want)
 		}
 	}
 }

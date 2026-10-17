@@ -7,22 +7,13 @@ import (
 	"github.com/pltanton/kena/internal/greek"
 )
 
-var ruleDeck = Deck{
-	Rules: []greek.Rule{
-		{Key: "agree", Text: "Το πόσος συμφωνεί με το ουσιαστικό."},
-		{Key: "polys", Text: "πολλοί, πολλές, πολλά"},
-	},
-	Tasks: []greek.TaskInput{
-		{Text: "— Πόσους ___ κάλεσες;\n— Πολλούς.", Blanks: []greek.Blank{blank("φίλος", "φίλους")}, Rule: "agree", Explanation: "αρσ. πληθ. αιτ."},
-		{Text: "Κάλεσα ___ φίλες.", Blanks: []greek.Blank{blank("", "πολλές")}, Rule: "polys"},
-		{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}},
-	},
+var ruleTasks = []greek.TaskInput{
+	{Text: "— Πόσους ___ κάλεσες;\n— Πολλούς.", Blanks: []greek.Blank{blank("φίλος", "φίλους")}, Rule: "agree", Explanation: "αρσ. πληθ. αιτ."},
+	{Text: "Κάλεσα ___ φίλες.", Blanks: []greek.Blank{blank("", "πολλές")}, Rule: "polys"},
+	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}},
 }
 
-const ruleDeckText = `= agree: Το πόσος συμφωνεί με το ουσιαστικό.
-= polys: πολλοί, πολλές, πολλά
-
-— Πόσους {φίλους | φίλος} κάλεσες;
+const ruleTasksText = `— Πόσους {φίλους | φίλος} κάλεσες;
 — Πολλούς.
 @agree
 > αρσ. πληθ. αιτ.
@@ -33,24 +24,25 @@ const ruleDeckText = `= agree: Το πόσος συμφωνεί με το ουσ
 Α {β}.
 `
 
-func TestFormatDeckWithRules(t *testing.T) {
-	if got := FormatDeck(ruleDeck); got != ruleDeckText {
-		t.Fatalf("FormatDeck:\n%s\nwant:\n%s", got, ruleDeckText)
-	}
-	if got := FormatDeck(Deck{Tasks: sample}); got != sampleText {
-		t.Fatalf("FormatDeck without rules changed the format:\n%s", got)
+func TestFormatTaskRules(t *testing.T) {
+	if got := Format(ruleTasks); got != ruleTasksText {
+		t.Fatalf("Format:\n%s\nwant:\n%s", got, ruleTasksText)
 	}
 }
 
-func TestParseDeckWithRules(t *testing.T) {
+func TestParseLegacyRuleLines(t *testing.T) {
 	src := "\n= agree :  Το πόσος συμφωνεί με το ουσιαστικό. \n\n=polys: πολλοί, πολλές, πολλά\n\n" +
 		"— Πόσους {φίλους | φίλος} κάλεσες;\n— Πολλούς.\n> αρσ. πληθ. αιτ.\n  @agree  \n\nΚάλεσα {πολλές} φίλες.\n@polys\n\nΑ {β}.\n"
 	d, errs := ParseDeck(src)
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
-	if !reflect.DeepEqual(d.Rules, ruleDeck.Rules) || !reflect.DeepEqual(Tasks(d.Items), ruleDeck.Tasks) {
-		t.Fatalf("got %+v\n%+v", d.Rules, Tasks(d.Items))
+	want := []greek.Rule{
+		{Key: "agree", Body: "Το πόσος συμφωνεί με το ουσιαστικό."},
+		{Key: "polys", Body: "πολλοί, πολλές, πολλά"},
+	}
+	if !reflect.DeepEqual(d.Rules, want) || !reflect.DeepEqual(d.RuleLines, []int{2, 4}) || !reflect.DeepEqual(Tasks(d.Items), ruleTasks) {
+		t.Fatalf("got %+v %v\n%+v", d.Rules, d.RuleLines, Tasks(d.Items))
 	}
 	if d.Items[0].Line != 6 {
 		t.Fatalf("first task line = %d", d.Items[0].Line)
@@ -82,16 +74,16 @@ func TestParseDeckRuleErrors(t *testing.T) {
 	}
 }
 
-func TestRulesRoundTrip(t *testing.T) {
-	rules, _ := greek.PrepareRules(ruleDeck.Rules)
-	tasks, issues := greek.PrepareDeck(ruleDeck.Tasks, nil, rules)
+func TestRuleReferencesRoundTrip(t *testing.T) {
+	rules := []greek.Rule{{Key: "agree", Body: "x"}, {Key: "polys", Body: "y"}}
+	tasks, issues := greek.PrepareDeck(ruleTasks, nil, rules)
 	for _, iss := range issues {
 		if iss.Severity == greek.Error {
 			t.Fatalf("fixture not lint-clean: %+v", iss)
 		}
 	}
-	d, errs := ParseDeck(FormatDeck(Deck{Rules: rules, Tasks: tasks}))
-	if len(errs) != 0 || !reflect.DeepEqual(d.Rules, rules) || !reflect.DeepEqual(Tasks(d.Items), tasks) {
+	d, errs := ParseDeck(Format(tasks))
+	if len(errs) != 0 || len(d.Rules) != 0 || !reflect.DeepEqual(Tasks(d.Items), tasks) {
 		t.Fatalf("round trip: %v\n%+v\n%+v", errs, d.Rules, Tasks(d.Items))
 	}
 }

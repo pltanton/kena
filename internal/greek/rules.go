@@ -6,21 +6,47 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/pltanton/kena/internal/markdown"
 )
 
 type Rule struct {
-	Key  string `json:"key"`
-	Text string `json:"text"`
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Body    string `json:"body"`
+	General bool   `json:"general"`
 }
 
 const (
 	MaxRules        = 30
-	MaxRuleTextLen  = 400
+	MaxRuleTitleLen = 80
+	MaxRuleBodyLen  = 4000
 	ruleKeyPattern  = `^[a-z0-9-]{1,32}$`
 	ruleFieldFormat = "rules[%d].%s"
+	rulePreviewLen  = 60
 )
 
 var ruleKeyRe = regexp.MustCompile(ruleKeyPattern)
+
+func (r Rule) Label() string {
+	if r.Title != "" {
+		return r.Title
+	}
+	if p := markdown.Preview(r.Body, rulePreviewLen); p != "" {
+		return p
+	}
+	return r.Key
+}
+
+func normalizeBody(s string) string {
+	s = strings.ReplaceAll(NFC(s), "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = strings.TrimRight(l, " \t")
+	}
+	return strings.Trim(strings.Join(lines, "\n"), "\n ")
+}
 
 func PrepareRules(rules []Rule) ([]Rule, []Issue) {
 	var issues []Issue
@@ -30,26 +56,35 @@ func PrepareRules(rules []Rule) ([]Rule, []Issue) {
 	out := make([]Rule, len(rules))
 	seen := map[string]bool{}
 	for i, r := range rules {
-		r = Rule{Key: strings.TrimSpace(r.Key), Text: strings.TrimSpace(NFC(r.Text))}
+		r = Rule{Key: strings.TrimSpace(r.Key), Title: strings.TrimSpace(NFC(r.Title)), Body: normalizeBody(r.Body), General: r.General}
 		out[i] = r
+		field := func(name string) string { return fmt.Sprintf(ruleFieldFormat, i, name) }
 		switch {
 		case !ruleKeyRe.MatchString(r.Key):
-			issues = append(issues, Issue{Error, fmt.Sprintf(ruleFieldFormat, i, "key"), fmt.Sprintf("key %q must be 1–32 characters of a-z, 0-9 and -", r.Key)})
+			issues = append(issues, Issue{Error, field("key"), fmt.Sprintf("key %q must be 1–32 characters of a-z, 0-9 and -", r.Key)})
 		case seen[r.Key]:
-			issues = append(issues, Issue{Error, fmt.Sprintf(ruleFieldFormat, i, "key"), fmt.Sprintf("duplicate key %q", r.Key)})
+			issues = append(issues, Issue{Error, field("key"), fmt.Sprintf("duplicate key %q", r.Key)})
 		}
 		seen[r.Key] = true
-		field := fmt.Sprintf(ruleFieldFormat, i, "text")
 		switch {
-		case r.Text == "":
-			issues = append(issues, Issue{Error, field, "rule text is empty"})
-		case utf8.RuneCountInString(r.Text) > MaxRuleTextLen:
-			issues = append(issues, Issue{Error, field, fmt.Sprintf("rule text is longer than %d characters", MaxRuleTextLen)})
+		case utf8.RuneCountInString(r.Title) > MaxRuleTitleLen:
+			issues = append(issues, Issue{Error, field("title"), fmt.Sprintf("title is longer than %d characters", MaxRuleTitleLen)})
+		case strings.ContainsAny(r.Title, "\n\r"):
+			issues = append(issues, Issue{Error, field("title"), "line break is not allowed in a title"})
+		case strings.IndexFunc(r.Title, unicode.IsControl) >= 0:
+			issues = append(issues, Issue{Error, field("title"), "control character is not allowed"})
 		}
-		if strings.ContainsAny(r.Text, "\n\r") {
-			issues = append(issues, Issue{Error, field, "line break is not allowed; keep a rule on one line"})
-		} else if strings.IndexFunc(r.Text, unicode.IsControl) >= 0 {
-			issues = append(issues, Issue{Error, field, "control character is not allowed"})
+		switch {
+		case r.Body == "":
+			issues = append(issues, Issue{Error, field("body"), "rule body is empty"})
+		case utf8.RuneCountInString(r.Body) > MaxRuleBodyLen:
+			issues = append(issues, Issue{Error, field("body"), fmt.Sprintf("rule body is longer than %d characters", MaxRuleBodyLen)})
+		case strings.IndexFunc(r.Body, func(c rune) bool { return unicode.IsControl(c) && c != '\n' && c != '\t' }) >= 0:
+			issues = append(issues, Issue{Error, field("body"), "control character is not allowed"})
+		default:
+			for _, msg := range markdown.Issues(r.Body) {
+				issues = append(issues, Issue{Warning, field("body"), msg})
+			}
 		}
 	}
 	return out, issues

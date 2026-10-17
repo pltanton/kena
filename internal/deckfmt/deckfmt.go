@@ -15,7 +15,6 @@ type Item struct {
 type Deck struct {
 	Rules     []greek.Rule
 	RuleLines []int
-	Tasks     []greek.TaskInput
 	Items     []Item
 }
 
@@ -70,18 +69,6 @@ func Format(tasks []greek.TaskInput) string {
 			}
 		}
 	}
-	return b.String()
-}
-
-func FormatDeck(d Deck) string {
-	var b strings.Builder
-	for _, r := range d.Rules {
-		b.WriteString("= " + r.Key + ": " + r.Text + "\n")
-	}
-	if len(d.Rules) > 0 && len(d.Tasks) > 0 {
-		b.WriteString("\n")
-	}
-	b.WriteString(Format(d.Tasks))
 	return b.String()
 }
 
@@ -158,7 +145,7 @@ func ParseDeck(src string) (Deck, []LineError) {
 				errs = append(errs, LineError{n, "write a rule as = key: text"})
 				continue
 			}
-			rules = append(rules, greek.Rule{Key: key, Text: strings.TrimSpace(text)})
+			rules = append(rules, greek.Rule{Key: key, Body: strings.TrimSpace(text)})
 			ruleLines = append(ruleLines, n)
 		case strings.HasPrefix(trimmed, "@"):
 			closeSentence()

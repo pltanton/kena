@@ -209,26 +209,19 @@ func roundTrips(t *testing.T, task greek.TaskInput) {
 
 func roundTripsDeck(t *testing.T, rules []greek.Rule, task greek.TaskInput) {
 	t.Helper()
-	rules, rissues := greek.PrepareRules(rules)
 	prepared, issues := greek.PrepareDeck([]greek.TaskInput{task}, nil, rules)
-	for _, iss := range append(issues, greek.TaskIssue{}) {
-		if iss.Severity == greek.Error && iss.Message != "" {
-			return
-		}
-	}
-	for _, iss := range rissues {
+	for _, iss := range issues {
 		if iss.Severity == greek.Error {
 			return
 		}
 	}
-	d, errs := ParseDeck(FormatDeck(Deck{Rules: rules, Tasks: prepared}))
+	items, errs := Parse(Format(prepared))
 	if len(errs) != 0 {
-		t.Fatalf("lint-clean deck does not parse: %v\n%s", errs, FormatDeck(Deck{Rules: rules, Tasks: prepared}))
+		t.Fatalf("lint-clean task with a rule does not parse: %v\n%s", errs, Format(prepared))
 	}
-	gotRules, _ := greek.PrepareRules(d.Rules)
-	got, _ := greek.PrepareDeck(Tasks(d.Items), nil, gotRules)
-	if !reflect.DeepEqual(got, prepared) || !reflect.DeepEqual(gotRules, rules) {
-		t.Fatalf("lint-clean deck does not round-trip:\n%+q %+q\n%+q %+q", gotRules, got, rules, prepared)
+	got, _ := greek.PrepareDeck(Tasks(items), nil, rules)
+	if !reflect.DeepEqual(got, prepared) {
+		t.Fatalf("lint-clean task with a rule does not round-trip:\n%+q\n%+q", got, prepared)
 	}
 }
 
@@ -270,7 +263,7 @@ func FuzzRoundTrip(f *testing.F) {
 			blanks[i] = blank(hint, answer)
 		}
 		roundTrips(t, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
-		roundTripsDeck(t, []greek.Rule{{Key: "r", Text: hint}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
+		roundTripsDeck(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
 	})
 }
 
