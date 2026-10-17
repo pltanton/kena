@@ -1,5 +1,5 @@
 {{define "layout"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{.Theme}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,8 +8,14 @@
 <link rel="icon" href="/static/brand/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/static/brand/icon-180.png">
 <link rel="manifest" href="/static/manifest.webmanifest">
+{{- if eq .Theme "light"}}
+<meta name="theme-color" content="#f4efe4">
+{{- else if eq .Theme "dark"}}
+<meta name="theme-color" content="#181b20">
+{{- else}}
 <meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
+{{- end}}
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
 <script src="/static/reveal.js" defer></script>
@@ -32,6 +38,7 @@
 <main>
 {{template "main" .Data}}
 </main>
+<footer class="site-foot">{{template "theme_switch" .Switch}}</footer>
 <div id="flash" role="alert" hidden></div>
 <script>
 (function () {
@@ -50,6 +57,27 @@
     show("Network error — check your connection.");
   });
   flash.addEventListener("click", function () { flash.hidden = true; });
+
+  var colors = {light: "#f4efe4", dark: "#181b20"};
+  document.addEventListener("click", function (e) {
+    var button = e.target.closest(".theme-switch button[name=theme]");
+    if (!button) return;
+    e.preventDefault();
+    var theme = button.value;
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll(".theme-switch button[name=theme]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.value === theme));
+    });
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.remove(); });
+    (theme === "auto" ? ["light", "dark"] : [theme]).forEach(function (t) {
+      var m = document.createElement("meta");
+      m.name = "theme-color";
+      m.content = colors[t];
+      if (theme === "auto") m.media = "(prefers-color-scheme: " + t + ")";
+      document.head.appendChild(m);
+    });
+    fetch("/theme", {method: "POST", headers: {"HX-Request": "true"}, body: new URLSearchParams({theme: theme})});
+  });
 })();
 </script>
 </body>
@@ -84,3 +112,5 @@
 
 {{define "bar"}}{{if .Total}}<div class="position"><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
 <span class="count">{{.Index}}/{{.Total}}</span>{{with .First}}<a class="first" href="{{.}}">First unsolved</a>{{end}}</div>{{end}}{{end}}
+
+{{define "theme_switch"}}<form class="theme-switch" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}"><span class="label">Theme</span>{{range .Options}}<button type="submit" name="theme" value="{{.Value}}" aria-pressed="{{.Current}}">{{.Label}}</button>{{end}}</form>{{end}}

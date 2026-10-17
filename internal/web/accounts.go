@@ -119,6 +119,7 @@ type accountView struct {
 	Apps     []appRow
 	NewToken *newToken
 	QR       template.HTML
+	Theme    themeSwitch
 	Notice   string
 	Error    string
 }
@@ -157,6 +158,7 @@ func (h *handler) renderAccount(w http.ResponseWriter, r *http.Request, status i
 		return
 	}
 	v.User = u
+	v.Theme = newThemeSwitch(r, "/account")
 	for _, t := range tokens {
 		if t.RevokedAt != nil {
 			continue

@@ -44,6 +44,9 @@
 {{else}}<p class="muted">Show a QR code, scan it with your phone, and you're logged in there too. No passphrase typing.</p>
 {{end}}<form method="post" action="/account/qr#phone"><button type="submit" class="secondary small">{{if .QR}}New code{{else}}Show code{{end}}</button></form>
 
+<h2>Appearance</h2>
+{{template "theme_switch" .Theme}}
+
 <h2>Change passphrase</h2>
 <form class="card stack" method="post" action="/account/passphrase">
 <input type="text" name="username" value="{{.User.Username}}" autocomplete="username" hidden>

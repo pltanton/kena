@@ -79,6 +79,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
+	mux.HandleFunc("POST /theme", h.setTheme)
 	mux.HandleFunc("GET /login/qr/{secret}", h.qrLoginPage)
 	mux.HandleFunc("POST /login/qr/{secret}", h.qrLogin)
 	mux.HandleFunc("POST /account/qr", h.requireUser(h.createLoginQR))
@@ -525,11 +526,22 @@ type layoutData struct {
 	User     *store.User
 	LoginURL string
 	Page     string
+	Theme    string
+	Switch   themeSwitch
 	Data     any
 }
 
 func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	ld := layoutData{Data: data, LoginURL: "/login", Page: page}
+	here := "/"
+	if r.Method == http.MethodGet {
+		q := r.URL.Query()
+		q.Del("next")
+		here = r.URL.Path
+		if len(q) > 0 {
+			here += "?" + q.Encode()
+		}
+	}
+	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Switch: newThemeSwitch(r, here)}
 	if u, ok := currentUser(r); ok {
 		ld.User = &u
 	}
