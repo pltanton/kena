@@ -28,42 +28,9 @@ func (e *env) deck(owner store.User, title string, v store.Visibility) (store.Se
 	return set, tasks[0]
 }
 
-func (e *env) maria() store.User {
-	e.t.Helper()
-	ctx := context.Background()
-	maria, err := e.st.UserByName(ctx, "maria")
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	if err := e.st.SetPassword(ctx, maria.ID, pass, ""); err != nil {
-		e.t.Fatal(err)
-	}
-	return maria
-}
-
 func (e *env) privateSet() (store.Set, store.Task) {
 	e.t.Helper()
 	return e.deck(e.maria(), "Secret drafts", store.Private)
-}
-
-func (e *env) as(name string, admin bool) *env {
-	e.t.Helper()
-	c := e.clone()
-	if name == "" {
-		return c
-	}
-	ctx := context.Background()
-	u, err := e.st.UserByName(ctx, name)
-	if err != nil {
-		if u, err = e.st.CreateUser(ctx, name, admin); err != nil {
-			e.t.Fatal(err)
-		}
-	}
-	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
-		e.t.Fatal(err)
-	}
-	c.login(name)
-	return c
 }
 
 func (e *env) canOpen(set store.Set, task store.Task) bool {

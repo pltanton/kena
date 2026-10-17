@@ -13,25 +13,10 @@ import (
 
 var newPassRe = regexp.MustCompile(`id="new-pass">([a-z]+(?:-[a-z]+)+)<`)
 
-func (e *env) admin() *env {
-	e.t.Helper()
-	ctx := context.Background()
-	u, err := e.st.CreateUser(ctx, "root", true)
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
-		e.t.Fatal(err)
-	}
-	c := e.clone()
-	c.login("root")
-	return c
-}
-
 func TestAdminIsHiddenFromOthers(t *testing.T) {
 	e := setup(t)
 	e.user("anna")
-	e.admin()
+	e.as("root", true)
 	anna := e.clone()
 	anna.login("anna")
 	gets := []string{"/admin", "/admin/users/anna", "/admin/users/anna/passphrase", "/admin/users/anna/logout", "/admin/users/anna/delete"}
@@ -59,7 +44,7 @@ func TestAdminIsHiddenFromOthers(t *testing.T) {
 func TestAdminPages(t *testing.T) {
 	e := setup(t)
 	annaUser := e.user("anna")
-	root := e.admin()
+	root := e.as("root", true)
 	ctx := context.Background()
 
 	_, body := root.get("/account")

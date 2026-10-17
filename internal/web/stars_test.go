@@ -20,21 +20,6 @@ func (e *env) sharedSet(owner store.User, title string, v store.Visibility) stor
 	return set
 }
 
-func (e *env) loginOwner() *env {
-	e.t.Helper()
-	ctx := context.Background()
-	maria, err := e.st.UserByName(ctx, "maria")
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	if err := e.st.SetPassword(ctx, maria.ID, pass, ""); err != nil {
-		e.t.Fatal(err)
-	}
-	c := e.clone()
-	c.login("maria")
-	return c
-}
-
 func starPath(set store.Set) string { return "/s/" + set.Slug + "/star" }
 
 func TestAnonymousHome(t *testing.T) {
@@ -152,7 +137,7 @@ func TestStarToggle(t *testing.T) {
 	resp, _ = bob.post("/s/no-such-set/star", url.Values{"star": {"1"}}, e.srv.URL)
 	wantStatus(t, resp, http.StatusNotFound)
 
-	maria := e.loginOwner()
+	maria := e.as("maria", false)
 	for _, v := range []string{"1", "0"} {
 		resp, _ = maria.post(path, url.Values{"star": {v}}, e.srv.URL)
 		wantStatus(t, resp, http.StatusBadRequest)
@@ -194,7 +179,7 @@ func TestSetPageStarToggle(t *testing.T) {
 	if _, body := e.get(page); strings.Contains(body, action) {
 		t.Error("anonymous sees the star toggle")
 	}
-	if _, body := e.loginOwner().get(page); strings.Contains(body, action) {
+	if _, body := e.as("maria", false).get(page); strings.Contains(body, action) {
 		t.Error("owner sees the star toggle")
 	}
 

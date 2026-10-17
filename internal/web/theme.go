@@ -56,7 +56,6 @@ func newPrefs(r *http.Request, next string) prefs {
 	return p
 }
 
-// setPref stores the posted field in a cookie: htmx gets 204, a plain form goes back to next.
 func (h *handler) setPref(cookie, field string, valid func(string) bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.parseForm(w, r) {

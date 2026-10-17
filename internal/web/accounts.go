@@ -60,7 +60,6 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 	h.loggedIn(w, r, u, next)
 }
 
-// loggedIn moves this device's anonymous progress into the account and goes to next.
 func (h *handler) loggedIn(w http.ResponseWriter, r *http.Request, u store.User, next string) {
 	if err := h.st.MergeAttempts(r.Context(), deviceID(r), u.ProgressID); err != nil && !errors.Is(err, store.ErrForbidden) {
 		h.serverError(w, r, err)

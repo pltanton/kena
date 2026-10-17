@@ -17,19 +17,6 @@ import (
 
 const pass = "olive-tiger-harbor-seven"
 
-func (e *env) user(name string) store.User {
-	e.t.Helper()
-	ctx := context.Background()
-	u, err := e.st.CreateUser(ctx, name, false)
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
-		e.t.Fatal(err)
-	}
-	return u
-}
-
 func (e *env) post(path string, form url.Values, origin string) (*http.Response, string) {
 	e.t.Helper()
 	req, err := http.NewRequest(http.MethodPost, e.srv.URL+path, strings.NewReader(form.Encode()))

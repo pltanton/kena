@@ -56,7 +56,6 @@ type qrLoginView struct {
 	Action   string
 }
 
-// codeUser looks the path's login code up with lookup; an unknown or spent code answers 410.
 func (h *handler) codeUser(w http.ResponseWriter, r *http.Request, lookup func(context.Context, string) (store.User, error)) (store.User, bool) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")

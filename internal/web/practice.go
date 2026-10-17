@@ -67,7 +67,6 @@ func parseParams(v url.Values, defaultMode string) (params, error) {
 	return p, nil
 }
 
-// pageParams parses a page's params, redirecting a shuffle without a seed to a fresh seed.
 func (h *handler) pageParams(w http.ResponseWriter, r *http.Request, mode string) (params, bool) {
 	q := r.URL.Query()
 	p, err := parseParams(q, mode)
@@ -103,7 +102,6 @@ func itoa[T int | int64](n T) string { return strconv.FormatInt(int64(n), 10) }
 
 func deckPath(slug string) string { return "/s/" + url.PathEscape(slug) }
 
-// deckURL links to path under the deck with p's filter and order plus the extra name/value pairs whose value is not "0".
 func deckURL(slug, path string, p params, extra ...string) string {
 	v := p.query()
 	v.Del("mode")
@@ -297,7 +295,6 @@ type notes struct {
 	Full        bool
 }
 
-// cardView is one task as a focus-mode card or a worksheet item: a fresh form, a retry or a result (Checked).
 type cardView struct {
 	Info    *cardInfo
 	Task    taskView
@@ -314,7 +311,6 @@ type cardView struct {
 	ItemURL string
 }
 
-// newCardView renders t untried when results is nil, else as a result if reveal, else as a retry.
 func newCardView(set store.Set, t store.Task, p params, results []greek.BlankResult, reveal, correct bool) *cardView {
 	v := &cardView{Info: infoFor(set, t), Params: p}
 	switch {
@@ -330,7 +326,6 @@ func newCardView(set store.Set, t store.Task, p params, results []greek.BlankRes
 	return v
 }
 
-// lastView shows t as the viewer last left it; reveal decides whether that attempt shows the answers.
 func lastView(set store.Set, t store.Task, p params, la store.LastAttempt, tried, reveal bool) *cardView {
 	if !tried {
 		return newCardView(set, t, p, nil, false, false)
@@ -474,7 +469,6 @@ func pickURL(base, filter string, shuffle bool) string {
 	return base + "?" + v.Encode()
 }
 
-// deckHead loads the parts shared by the deck overview and the worksheet, with the chooser linking to base under the deck.
 func (h *handler) deckHead(w http.ResponseWriter, r *http.Request, d setData, base, filter string, shuffle bool) (deckPage, bool) {
 	set := d.set
 	data := deckPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: progressOf(d.tasks, d.last), Here: r.URL.RequestURI()}
@@ -585,7 +579,6 @@ type playPage struct {
 	General  []*ruleView
 }
 
-// freshCard shows t at position i of n without its last attempt, as play and next do.
 func freshCard(d setData, order []store.Task, t store.Task, i, n int, p params) *cardView {
 	p.I, p.N = i, n
 	v := newCardView(d.set, t, p, nil, false, false)
@@ -724,7 +717,6 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 	h.fragment(w, r, "card", freshCard(d, order, rest[0], i, n, p))
 }
 
-// playState shows task id as the viewer left it: a correct answer or a give-up shows the result, a wrong check the retry form.
 func playState(d setData, order []store.Task, p params, id int64, n int) (*cardView, error) {
 	pos := indexOf(order, id)
 	if pos < 0 {

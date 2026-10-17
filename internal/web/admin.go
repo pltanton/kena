@@ -171,7 +171,6 @@ func (h *handler) guardError(w http.ResponseWriter, r *http.Request, me store.Us
 	h.renderAdminUser(w, r, http.StatusForbidden, me, adminUserView{Error: text})
 }
 
-// confirmView asks to confirm the action the URL ends with: passphrase, logout or delete.
 func confirmView(r *http.Request, row adminRow) adminConfirmView {
 	name := row.User.Username
 	v := adminConfirmView{Action: r.URL.Path, Back: userPath(name), Username: name}

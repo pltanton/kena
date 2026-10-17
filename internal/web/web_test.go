@@ -86,6 +86,35 @@ func (e *env) newClient() *http.Client {
 	}
 }
 
+func (e *env) account(name string, admin bool) store.User {
+	e.t.Helper()
+	ctx := context.Background()
+	u, err := e.st.UserByName(ctx, name)
+	if err != nil {
+		if u, err = e.st.CreateUser(ctx, name, admin); err != nil {
+			e.t.Fatal(err)
+		}
+	}
+	if err := e.st.SetPassword(ctx, u.ID, pass, ""); err != nil {
+		e.t.Fatal(err)
+	}
+	return u
+}
+
+func (e *env) user(name string) store.User { return e.account(name, false) }
+
+func (e *env) maria() store.User { return e.account("maria", false) }
+
+func (e *env) as(name string, admin bool) *env {
+	e.t.Helper()
+	c := e.clone()
+	if name != "" {
+		e.account(name, admin)
+		c.login(name)
+	}
+	return c
+}
+
 func (e *env) clone() *env {
 	c := *e
 	c.client = e.newClient()
