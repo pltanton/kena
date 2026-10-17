@@ -80,17 +80,12 @@ func runServe(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := db.Open(ctx, cfg.DatabaseURL)
+	st, closeDB, err := openStore(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return fmt.Errorf("opening database: %w", err)
+		return err
 	}
-	defer pool.Close()
+	defer closeDB()
 
-	if err := db.Migrate(ctx, pool); err != nil {
-		return fmt.Errorf("migrating database: %w", err)
-	}
-
-	st := store.New(pool)
 	if err := st.PurgeExpired(ctx); err != nil {
 		return fmt.Errorf("purging expired sessions: %w", err)
 	}
@@ -103,14 +98,8 @@ func runServe(args []string) error {
 	}
 
 	errCh := make(chan error, 1)
-	go func() {
-		slog.Info("kena: listening", "addr", cfg.Listen, "public_url", cfg.PublicURL)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-			return
-		}
-		errCh <- nil
-	}()
+	slog.Info("kena: listening", "addr", cfg.Listen, "public_url", cfg.PublicURL)
+	go func() { errCh <- srv.ListenAndServe() }()
 
 	select {
 	case <-ctx.Done():
@@ -120,7 +109,10 @@ func runServe(args []string) error {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutting down: %w", err)
 		}
-		return <-errCh
+		if err := <-errCh; !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
 	case err := <-errCh:
 		return err
 	}
@@ -132,21 +124,11 @@ func runMigrate(args []string) error {
 		return err
 	}
 
-	databaseURL := os.Getenv("KENA_DATABASE_URL")
-	if databaseURL == "" {
-		return errors.New("KENA_DATABASE_URL is required")
-	}
-
-	ctx := context.Background()
-	pool, err := db.Open(ctx, databaseURL)
+	_, closeDB, err := openStore(context.Background(), os.Getenv("KENA_DATABASE_URL"))
 	if err != nil {
-		return fmt.Errorf("opening database: %w", err)
+		return err
 	}
-	defer pool.Close()
-
-	if err := db.Migrate(ctx, pool); err != nil {
-		return fmt.Errorf("migrating database: %w", err)
-	}
+	closeDB()
 	slog.Info("kena: migrations applied")
 	return nil
 }
@@ -168,7 +150,7 @@ func runToken(args []string) error {
 	}
 
 	ctx := context.Background()
-	st, closeDB, err := openStore(ctx)
+	st, closeDB, err := openStore(ctx, os.Getenv("KENA_DATABASE_URL"))
 	if err != nil {
 		return err
 	}
@@ -187,8 +169,7 @@ func runToken(args []string) error {
 	return nil
 }
 
-func openStore(ctx context.Context) (*store.Store, func(), error) {
-	databaseURL := os.Getenv("KENA_DATABASE_URL")
+func openStore(ctx context.Context, databaseURL string) (*store.Store, func(), error) {
 	if databaseURL == "" {
 		return nil, nil, errors.New("KENA_DATABASE_URL is required")
 	}
@@ -227,7 +208,7 @@ func runUser(args []string, out io.Writer) error {
 	}
 
 	ctx := context.Background()
-	st, closeDB, err := openStore(ctx)
+	st, closeDB, err := openStore(ctx, os.Getenv("KENA_DATABASE_URL"))
 	if err != nil {
 		return err
 	}
