@@ -7,7 +7,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-mistakes-report-design.md`, UI and sharing:
 `docs/superpowers/specs/2026-10-17-ui-sharing-design.md`, stars:
 `docs/superpowers/specs/2026-10-17-stars-design.md`, visibility and editor:
-`docs/superpowers/specs/2026-10-17-visibility-editor-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-17-visibility-editor-design.md`, practice flow, QR login and theme:
+`docs/superpowers/specs/2026-10-17-practice-flow-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
