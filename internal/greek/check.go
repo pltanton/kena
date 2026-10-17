@@ -1,5 +1,7 @@
 package greek
 
+import "slices"
+
 type BlankResult struct {
 	Given    string
 	Correct  bool
@@ -10,26 +12,16 @@ func Check(blanks []Blank, given []string) (results []BlankResult, allCorrect bo
 	allCorrect = true
 	results = make([]BlankResult, len(blanks))
 	for i, b := range blanks {
-		var g string
+		res := &results[i]
 		if i < len(given) {
-			g = given[i]
+			res.Given = given[i]
 		}
-		var expected string
 		if len(b.Answers) > 0 {
-			expected = b.Answers[0]
+			res.Expected = b.Answers[0]
 		}
-		correct := false
-		normG := NormalizeAnswer(g)
-		for _, a := range b.Answers {
-			if NormalizeAnswer(a) == normG {
-				correct = true
-				break
-			}
-		}
-		if !correct {
-			allCorrect = false
-		}
-		results[i] = BlankResult{Given: g, Correct: correct, Expected: expected}
+		g := NormalizeAnswer(res.Given)
+		res.Correct = slices.ContainsFunc(b.Answers, func(a string) bool { return NormalizeAnswer(a) == g })
+		allCorrect = allCorrect && res.Correct
 	}
 	return results, allCorrect
 }

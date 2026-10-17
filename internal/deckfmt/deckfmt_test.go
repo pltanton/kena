@@ -191,7 +191,7 @@ func TestParseErrorLine(t *testing.T) {
 
 func roundTrips(t *testing.T, task greek.TaskInput) {
 	t.Helper()
-	prepared, issues := greek.Prepare([]greek.TaskInput{task}, nil)
+	prepared, issues := greek.PrepareDeck([]greek.TaskInput{task}, nil, nil)
 	for _, iss := range issues {
 		if iss.Severity == greek.Error {
 			return
@@ -201,7 +201,7 @@ func roundTrips(t *testing.T, task greek.TaskInput) {
 	if len(errs) != 0 {
 		t.Fatalf("lint-clean task %+q does not parse: %v\n%s", prepared[0], errs, Format(prepared))
 	}
-	got, _ := greek.Prepare(Tasks(items), nil)
+	got, _ := greek.PrepareDeck(Tasks(items), nil, nil)
 	if !reflect.DeepEqual(got, prepared) {
 		t.Fatalf("lint-clean task does not round-trip:\n%+q\n%+q", got, prepared)
 	}

@@ -18,8 +18,5 @@ func NFC(s string) string {
 }
 
 func NormalizeAnswer(s string) string {
-	s = NFC(s)
-	s = strings.TrimSpace(s)
-	s = strings.Join(strings.Fields(s), " ")
-	return strings.ToLower(s)
+	return strings.ToLower(strings.Join(strings.Fields(NFC(s)), " "))
 }

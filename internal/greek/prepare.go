@@ -38,18 +38,6 @@ func normalizeLines(s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func Prepare(tasks []TaskInput, existingTexts []string) ([]TaskInput, []TaskIssue) {
-	existing := make([]TaskInput, len(existingTexts))
-	for i, t := range existingTexts {
-		existing[i] = TaskInput{Text: t}
-	}
-	return PrepareAgainst(tasks, existing)
-}
-
-func PrepareAgainst(tasks []TaskInput, existing []TaskInput) ([]TaskInput, []TaskIssue) {
-	return PrepareDeck(tasks, existing, nil)
-}
-
 func PrepareDeck(tasks []TaskInput, existing []TaskInput, rules []Rule) ([]TaskInput, []TaskIssue) {
 	keys := make(map[string]bool, len(rules))
 	for _, r := range rules {

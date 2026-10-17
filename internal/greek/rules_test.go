@@ -72,8 +72,8 @@ func TestPrepareDeckChecksTaskRules(t *testing.T) {
 	if len(errs) != 1 || errs[0].Task != 1 || errs[0].Field != "rule" || !strings.Contains(errs[0].Message, `"nope"`) {
 		t.Fatalf("errors = %+v", errs)
 	}
-	if _, issues := Prepare(tasks[:1], nil); len(issues) == 0 {
-		t.Fatal("Prepare without rules accepts a rule reference")
+	if _, issues := PrepareDeck(tasks[:1], nil, nil); len(issues) == 0 {
+		t.Fatal("no rules, yet a rule reference is accepted a rule reference")
 	}
 }
 

@@ -18,10 +18,10 @@ func TestMultilineTextIsAllowed(t *testing.T) {
 }
 
 func TestPrepareTrimsTextLines(t *testing.T) {
-	out, _ := Prepare([]TaskInput{{
+	out, _ := PrepareDeck([]TaskInput{{
 		Text:   "  — Πού ___;  \r\n\r\n   — Στο σπίτι.  ",
 		Blanks: []Blank{{Answers: []string{"πας"}}},
-	}}, nil)
+	}}, nil, nil)
 	if want := "— Πού ___;\n— Στο σπίτι."; out[0].Text != want {
 		t.Fatalf("text = %q, want %q", out[0].Text, want)
 	}
@@ -49,11 +49,11 @@ func TestSameHintPatternWarns(t *testing.T) {
 			Blanks: []Blank{{Answers: []string{n}, Hint: hint}, {Answers: []string{"έχω"}, Hint: "  Έχω "}},
 		})
 	}
-	_, issues := Prepare(batch, nil)
+	_, issues := PrepareDeck(batch, nil, nil)
 	if !hasWarning(issues, "blanks", "7 of 10 tasks use the same hint pattern") {
 		t.Fatalf("hint monotony not flagged: %+v", issues)
 	}
-	_, issues = Prepare(batch[:9], nil)
+	_, issues = PrepareDeck(batch[:9], nil, nil)
 	if hasWarning(issues, "blanks", "hint pattern") {
 		t.Fatal("hint monotony flagged in a batch under 10")
 	}

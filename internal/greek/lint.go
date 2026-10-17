@@ -33,8 +33,7 @@ func LintTask(t TaskInput) []Issue {
 
 	if strings.TrimSpace(t.Text) == "" {
 		issues = append(issues, Issue{Error, "text", "text is empty"})
-	}
-	if strings.TrimSpace(t.Text) != "" && len(t.Blanks) == 0 && !strings.Contains(t.Text, Marker) {
+	} else if len(t.Blanks) == 0 && !strings.Contains(t.Text, Marker) {
 		issues = append(issues, Issue{Error, "text", fmt.Sprintf("task has no blanks; mark each with %s", Marker)})
 	}
 	if n := strings.Count(t.Text, Marker); n != len(t.Blanks) {
@@ -46,8 +45,7 @@ func LintTask(t TaskInput) []Issue {
 	issues = append(issues, textLineIssues(t.Text)...)
 	issues = append(issues, charIssues("explanation", t.Explanation, "", true)...)
 
-	textNoMarker := strings.ReplaceAll(t.Text, Marker, " ")
-	issues = append(issues, scriptIssues("text", textNoMarker)...)
+	issues = append(issues, scriptIssues("text", strings.ReplaceAll(t.Text, Marker, " "))...)
 
 	if len(strings.Fields(t.Text)) > 20 {
 		issues = append(issues, Issue{Warning, "text", "text is longer than 20 words"})
@@ -98,33 +96,18 @@ func textLineIssues(text string) []Issue {
 
 func scriptIssues(field, s string) []Issue {
 	var issues []Issue
-
 	for _, r := range s {
 		if r >= 'ἀ' && r <= '῿' {
 			issues = append(issues, Issue{Error, field, fmt.Sprintf("polytonic character %q; use monotonic", r)})
 		}
 	}
-
 	for _, word := range splitWords(s) {
-		hasGreek, hasLatinOrDigit := false, false
-		for _, r := range word {
-			if unicode.Is(unicode.Greek, r) {
-				hasGreek = true
-			}
-			if unicode.Is(unicode.Latin, r) || (r >= '0' && r <= '9') {
-				hasLatinOrDigit = true
-			}
-		}
-		if hasGreek && hasLatinOrDigit {
+		hasGreek := strings.ContainsFunc(word, func(r rune) bool { return unicode.Is(unicode.Greek, r) })
+		if hasGreek && strings.ContainsFunc(word, func(r rune) bool { return unicode.Is(unicode.Latin, r) || (r >= '0' && r <= '9') }) {
 			issues = append(issues, Issue{Error, field, fmt.Sprintf("mixed Latin/Greek in word %q", word)})
 		}
-
-		runes := []rune(word)
-		for k, r := range runes {
-			if r == 'ς' && k != len(runes)-1 {
-				issues = append(issues, Issue{Error, field, fmt.Sprintf("word %q has ς not at the end; use σ", word)})
-				break
-			}
+		if strings.ContainsRune(strings.TrimSuffix(word, "ς"), 'ς') {
+			issues = append(issues, Issue{Error, field, fmt.Sprintf("word %q has ς not at the end; use σ", word)})
 		}
 	}
 
@@ -138,7 +121,6 @@ func scriptIssues(field, s string) []Issue {
 		}
 		issues = append(issues, Issue{Error, field, "word ending in σ; use ς"})
 	}
-
 	return issues
 }
 
@@ -164,16 +146,7 @@ func splitWords(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return !isWordRune(r) })
 }
 
-var digraphs = map[[2]rune]bool{
-	{'α', 'ι'}: true,
-	{'ε', 'ι'}: true,
-	{'ο', 'ι'}: true,
-	{'ο', 'υ'}: true,
-	{'υ', 'ι'}: true,
-	{'α', 'υ'}: true,
-	{'ε', 'υ'}: true,
-	{'η', 'υ'}: true,
-}
+var digraphs = map[string]bool{"αι": true, "ει": true, "οι": true, "ου": true, "υι": true, "αυ": true, "ευ": true, "ηυ": true}
 
 func isVowel(r rune) bool {
 	switch r {
@@ -206,7 +179,7 @@ func vowelGroupCount(word string) int {
 			j++
 		}
 
-		if i != prevVowelEnd || hasDiaeresis || !digraphs[[2]rune{prevBase, r}] {
+		if i != prevVowelEnd || hasDiaeresis || !digraphs[string([]rune{prevBase, r})] {
 			count++
 		}
 

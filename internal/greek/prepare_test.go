@@ -10,11 +10,11 @@ import (
 
 func TestPrepareNormalizes(t *testing.T) {
 	nfd := norm.NFD.String
-	out, issues := Prepare([]TaskInput{{
+	out, issues := PrepareDeck([]TaskInput{{
 		Text:        "  " + nfd("Χθες η Μαρία ___ ένα γράμμα.") + " ",
 		Blanks:      []Blank{{Answers: []string{nfd(" έγραψε "), nfd("έγραφε")}, Hint: nfd(" γράφω ")}},
 		Explanation: nfd(" αόριστος\n"),
-	}}, nil)
+	}}, nil, nil)
 	if len(issues) != 0 {
 		t.Fatalf("issues = %+v", issues)
 	}
@@ -27,13 +27,13 @@ func TestPrepareNormalizes(t *testing.T) {
 
 func TestPrepareIssues(t *testing.T) {
 	dup := "Εσύ ___ πολύ."
-	_, issues := Prepare([]TaskInput{
+	_, issues := PrepareDeck([]TaskInput{
 		{Text: dup, Blanks: []Blank{{Answers: []string{"γράφεις"}}}},
 		{Text: "Αυτός ___ γρήγορα.", Blanks: []Blank{{Answers: []string{"τρεχει"}}}},
 		{Text: norm.NFD.String(dup), Blanks: []Blank{{Answers: []string{"γράφεις"}}}},
 		{Text: "Εμείς ___ ___.", Blanks: []Blank{{Answers: []string{"πίνουμε"}}}},
 		{Text: "Ο Νίκος ___ καφέ.", Blanks: []Blank{{Answers: []string{"πίνει"}}}},
-	}, []string{norm.NFD.String("Ο Νίκος ___ καφέ. ")})
+	}, []TaskInput{{Text: norm.NFD.String("Ο Νίκος ___ καφέ. ")}}, nil)
 	want := []TaskIssue{
 		{Task: 1, Issue: Issue{Warning, "blanks[0].answers[0]", `no accent in "τρεχει"`}},
 		{Task: 2, Issue: Issue{Warning, "text", "duplicate of another task's text"}},
@@ -51,7 +51,7 @@ func TestPrepareIssues(t *testing.T) {
 }
 
 func TestPrepareExplanationLines(t *testing.T) {
-	out, _ := Prepare([]TaskInput{{Text: "Α ___.", Blanks: []Blank{{Answers: []string{"β"}}}, Explanation: " one \r\n\n  two\n"}}, nil)
+	out, _ := PrepareDeck([]TaskInput{{Text: "Α ___.", Blanks: []Blank{{Answers: []string{"β"}}}, Explanation: " one \r\n\n  two\n"}}, nil, nil)
 	if got := out[0].Explanation; got != "one\ntwo" {
 		t.Fatalf("explanation = %q", got)
 	}
@@ -78,11 +78,11 @@ func TestPrepareRepeatedExplanation(t *testing.T) {
 		styleTask("Ο Νίκος ___ στη γιαγιά του.", generic),
 		styleTask("Η Άννα ___ δύο σελίδες.", "  αόριστος:  ολοκληρωμένη πράξη στο παρελθόν "),
 	}
-	_, issues := PrepareAgainst(tasks, nil)
+	_, issues := PrepareDeck(tasks, nil, nil)
 	if w := warningsFor(issues, "explanation"); len(w) != 0 {
 		t.Fatalf("two repeats warned: %+v", w)
 	}
-	_, issues = PrepareAgainst(tasks, []TaskInput{{Text: "Πέρσι ___ πολύ.", Explanation: generic}})
+	_, issues = PrepareDeck(tasks, []TaskInput{{Text: "Πέρσι ___ πολύ.", Explanation: generic}}, nil)
 	w := warningsFor(issues, "explanation")
 	if len(w) != 1 || w[0].Task != 1 || !strings.Contains(w[0].Message, "repeated 3 times — put it in a deck rule") {
 		t.Fatalf("warnings = %+v", w)
@@ -98,12 +98,12 @@ func TestPrepareMissingExplanations(t *testing.T) {
 		}
 		tasks = append(tasks, styleTask(fmt.Sprintf("Η Μαρία ___ γράμμα %d.", i), exp))
 	}
-	_, issues := Prepare(tasks, nil)
+	_, issues := PrepareDeck(tasks, nil, nil)
 	w := warningsFor(issues, "explanation")
 	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "6 of 10 tasks have neither an explanation nor a deck rule") {
 		t.Fatalf("warnings = %+v", w)
 	}
-	_, issues = Prepare(tasks[:9], nil)
+	_, issues = PrepareDeck(tasks[:9], nil, nil)
 	if w := warningsFor(issues, "explanation"); len(w) != 0 {
 		t.Fatalf("batch under 10 warned: %+v", w)
 	}
@@ -114,13 +114,13 @@ func TestPrepareSubjectPronouns(t *testing.T) {
 	for i, p := range []string{"Εγώ", "εσύ", "Αυτός", "εμείς", "Εσείς", "αυτοί", "αυτή", "Η Άννα", "Ο Νίκος", "Η Σοφία"} {
 		tasks = append(tasks, styleTask(fmt.Sprintf("Χθες %s ___ γράμμα %d.", p, i), fmt.Sprintf("e%d", i)))
 	}
-	_, issues := Prepare(tasks, nil)
+	_, issues := PrepareDeck(tasks, nil, nil)
 	w := warningsFor(issues, "text")
 	if len(w) != 1 || w[0].Task != 0 || !strings.Contains(w[0].Message, "7 of 10 sentences") {
 		t.Fatalf("warnings = %+v", w)
 	}
 	tasks[6].Text = "Αυτή η ταινία ___ πολύ."
-	_, issues = Prepare(tasks, nil)
+	_, issues = PrepareDeck(tasks, nil, nil)
 	if w := warningsFor(issues, "text"); len(w) != 0 {
 		t.Fatalf("6 of 10 warned: %+v", w)
 	}
@@ -149,7 +149,7 @@ func TestPrepareVariedBatchNoStyleWarnings(t *testing.T) {
 		task.Blanks[0].Hint = lemmas[i]
 		tasks = append(tasks, task)
 	}
-	_, issues := Prepare(tasks, nil)
+	_, issues := PrepareDeck(tasks, nil, nil)
 	if len(issues) != 0 {
 		t.Fatalf("issues = %+v", issues)
 	}
