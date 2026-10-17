@@ -31,17 +31,17 @@ nix flake check
 - `internal/app`: routing; `/mcp` behind `auth.RequireBearerToken`.
 - `internal/db`: pool, embedded SQL migrations; `dbtest` starts a throwaway cluster per test binary.
 - `internal/store`: all SQL. Does not lint.
-- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `Prepare`/`PrepareAgainst` (NFC + lint + duplicate, repeated-explanation and batch style warnings).
+- `internal/greek`: NFC, answer normalisation, strict check, error kinds (`Classify`), task lint, `PrepareDeck` (NFC + lint + duplicate, repeated-explanation and batch style warnings).
 - `internal/deckfmt`: the editor's plain-text deck format; `Format` and `Parse` round-trip, parse errors carry line numbers.
 - `internal/markdown`: goldmark rendering for rule bodies (no raw HTML, safe link schemes, tables wrapped for scrolling), `Preview`, `Issues`.
 - `internal/guide`: authoring guide markdown served by `get_authoring_guide`, `skill://kena/<topic>` and server instructions.
-- `internal/mcpserver`: tools; every write goes through `prepare` (`greek.PrepareAgainst`, with the set's existing tasks) before touching the store.
+- `internal/mcpserver`: tools; every write goes through `prepare` (`greek.PrepareDeck`, with the set's existing tasks) before touching the store.
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/i18n`: UI message catalogs (`en.go`, `ru.go`, `el.go`), plurals, `kena_lang` / Accept-Language selection, template funcs `t`, `tf`, `tn`, `th`.
 - `internal/csp`: the Content-Security-Policy every HTML page sends.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`; `play.js`: focus mode), `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`; `play.js`: focus mode), `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.PrepareDeck` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
