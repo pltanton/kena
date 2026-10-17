@@ -175,23 +175,20 @@ func taskOut(t store.Task) TaskOut {
 	return TaskOut{ID: t.ID, Position: t.Position, Text: t.Text, Blanks: fromGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
 }
 
-func (s *server) loadSet(ctx context.Context, ref string) (store.Set, error) {
+func (s *server) viewable(ctx context.Context, u store.User, ref string) (store.Set, bool, error) {
 	st, err := s.st.GetSet(ctx, ref)
 	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrInvalid) {
-		return store.Set{}, fail("set %q not found; use list_sets to find the id or slug", ref)
+		return st, false, nil
 	}
-	return st, err
+	return st, err == nil && (u.IsAdmin || store.CanView(u.ID, st)), err
 }
 
 func (s *server) visibleSet(ctx context.Context, u store.User, ref string) (store.Set, error) {
-	st, err := s.loadSet(ctx, ref)
-	if err != nil {
-		return store.Set{}, err
+	st, ok, err := s.viewable(ctx, u, ref)
+	if err == nil && !ok {
+		err = fail("set %q not found; use list_sets to find the id or slug", ref)
 	}
-	if !u.IsAdmin && !store.CanView(u.ID, st) {
-		return store.Set{}, fail("set %q not found; use list_sets to find the id or slug", ref)
-	}
-	return st, nil
+	return st, err
 }
 
 func (s *server) editableSet(ctx context.Context, u store.User, ref string) (store.Set, error) {
@@ -217,12 +214,12 @@ func (s *server) editableTask(ctx context.Context, u store.User, id int64) (stor
 	if err != nil {
 		return store.Task{}, store.Set{}, err
 	}
-	st, err := s.st.GetSet(ctx, strconv.FormatInt(t.SetID, 10))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !u.IsAdmin && !store.CanView(u.ID, st)) {
-		return store.Task{}, store.Set{}, fail("task %d not found", id)
-	}
+	st, ok, err := s.viewable(ctx, u, strconv.FormatInt(t.SetID, 10))
 	if err != nil {
 		return store.Task{}, store.Set{}, err
+	}
+	if !ok {
+		return store.Task{}, store.Set{}, fail("task %d not found", id)
 	}
 	return t, st, canEdit(u, st)
 }

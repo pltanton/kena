@@ -17,10 +17,6 @@ type CreateUserIn struct {
 	IsAdmin  bool   `json:"is_admin,omitempty" jsonschema:"grant admin rights"`
 }
 
-type ResetPasswordIn struct {
-	Username string `json:"username" jsonschema:"existing username"`
-}
-
 type IssueTokenIn struct {
 	Username string `json:"username" jsonschema:"existing username"`
 	Label    string `json:"label,omitempty" jsonschema:"where the token will be used, e.g. laptop claude code"`
@@ -172,7 +168,7 @@ func (s *server) addAdminTools(srv *mcp.Server) {
 		Name:        "admin_reset_password",
 		Description: "Admin only. Give a user a new generated passphrase, e.g. when they forgot theirs. Logs the user out everywhere and disconnects their OAuth apps (Claude app, ChatGPT); personal tokens keep working. The passphrase appears only in this result.",
 		Annotations: destructive("Reset passphrase", false),
-	}, adminOnly(func(ctx context.Context, _ store.User, in ResetPasswordIn) (ResetPassword, error) {
+	}, adminOnly(func(ctx context.Context, _ store.User, in UserNameIn) (ResetPassword, error) {
 		u, err := s.userByName(ctx, in.Username)
 		if err != nil {
 			return ResetPassword{}, err
