@@ -161,22 +161,13 @@ func TestFullFlow(t *testing.T) {
 	ctx := context.Background()
 	redirect := "https://claude.ai/api/mcp/auth_callback?x=1"
 	clientID := e.register(t, redirect)
-	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
-	params := authParams(clientID, redirect, verifier)
-
-	resp, body := e.get(t, "/oauth/authorize", params)
-	if resp.StatusCode != 200 || !strings.Contains(body, `name="passphrase"`) || !strings.Contains(body, "Test App") {
-		t.Fatalf("authorize GET: status %d body %s", resp.StatusCode, body)
-	}
-	if !strings.Contains(body, `aria-controls="passphrase"`) || !strings.Contains(body, `src="/static/reveal.js"`) {
-		t.Errorf("authorize login form lacks the passphrase reveal toggle: %s", body)
-	}
+	verifier := testVerifier
 
 	bad := authParams(clientID, redirect, verifier)
 	bad.Set("action", "login")
 	bad.Set("username", "anton")
 	bad.Set("passphrase", "wrong-passphrase")
-	resp, body = e.postForm(t, "/oauth/authorize", bad)
+	resp, body := e.postForm(t, "/oauth/authorize", bad)
 	if resp.StatusCode != 200 || !strings.Contains(body, "Wrong username or passphrase") || resp.Header.Get("Location") != "" {
 		t.Fatalf("wrong passphrase: status %d body %s", resp.StatusCode, body)
 	}
@@ -226,17 +217,10 @@ func TestFullFlow(t *testing.T) {
 		t.Errorf("UserFrom = %v %v", u, ok)
 	}
 
-	resp, body = e.postForm(t, "/oauth/token", exchange)
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("code reuse: status %d body %s", resp.StatusCode, body)
-	}
+	expectTokenError(t, e, exchange, "invalid_grant")
 
 	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}}
-	resp, body = e.postForm(t, "/oauth/token", refreshForm)
-	if resp.StatusCode != 200 {
-		t.Fatalf("refresh: status %d body %s", resp.StatusCode, body)
-	}
-	tok2 := decodeJSON(t, body)
+	tok2 := e.tokens(t, refreshForm)
 	if tok2["access_token"] == access || tok2["refresh_token"] == refresh || tok2["access_token"] == nil {
 		t.Errorf("refresh did not rotate: %v", tok2)
 	}
@@ -244,10 +228,7 @@ func TestFullFlow(t *testing.T) {
 		t.Errorf("Verify(new access): %v", err)
 	}
 
-	resp, body = e.postForm(t, "/oauth/token", refreshForm)
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("old refresh: status %d body %s", resp.StatusCode, body)
-	}
+	expectTokenError(t, e, refreshForm, "invalid_grant")
 	if _, err := e.srv.Verify(ctx, access, nil); err == nil {
 		t.Error("old access token still valid")
 	}
@@ -261,7 +242,7 @@ func TestAuthorizeNotLoggedInShowsLoginForm(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
-	for _, want := range []string{`name="username"`, `name="passphrase"`, `value="login"`, "Test App", "<strong>claude.ai</strong>", `name="code_challenge"`} {
+	for _, want := range []string{`name="username"`, `name="passphrase"`, `value="login"`, "Test App", "<strong>claude.ai</strong>", `name="code_challenge"`, `aria-controls="passphrase"`, `src="/static/reveal.js"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("login form missing %q:\n%s", want, body)
 		}
@@ -298,16 +279,13 @@ func TestAuthorizeLoggedInShowsAllow(t *testing.T) {
 		t.Errorf("login form shown although logged in")
 	}
 
-	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+	verifier := testVerifier
 	q := authorize(t, e, clientID, redirect, verifier)
 	if q.Get("state") != "st-123" || q.Get("iss") != testPublicURL {
 		t.Fatalf("redirect query %v", q)
 	}
-	resp, body = e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
-	if resp.StatusCode != 200 {
-		t.Fatalf("token: %d %s", resp.StatusCode, body)
-	}
-	ti, err := e.srv.Verify(context.Background(), decodeJSON(t, body)["access_token"].(string), nil)
+	tok := e.tokens(t, exchangeForm(q.Get("code"), clientID, redirect, verifier))
+	ti, err := e.srv.Verify(context.Background(), tok["access_token"].(string), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +299,7 @@ func TestAuthorizeLoginThenAllow(t *testing.T) {
 	ctx := context.Background()
 	redirect := "https://chatgpt.com/connector_platform_oauth_redirect"
 	clientID := e.register(t, redirect)
-	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+	verifier := testVerifier
 
 	form := authParams(clientID, redirect, verifier)
 	form.Set("action", "login")
@@ -355,11 +333,8 @@ func TestAuthorizeLoginThenAllow(t *testing.T) {
 	if !strings.HasPrefix(loc.String(), redirect+"?") || q.Get("code") == "" || q.Get("state") != "st-123" || q.Get("iss") != testPublicURL {
 		t.Fatalf("redirect %s", loc)
 	}
-	resp, body = e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
-	if resp.StatusCode != 200 {
-		t.Fatalf("token: %d %s", resp.StatusCode, body)
-	}
-	if _, err := e.srv.Verify(ctx, decodeJSON(t, body)["access_token"].(string), nil); err != nil {
+	tok := e.tokens(t, exchangeForm(q.Get("code"), clientID, redirect, verifier))
+	if _, err := e.srv.Verify(ctx, tok["access_token"].(string), nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -406,14 +381,10 @@ func TestPasswordChangeRevokesGrant(t *testing.T) {
 	ctx := context.Background()
 	redirect := "https://claude.ai/api/mcp/auth_callback"
 	clientID := e.register(t, redirect)
-	verifier := "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+	verifier := testVerifier
 
 	q := authorize(t, e, clientID, redirect, verifier)
-	resp, body := e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientID, redirect, verifier))
-	if resp.StatusCode != 200 {
-		t.Fatalf("token: status %d body %s", resp.StatusCode, body)
-	}
-	tok := decodeJSON(t, body)
+	tok := e.tokens(t, exchangeForm(q.Get("code"), clientID, redirect, verifier))
 	access, refresh := tok["access_token"].(string), tok["refresh_token"].(string)
 
 	if err := e.srv.Store.SetPassword(ctx, e.user.ID, "brand-new-passphrase", ""); err != nil {
@@ -422,41 +393,20 @@ func TestPasswordChangeRevokesGrant(t *testing.T) {
 	if _, err := e.srv.Verify(ctx, access, nil); err == nil {
 		t.Error("access token still verifies after the passphrase changed")
 	}
-	refreshForm := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}}
-	resp, body = e.postForm(t, "/oauth/token", refreshForm)
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("refresh after passphrase change: status %d body %s", resp.StatusCode, body)
-	}
+	expectTokenError(t, e, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}}, "invalid_grant")
 }
 
 func TestTokenErrors(t *testing.T) {
 	e := newEnv(t)
 	redirect := "https://a.example/cb"
 	clientID := e.register(t, redirect)
-	verifier := "verifier-0123456789-0123456789-0123456789-abcdef"
+	verifier := testVerifier
 
 	q := authorize(t, e, clientID, redirect, verifier)
-	resp, body := e.postForm(t, "/oauth/token", url.Values{
-		"grant_type": {"authorization_code"}, "code": {q.Get("code")}, "client_id": {clientID},
-		"redirect_uri": {redirect}, "code_verifier": {"wrong-verifier-0123456789-0123456789-0123456789"},
-	})
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("wrong verifier: status %d body %s", resp.StatusCode, body)
-	}
-
-	resp, body = e.postForm(t, "/oauth/token", url.Values{"grant_type": {"password"}})
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "unsupported_grant_type" {
-		t.Errorf("bad grant type: status %d body %s", resp.StatusCode, body)
-	}
-
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientID, redirect, "wrong-verifier-0123456789-0123456789-0123456789"), "invalid_grant")
+	expectTokenError(t, e, url.Values{"grant_type": {"password"}}, "unsupported_grant_type")
 	q = authorize(t, e, clientID, redirect, verifier)
-	resp, body = e.postForm(t, "/oauth/token", url.Values{
-		"grant_type": {"authorization_code"}, "code": {q.Get("code")}, "client_id": {clientID},
-		"redirect_uri": {"https://a.example/other"}, "code_verifier": {verifier},
-	})
-	if resp.StatusCode != 400 || decodeJSON(t, body)["error"] != "invalid_grant" {
-		t.Errorf("redirect mismatch: status %d body %s", resp.StatusCode, body)
-	}
+	expectTokenError(t, e, exchangeForm(q.Get("code"), clientID, "https://a.example/other", verifier), "invalid_grant")
 }
 
 func TestAuthorizeRedirectMismatch(t *testing.T) {
@@ -607,7 +557,7 @@ func TestTokenReviewCases(t *testing.T) {
 	redirect := "https://a.example/cb"
 	clientA := e.register(t, redirect)
 	clientB := e.register(t, redirect)
-	verifier := "verifier-0123456789-0123456789-0123456789-abcdef"
+	verifier := testVerifier
 
 	q := authorize(t, e, clientA, redirect, verifier)
 	expectTokenError(t, e, exchangeForm(q.Get("code"), clientB, redirect, verifier), "invalid_grant")
@@ -622,10 +572,6 @@ func TestTokenReviewCases(t *testing.T) {
 	expectTokenError(t, e, exchangeForm(q.Get("code"), clientA, redirect, strings.Repeat("a", 129)), "invalid_request")
 	expectTokenError(t, e, exchangeForm(q.Get("code"), clientA, redirect, strings.Repeat("a", 42)+"!"), "invalid_request")
 
-	resp, body := e.postForm(t, "/oauth/token", exchangeForm(q.Get("code"), clientA, redirect, verifier))
-	if resp.StatusCode != 200 {
-		t.Fatalf("exchange: %d %s", resp.StatusCode, body)
-	}
-	refresh := decodeJSON(t, body)["refresh_token"].(string)
+	refresh := e.tokens(t, exchangeForm(q.Get("code"), clientA, redirect, verifier))["refresh_token"].(string)
 	expectTokenError(t, e, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientB}}, "invalid_grant")
 }

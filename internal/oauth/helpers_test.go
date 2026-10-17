@@ -20,7 +20,10 @@ import (
 
 const testPublicURL = "https://kena.example.org"
 
-const testPass = "olive-tiger-harbor-seven"
+const (
+	testPass     = "olive-tiger-harbor-seven"
+	testVerifier = "a-very-long-verifier-string-0123456789-abcdefghijklmnop"
+)
 
 type env struct {
 	srv     *Server
@@ -61,23 +64,21 @@ func newEnv(t *testing.T) *env {
 
 func (e *env) get(t *testing.T, path string, q url.Values) (*http.Response, string) {
 	t.Helper()
-	if q != nil {
-		path += "?" + q.Encode()
-	}
-	resp, err := e.client.Get(e.ts.URL + path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp, readBody(t, resp)
+	return e.request(t, http.MethodGet, path, q, "", "")
 }
 
 func (e *env) postForm(t *testing.T, path string, form url.Values) (*http.Response, string) {
 	t.Helper()
-	resp, err := e.client.PostForm(e.ts.URL+path, form)
-	if err != nil {
-		t.Fatal(err)
+	return e.request(t, http.MethodPost, path, form, "", "")
+}
+
+func (e *env) tokens(t *testing.T, form url.Values) map[string]any {
+	t.Helper()
+	resp, body := e.postForm(t, "/oauth/token", form)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("token: status %d body %s", resp.StatusCode, body)
 	}
-	return resp, readBody(t, resp)
+	return decodeJSON(t, body)
 }
 
 func (e *env) request(t *testing.T, method, path string, form url.Values, sess, origin string) (*http.Response, string) {
