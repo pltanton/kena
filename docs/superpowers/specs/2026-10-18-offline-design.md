@@ -120,8 +120,9 @@ Downloading a pack also caches `/s/{slug}` and `/s/{slug}/play` in
   SHA-256(device id)>` otherwise, so the HttpOnly device cookie never reaches
   the page). Only attempts of the page's current identity are synced or
   counted by the indicator; others stay dormant until that identity is back
-  and are dropped after 30 days. Untagged attempts (queued before this rule)
-  are treated as foreign.
+  and are dropped after 30 days. Untagged attempts (queued before this rule,
+  one deploy that lived minutes) are adopted once by the identity of the first
+  page that sees them and then sync normally.
 - Logout: pending attempts are synced first (3 s at most), then user packs,
   synced attempts and every cached page are removed, then the form submits.
   Attempts that could not be sent stay queued and dormant under their

@@ -3,9 +3,13 @@
   var DORMANT_FOR = 30 * 24 * 60 * 60 * 1000;
 
   function queue(items, identity, now) {
-    var out = {send: [], drop: []};
+    var out = {send: [], drop: [], adopt: []};
     items.forEach(function (a) {
       if (a.synced) return;
+      if (!a.identity && identity) {
+        a.identity = identity;
+        out.adopt.push(a);
+      }
       if (a.identity && a.identity === identity) out.send.push(a);
       else if (now - a.at > DORMANT_FOR) out.drop.push(a);
     });
@@ -215,7 +219,7 @@
   function pending() {
     return all("attempts").then(function (list) {
       var q = queue(list, identity, Date.now());
-      return Promise.all(q.drop.map(function (a) { return del("attempts", a.id); })).then(function () { return q.send; });
+      return Promise.all(q.drop.map(function (a) { return del("attempts", a.id); }).concat(q.adopt.map(function (a) { return put("attempts", a); }))).then(function () { return q.send; });
     });
   }
 
