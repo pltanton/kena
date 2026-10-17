@@ -11,7 +11,7 @@ import (
 	"github.com/pltanton/kena/internal/store"
 )
 
-const ruleGuidance = "Rules are short Markdown (a few lines, **bold**, lists; a table for a paradigm, e.g. πόσος/πόση/πόσο by case and number; no HTML, no images). " +
+const ruleGuidance = "Rules are short Markdown (a few lines, **bold**, lists; a table for a paradigm, e.g. πόσος/πόση/πόσο by case and number, at most 12 columns and 400 cells; no HTML, no images). " +
 	"general=true: deck-wide theory every card's info sheet shows (the paradigm, the agreement rule); at most one or two per deck. " +
 	"general=false: the point a group of tasks practises; tasks name it with rule = key and learners see it with those tasks, also after a wrong answer."
 

@@ -279,6 +279,10 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 	posted.Errors, posted.Warnings = ruleIssues(issues, i)
 	switch op {
 	case "preview":
+		if len(posted.Errors) > 0 {
+			render(http.StatusUnprocessableEntity, posted, nil)
+			return
+		}
 		posted.Preview = markdown.Render(prepared[i].Body)
 		render(http.StatusOK, posted, nil)
 		return

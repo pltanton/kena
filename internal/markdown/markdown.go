@@ -2,10 +2,14 @@ package markdown
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"html/template"
+	"io"
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -16,7 +20,13 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-const headingShift = 2
+const (
+	headingShift = 2
+	MaxLen       = 4000
+	maxColumns   = 12
+	maxCells     = 400
+	maxOutput    = 128 << 10
+)
 
 var md = goldmark.New(
 	goldmark.WithExtensions(extension.Table, extension.Strikethrough),
@@ -36,7 +46,7 @@ func (safety) Transform(doc *ast.Document, reader text.Reader, _ parser.Context)
 		case *ast.Heading:
 			n.Level = min(n.Level+headingShift, 6)
 		case *ast.Link:
-			if !SafeURL(string(n.Destination)) {
+			if !SafeURL(linkURL(n)) {
 				unwrap = append(unwrap, n)
 				break
 			}
@@ -72,6 +82,11 @@ func setLinkAttrs(n ast.Node) {
 	n.SetAttributeString("target", "_blank")
 }
 
+// linkURL is the href goldmark writes for n: it resolves entities, so the scheme is checked after them.
+func linkURL(n *ast.Link) string {
+	return string(util.URLEscape(n.Destination, true))
+}
+
 func SafeURL(u string) bool {
 	u = strings.Map(func(r rune) rune {
 		if unicode.IsSpace(r) || unicode.IsControl(r) {
@@ -90,39 +105,157 @@ func SafeURL(u string) bool {
 	return false
 }
 
-const maxCache = 512
+const (
+	maxCacheEntry = 64 << 10
+	maxCacheBytes = 8 << 20
+)
 
 var cache struct {
 	sync.Mutex
-	m map[string]template.HTML
+	m    map[string]template.HTML
+	size int
 }
 
 func Render(src string) template.HTML {
+	if utf8.RuneCountInString(src) > MaxLen {
+		return escaped(src)
+	}
 	cache.Lock()
 	h, ok := cache.m[src]
 	cache.Unlock()
 	if ok {
 		return h
 	}
-	var buf bytes.Buffer
-	if err := md.Convert([]byte(src), &buf); err != nil {
-		return template.HTML(template.HTMLEscapeString(src))
+	out, err := render(src)
+	if err != nil {
+		return escaped(src)
 	}
-	out := strings.ReplaceAll(buf.String(), "<table>", `<div class="md-table"><table>`)
+	out = strings.ReplaceAll(out, "<table>", `<div class="md-table"><table>`)
 	out = strings.ReplaceAll(out, "</table>", "</table></div>")
 	h = template.HTML(out)
-	cache.Lock()
-	if cache.m == nil || len(cache.m) >= maxCache {
-		cache.m = map[string]template.HTML{}
+	if n := len(src) + len(out); n <= maxCacheEntry {
+		cache.Lock()
+		if cache.m == nil || cache.size+n > maxCacheBytes {
+			cache.m, cache.size = map[string]template.HTML{}, 0
+		}
+		if _, ok := cache.m[src]; !ok {
+			cache.m[src] = h
+			cache.size += n
+		}
+		cache.Unlock()
 	}
-	cache.m[src] = h
-	cache.Unlock()
 	return h
+}
+
+func escaped(src string) template.HTML {
+	return template.HTML("<p>" + template.HTMLEscapeString(src) + "</p>")
+}
+
+var (
+	errTooLarge = errors.New("the rule renders too large; shorten it or split it into several rules")
+	errOverflow = errors.New("output limit reached")
+)
+
+type limitWriter struct {
+	buf bytes.Buffer
+}
+
+func (w *limitWriter) Write(p []byte) (int, error) {
+	if w.buf.Len()+len(p) > maxOutput {
+		return 0, errOverflow
+	}
+	return w.buf.Write(p)
+}
+
+func render(src string) (string, error) {
+	if err := wideDelimiter(src); err != nil {
+		return "", err
+	}
+	b := []byte(src)
+	doc := md.Parser().Parse(text.NewReader(b))
+	if errs := tableErrors(doc); len(errs) > 0 {
+		return "", errs[0]
+	}
+	var w limitWriter
+	if err := md.Renderer().Render(io.Writer(&w), b, doc); err != nil {
+		if errors.Is(err, errOverflow) {
+			return "", errTooLarge
+		}
+		return "", err
+	}
+	return w.buf.String(), nil
+}
+
+func columnsError(cols int) error {
+	return fmt.Errorf("a table has %d columns; at most %d are allowed", cols, maxColumns)
+}
+
+// wideDelimiter rejects a wide table before goldmark parses it: the parser pads every short row up to the header width.
+func wideDelimiter(src string) error {
+	for line := range strings.Lines(src) {
+		line = strings.TrimSpace(line)
+		if !strings.Contains(line, "|") || !strings.Contains(line, "-") || strings.Trim(line, "|:- \t") != "" {
+			continue
+		}
+		cols := 0
+		for cell := range strings.SplitSeq(line, "|") {
+			if strings.Contains(cell, "-") {
+				cols++
+			}
+		}
+		if cols > maxColumns {
+			return columnsError(cols)
+		}
+	}
+	return nil
+}
+
+func tableErrors(doc ast.Node) []error {
+	var errs []error
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		t, ok := n.(*extast.Table)
+		if !entering || !ok {
+			return ast.WalkContinue, nil
+		}
+		cols, rows := len(t.Alignments), t.ChildCount()
+		switch {
+		case cols > maxColumns:
+			errs = append(errs, columnsError(cols))
+		case cols*rows > maxCells:
+			errs = append(errs, fmt.Errorf("a table has %d cells (%d columns × %d rows, short rows count as full); at most %d are allowed", cols*rows, cols, rows, maxCells))
+		}
+		return ast.WalkSkipChildren, nil
+	})
+	return errs
+}
+
+func Errors(src string) []string {
+	if utf8.RuneCountInString(src) > MaxLen {
+		return []string{fmt.Sprintf("longer than %d characters", MaxLen)}
+	}
+	if err := wideDelimiter(src); err != nil {
+		return []string{err.Error()}
+	}
+	doc, _ := parse(src)
+	var out []string
+	for _, err := range tableErrors(doc) {
+		out = append(out, err.Error())
+	}
+	if len(out) > 0 {
+		return out
+	}
+	if _, err := render(src); err != nil {
+		out = append(out, err.Error())
+	}
+	return out
 }
 
 var raw = goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough))
 
 func parse(src string) (ast.Node, []byte) {
+	if utf8.RuneCountInString(src) > MaxLen || wideDelimiter(src) != nil {
+		return ast.NewDocument(), nil
+	}
 	b := []byte(src)
 	return raw.Parser().Parse(text.NewReader(b)), b
 }
@@ -191,7 +324,7 @@ func Issues(src string) []string {
 		case *ast.Image:
 			image = true
 		case *ast.Link:
-			link = link || !SafeURL(string(n.Destination))
+			link = link || !SafeURL(linkURL(n))
 		case *ast.AutoLink:
 			link = link || (n.AutoLinkType == ast.AutoLinkURL && !SafeURL(string(n.URL(source))))
 		}

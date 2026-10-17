@@ -48,7 +48,8 @@ time with `set_rule` / `delete_rule`. Each rule:
 - `key`: a–z, 0–9 and `-`, at most 32 characters; tasks name it in `rule`;
 - `title` (optional): one line, at most 80 characters;
 - `body`: Markdown, at most 4000 characters: short paragraphs, `**bold**`,
-  lists, and a table for a paradigm. No HTML, no images (they are not shown);
+  lists, and a table for a paradigm (at most 12 columns and 400 cells). No
+  HTML, no images (they are not shown);
 - `general` (optional): `true` for deck-wide theory, shown on every card and
   first on the deck page; `false` (default) for the point a group of tasks
   practises, shown only with the tasks whose `rule` is this key.
