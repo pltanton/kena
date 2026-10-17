@@ -246,17 +246,30 @@ func TestCreateAndGetSet(t *testing.T) {
 	fails(t, cs, "get_set", map[string]any{"set": "nope"}, `set "nope" not found`)
 }
 
-func TestCreateSetLintErrorWritesNothing(t *testing.T) {
+func tooMany() []map[string]any {
+	many := make([]map[string]any, 51)
+	for i := range many {
+		many[i] = validTasks()[0]
+	}
+	return many
+}
+
+func noSets(t *testing.T, cs *mcp.ClientSession) {
+	t.Helper()
+	if list := ok[SetList](t, cs, "list_sets", map[string]any{}); len(list.Sets) != 0 {
+		t.Fatalf("sets = %+v", list.Sets)
+	}
+}
+
+func TestCreateSetErrorWritesNothing(t *testing.T) {
 	e := newEnv(t)
 	cs := e.connect(t, "alice")
 	bad := []map[string]any{
 		task("Χθες η Μαρία ___ ένα γράμμα και ___ στη γιαγιά της.", "έγραψε"),
 	}
 	fails(t, cs, "create_set", setArgs("Bad", bad), "task[0].text")
-	list := ok[SetList](t, cs, "list_sets", map[string]any{})
-	if len(list.Sets) != 0 {
-		t.Fatalf("sets = %+v", list.Sets)
-	}
+	fails(t, cs, "create_set", setArgs("   ", nil), "title is required")
+	noSets(t, cs)
 }
 
 func TestBatchLimits(t *testing.T) {
@@ -266,24 +279,11 @@ func TestBatchLimits(t *testing.T) {
 	if out.Added != 0 || out.Total != 0 {
 		t.Fatalf("create_set = %+v", out)
 	}
-	many := make([]map[string]any, 51)
-	for i := range many {
-		many[i] = validTasks()[0]
-	}
+	many := tooMany()
 	fails(t, cs, "add_tasks", map[string]any{"set": out.Slug, "tasks": many}, "max 50")
 	fails(t, cs, "create_set", setArgs("Too many", many), "max 50")
 	fails(t, cs, "add_tasks", map[string]any{"set": out.Slug, "tasks": []any{}})
 	fails(t, cs, "add_tasks", map[string]any{"set": "missing", "tasks": validTasks()}, `set "missing" not found`)
-}
-
-func TestCreateSetRequiresTitle(t *testing.T) {
-	e := newEnv(t)
-	cs := e.connect(t, "alice")
-	fails(t, cs, "create_set", setArgs("   ", nil), "title is required")
-	list := ok[SetList](t, cs, "list_sets", map[string]any{})
-	if len(list.Sets) != 0 {
-		t.Fatalf("sets = %+v", list.Sets)
-	}
 }
 
 func TestAddTasksDuplicateWarning(t *testing.T) {
@@ -358,10 +358,7 @@ func TestValidateTasks(t *testing.T) {
 	if len(rep.Errors) != 1 || !strings.HasPrefix(rep.Errors[0], "task[2].text: ") {
 		t.Fatalf("errors = %v", rep.Errors)
 	}
-	list := ok[SetList](t, cs, "list_sets", map[string]any{})
-	if len(list.Sets) != 0 {
-		t.Fatalf("validate_tasks wrote sets: %+v", list.Sets)
-	}
+	noSets(t, cs)
 }
 
 func TestRepeatedExplanationAcrossSet(t *testing.T) {
@@ -407,11 +404,7 @@ func TestValidateTasksAgainstSet(t *testing.T) {
 
 	fails(t, cs, "validate_tasks", map[string]any{"tasks": dupe, "set": "missing"}, `set "missing" not found`)
 
-	many := make([]map[string]any, 51)
-	for i := range many {
-		many[i] = validTasks()[0]
-	}
-	fails(t, cs, "validate_tasks", map[string]any{"tasks": many}, "max 50")
+	fails(t, cs, "validate_tasks", map[string]any{"tasks": tooMany()}, "max 50")
 }
 
 func TestAdminTokens(t *testing.T) {
