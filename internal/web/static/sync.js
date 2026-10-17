@@ -144,13 +144,14 @@
 
   function refresh(force) {
     if (isOffline()) return Promise.resolve();
-    var stamp = 0;
-    try { stamp = +localStorage.getItem("kena:offline-refresh") || 0; } catch (err) {}
-    if (!force && Date.now() - stamp < REFRESH_EVERY) return Promise.resolve();
-    try { localStorage.setItem("kena:offline-refresh", String(Date.now())); } catch (err) {}
+    var stamp = "";
+    var now = (authed ? "u" : "a") + Date.now();
+    try { stamp = localStorage.getItem("kena:offline-refresh") || ""; } catch (err) {}
+    if (!force && stamp.charAt(0) === now.charAt(0) && Date.now() - +stamp.slice(1) < REFRESH_EVERY) return Promise.resolve();
     return all("packs").then(function (packs) {
       var saved = packs.filter(function (p) { return p.saved; }).map(function (p) { return p.slug; });
       if (!authed && !packs.length) return null;
+      try { localStorage.setItem("kena:offline-refresh", now); } catch (err) {}
       var q = saved.map(function (s) { return "s=" + encodeURIComponent(s); }).join("&");
       return timed("/offline/decks.json" + (q ? "?" + q : "")).then(function (r) {
         if (!r.ok) throw new Error("decks " + r.status);

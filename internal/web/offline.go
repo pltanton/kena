@@ -334,7 +334,7 @@ func newServiceWorker(static fs.FS) serviceWorker {
 			}
 			fmt.Fprintf(sum, "%s\x00%d\x00", path, len(b))
 			sum.Write(b)
-			if fsys == static && !strings.HasSuffix(path, ".txt") {
+			if fsys == static && !strings.HasSuffix(path, ".txt") && !strings.HasPrefix(path, "brand/screenshot-") {
 				assets = append(assets, "/static/"+path)
 			}
 			return nil

@@ -32,6 +32,8 @@ function marked(response) {
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(STATIC).then(function (c) {
     return c.addAll(ASSETS.map(function (u) { return new Request(u, {cache: "reload"}); }));
+  }).then(function () {
+    return caches.open(PAGES).then(function (c) { return c.add("/"); }).catch(function () {});
   }).then(function () { return self.skipWaiting(); }));
 });
 

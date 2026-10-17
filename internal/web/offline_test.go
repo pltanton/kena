@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -486,7 +487,7 @@ func TestServiceWorker(t *testing.T) {
 	}
 	wantAll(t, "sw.js", body, `"/static/app.css"`, `"/static/htmx.min.js"`, `"/static/offline.js"`, `"/static/sync.js"`,
 		`"/static/fonts/playpen-sans-greek.woff2"`, `"/static/brand/icon-192.png"`, `"/static/manifest.webmanifest"`, `"/offline"`)
-	wantNone(t, "sw.js", body, ".txt", "__BUILD__", "__ASSETS__")
+	wantNone(t, "sw.js", body, ".txt", "__BUILD__", "__ASSETS__", "screenshot")
 	resp, _ = e.get("/static/sw.js")
 	wantStatus(t, resp, http.StatusNotFound)
 	_, js := e.get("/static/app.js")
@@ -517,4 +518,42 @@ func TestOfflineHooksInPages(t *testing.T) {
 	anna.post("/s/"+e.set.Slug+"/star", url.Values{"star": {"1"}}, e.srv.URL)
 	_, body = anna.get("/s/" + e.set.Slug)
 	wantAll(t, "starred", body, "data-auto")
+}
+
+func TestManifest(t *testing.T) {
+	e := setup(t)
+	resp, body := e.get("/static/manifest.webmanifest")
+	wantStatus(t, resp, http.StatusOK)
+	var m struct {
+		ID, Scope, StartURL, Display, Description, Lang string
+		Categories                                      []string
+		Shortcuts                                       []struct{ Name, URL string }
+		Screenshots                                     []struct {
+			Src, Sizes, Type string
+			FormFactor       string `json:"form_factor"`
+		}
+	}
+	if err := json.Unmarshal([]byte(body), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.ID != "/" || m.Scope != "/" || m.Display != "standalone" || m.Description == "" || m.Lang != "en" || len(m.Categories) != 1 || m.Categories[0] != "education" {
+		t.Errorf("manifest %+v", m)
+	}
+	if len(m.Shortcuts) != 2 || m.Shortcuts[0].URL != "/" || m.Shortcuts[1].URL != "/mistakes" {
+		t.Errorf("shortcuts %+v", m.Shortcuts)
+	}
+	if len(m.Screenshots) != 2 {
+		t.Fatalf("screenshots %+v", m.Screenshots)
+	}
+	for _, s := range m.Screenshots {
+		resp, img := e.get(s.Src)
+		wantStatus(t, resp, http.StatusOK)
+		cfg, err := png.DecodeConfig(strings.NewReader(img))
+		if err != nil {
+			t.Fatalf("%s: %v", s.Src, err)
+		}
+		if got := fmt.Sprintf("%dx%d", cfg.Width, cfg.Height); got != s.Sizes || len(img) > 150<<10 {
+			t.Errorf("%s: %s, %d bytes; manifest says %s", s.Src, got, len(img), s.Sizes)
+		}
+	}
 }

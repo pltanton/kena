@@ -2319,3 +2319,13 @@ html[data-offline="1"] #card {
   font-size: 0.8rem;
   color: var(--ok);
 }
+
+#site-sync {
+  min-width: 0;
+  padding: 0 4px;
+  font-size: 0.8rem;
+}
+
+#site-sync .sync-off {
+  display: none;
+}
