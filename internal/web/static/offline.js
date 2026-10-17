@@ -167,7 +167,6 @@
     return state;
   }
 
-  // ---- strings, escaping and URLs the way html/template and net/url write them ----
 
   var escapes = {"&": "&amp;", "'": "&#39;", "<": "&lt;", ">": "&gt;", '"': "&#34;", "+": "&#43;", "\0": "�"};
 
@@ -234,7 +233,6 @@
     }).join("&");
   }
 
-  // ---- the handlers of practice.go ----
 
   function invalid(what, v) {
     var err = new Error(what + " " + JSON.stringify(v) + ": invalid");
@@ -515,7 +513,6 @@
     return function (k) { return values.get(k) || ""; };
   }
 
-  // ---- card.html, done.html and the bar, sentence and notes of layout.html ----
 
   var INFO_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r="0.6" fill="currentColor"/></svg>';
   var PREV_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg>';
@@ -789,7 +786,6 @@
   if (typeof module === "object" && module.exports) module.exports = core;
   if (typeof document === "undefined") return;
 
-  // ---- focus mode in the browser ----
 
   var app = document.getElementById("focus-app");
   var cardEl = document.getElementById("card");

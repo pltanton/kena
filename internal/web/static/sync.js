@@ -252,7 +252,6 @@
     soon = setTimeout(function () { if (!isOffline()) syncNow(); }, 300);
   }
 
-  // ---- indicators ----
 
   var inds = [document.getElementById("sync-ind"), document.getElementById("site-sync")].filter(Boolean);
 
@@ -294,7 +293,6 @@
     });
   });
 
-  // ---- deck overview, deck rows, the offline page ----
 
   function markRows(packs) {
     var have = {};
@@ -393,7 +391,6 @@
     }).catch(function () {});
   }
 
-  // ---- logout: sync first, then forget the account's decks and pages ----
 
   document.addEventListener("submit", function (e) {
     var form = e.target;
@@ -416,7 +413,6 @@
     });
   });
 
-  // ---- keep the precached /offline page in the current language ----
 
   function refreshOfflinePage() {
     if (!window.caches || isOffline()) return;

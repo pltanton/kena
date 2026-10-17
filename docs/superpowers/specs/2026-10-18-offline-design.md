@@ -40,15 +40,17 @@ assets. `app.js` registers it when `navigator.serviceWorker` exists.
   (the start URL) into `kena-pages`; `skipWaiting`. Activate: delete other
   `kena-static-*` caches, `clients.claim`, re-fetch every saved page in the
   page cache (best effort).
-- `/static/*`: network first (the HTTP cache still answers within
-  `max-age`), 3 s timeout, then the precache. Serving static files from the
-  network first means an old worker can never pair new HTML with old scripts.
-- Navigations: network first with a 3 s timeout. A successful response
-  refreshes the page cache (`kena-pages`) when it already holds that page
-  (`/`, `/s/{slug}`, `/s/{slug}/play`, query ignored); `/` is always kept.
-  When the network fails, the cached page is served with
-  `data-offline="1"` added to `<html>`; otherwise the precached `/offline`
-  page.
+- `/static/*` and navigations: network first. After 3 s without an answer a
+  cached copy is served if there is one; without one the request keeps
+  waiting for the network (a slow connection is not an offline one), and
+  only a network error falls back. Static files go to the network first (the
+  HTTP cache still answers within `max-age`), so an old worker never pairs
+  new HTML with old scripts.
+- Navigations: a successful response refreshes the page cache (`kena-pages`)
+  when it already holds that page (`/`, `/s/{slug}`, `/s/{slug}/play`, query
+  ignored); `/` is always kept. A cached page is served with
+  `data-offline="1"` added to `<html>`; a network error without one gets the
+  precached `/offline` page.
 - Everything else (htmx fragments, `/sync`, JSON) goes to the network
   untouched.
 
@@ -113,7 +115,9 @@ Downloading a pack also caches `/s/{slug}` and `/s/{slug}/play` in
 - A pack is also refreshed (conditional GET) when its deck's overview or
   practice page loads online, or when its language differs from the page's.
 - Logout: pending attempts are synced first (3 s at most), then user packs,
-  their attempts and every cached page are removed, then the form submits.
+  synced attempts and every cached page are removed, then the form submits.
+  Attempts that still could not be sent stay queued (rare: logging out needs
+  the network) and go to whoever is signed in when they sync.
 - Deck overview: a line under Practise / Worksheet. Own and starred decks
   (logged in): "Available offline ✓" (or "Saving for offline…"). Others:
   a "Save for offline" toggle button (`aria-pressed`); saved, it reads
@@ -132,7 +136,8 @@ A pure core (no DOM; loads in node for tests) and the browser glue.
   the initial `play` state, and renderers of the `card`, `done`, `bar`
   templates producing the same markup.
 - Shared vectors: `internal/greek/testdata/vectors.json` (normalise, check,
-  classify, shuffle) are asserted by Go tests and by `node --test`.
+  classify, levenshtein) and `internal/web/testdata/shuffle.json` are asserted
+  by Go tests and by `node --test`.
   `internal/web/testdata/offline_golden.json` is written by a Go test from
   the real handlers (a pack and a sequence of fragment requests with their
   responses); the Go test fails when the handlers' output changes and the

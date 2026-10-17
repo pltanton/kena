@@ -10,15 +10,24 @@ function pageKey(url) {
   return m ? "/s/" + m[1] + (m[2] || "") : null;
 }
 
-function network(request) {
-  return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () { reject(new Error("timeout")); }, TIMEOUT);
-    fetch(request).then(function (r) {
+function race(net, cached, fallback) {
+  return new Promise(function (resolve) {
+    var done = false;
+    function finish(r) {
+      if (!done) {
+        done = true;
+        resolve(r);
+      }
+    }
+    var timer = setTimeout(function () {
+      cached().then(function (hit) { if (hit) finish(hit); });
+    }, TIMEOUT);
+    net.then(function (r) {
       clearTimeout(timer);
-      resolve(r);
-    }, function (err) {
+      finish(r);
+    }, function () {
       clearTimeout(timer);
-      reject(err);
+      cached().then(function (hit) { return hit || fallback(); }).then(finish);
     });
   });
 }
@@ -57,8 +66,8 @@ self.addEventListener("activate", function (e) {
 
 function navigate(request, url) {
   var key = pageKey(url);
-  return network(request).then(function (response) {
-    if (key && response.ok && response.status === 200 && !response.redirected) {
+  var net = fetch(request).then(function (response) {
+    if (key && response.status === 200 && !response.redirected) {
       var copy = response.clone();
       caches.open(PAGES).then(function (c) {
         return (key === "/" ? Promise.resolve(true) : c.match(key)).then(function (have) {
@@ -67,24 +76,20 @@ function navigate(request, url) {
       });
     }
     return response;
+  });
+  return race(net, function () {
+    if (!key) return Promise.resolve(undefined);
+    return caches.open(PAGES).then(function (c) { return c.match(key); }).then(function (hit) { return hit && marked(hit); });
   }, function () {
-    return caches.open(PAGES).then(function (c) {
-      return key ? c.match(key) : undefined;
-    }).then(function (hit) {
-      if (hit) return marked(hit);
-      return caches.match("/offline").then(function (page) {
-        return page ? marked(page) : Response.error();
-      });
-    });
+    return caches.match("/offline").then(function (page) { return page ? marked(page) : Response.error(); });
   });
 }
 
 function asset(request) {
-  return network(request).catch(function (err) {
-    return caches.match(request, {ignoreSearch: true}).then(function (hit) {
-      if (hit) return hit;
-      throw err;
-    });
+  return race(fetch(request), function () {
+    return caches.match(request, {ignoreSearch: true});
+  }, function () {
+    return Response.error();
   });
 }
 
