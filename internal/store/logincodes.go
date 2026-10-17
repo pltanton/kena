@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,28 +12,21 @@ func (s *Store) CreateLoginCode(ctx context.Context, userID int64, ttl time.Dura
 	if err != nil {
 		return "", err
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return "", fmt.Errorf("beginning tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	var locked int64
-	if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&locked); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
+		var locked int64
+		if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&locked); err != nil {
+			return noRows(err, "locking user")
 		}
-		return "", fmt.Errorf("locking user: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM login_codes WHERE user_id = $1 AND used_at IS NULL`, userID); err != nil {
-		return "", fmt.Errorf("deleting old login codes: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO login_codes (hash, user_id, expires_at) VALUES ($1, $2, $3)
-	`, HashSecret(secret), userID, time.Now().Add(ttl)); err != nil {
-		return "", fmt.Errorf("creating login code: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("committing tx: %w", err)
+		if _, err := exec(ctx, tx, "deleting old login codes", `DELETE FROM login_codes WHERE user_id = $1 AND used_at IS NULL`, userID); err != nil {
+			return err
+		}
+		_, err := exec(ctx, tx, "creating login code", `
+			INSERT INTO login_codes (hash, user_id, expires_at) VALUES ($1, $2, $3)
+		`, HashSecret(secret), userID, time.Now().Add(ttl))
+		return err
+	})
+	if err != nil {
+		return "", err
 	}
 	return secret, nil
 }
@@ -63,13 +54,5 @@ func (s *Store) loginCodeUser(ctx context.Context, query, secret string) (User, 
 	if secret == "" {
 		return User{}, ErrNotFound
 	}
-	var u User
-	err := s.pool.QueryRow(ctx, query, HashSecret(secret)).Scan(u.dest()...)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrNotFound
-	}
-	if err != nil {
-		return User{}, fmt.Errorf("looking up login code: %w", err)
-	}
-	return u, nil
+	return s.userQuery(ctx, "looking up login code", query, HashSecret(secret))
 }

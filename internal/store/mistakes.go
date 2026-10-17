@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pltanton/kena/internal/greek"
@@ -49,7 +49,16 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		return Report{}, err
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	type row struct {
+		ref SetRef
+		tm  TaskMistakes
+	}
+	rows, err := queryAll(ctx, s.pool, "getting mistakes", func(r *row) []any {
+		t := &r.tm.Task
+		return []any{&r.ref.ID, &r.ref.Slug, &r.ref.Title, &r.ref.Topic, &r.ref.Level,
+			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &r.tm.Rule,
+			&r.tm.AttemptCount, &r.tm.WrongCount, &r.tm.LastCorrect}
+	}, `
 		WITH w AS (
 			SELECT a.task_id, count(*) AS attempts, count(*) FILTER (WHERE NOT a.correct) AS wrong
 			FROM attempts a
@@ -76,43 +85,24 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		ORDER BY s.title, s.id, w.wrong DESC, t.position
 	`, progressID, since, setID, viewerID)
 	if err != nil {
-		return Report{}, fmt.Errorf("getting mistakes: %w", err)
+		return Report{}, err
 	}
-	defer rows.Close()
 
 	var rep Report
-	byTask := map[int64]*TaskMistakes{}
-	for rows.Next() {
-		var ref SetRef
-		var tm TaskMistakes
-		t := &tm.Task
-		if err := rows.Scan(&ref.ID, &ref.Slug, &ref.Title, &ref.Topic, &ref.Level,
-			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &tm.Rule,
-			&tm.AttemptCount, &tm.WrongCount, &tm.LastCorrect); err != nil {
-			return Report{}, fmt.Errorf("scanning mistakes: %w", err)
-		}
-		if n := len(rep.Sets); n == 0 || rep.Sets[n-1].Set.ID != ref.ID {
-			rep.Sets = append(rep.Sets, SetMistakes{Set: ref})
+	for _, r := range rows {
+		if n := len(rep.Sets); n == 0 || rep.Sets[n-1].Set.ID != r.ref.ID {
+			rep.Sets = append(rep.Sets, SetMistakes{Set: r.ref})
 		}
 		sm := &rep.Sets[len(rep.Sets)-1]
 		sm.TasksTried++
-		sm.Attempts += tm.AttemptCount
-		sm.Correct += tm.AttemptCount - tm.WrongCount
-		if tm.WrongCount > 0 {
-			sm.Tasks = append(sm.Tasks, tm)
+		sm.Attempts += r.tm.AttemptCount
+		sm.Correct += r.tm.AttemptCount - r.tm.WrongCount
+		if r.tm.WrongCount > 0 {
+			sm.Tasks = append(sm.Tasks, r.tm)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return Report{}, fmt.Errorf("getting mistakes: %w", err)
-	}
-
-	out := rep.Sets[:0]
-	for _, sm := range rep.Sets {
-		if len(sm.Tasks) > 0 {
-			out = append(out, sm)
-		}
-	}
-	rep.Sets = out
+	rep.Sets = slices.DeleteFunc(rep.Sets, func(sm SetMistakes) bool { return len(sm.Tasks) == 0 })
+	byTask := map[int64]*TaskMistakes{}
 	for i := range rep.Sets {
 		for j := range rep.Sets[i].Tasks {
 			tm := &rep.Sets[i].Tasks[j]
@@ -123,7 +113,13 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		return rep, nil
 	}
 
-	rows, err = s.pool.Query(ctx, `
+	type wrong struct {
+		taskID int64
+		wa     WrongAttempt
+	}
+	wrongs, err := queryAll(ctx, s.pool, "getting wrong attempts", func(w *wrong) []any {
+		return []any{&w.taskID, &w.wa.Answers, &w.wa.CreatedAt}
+	}, `
 		SELECT task_id, answers, created_at FROM (
 			SELECT a.task_id, a.answers, a.created_at,
 				row_number() OVER (PARTITION BY a.task_id ORDER BY a.created_at DESC, a.id DESC) AS rn
@@ -135,21 +131,12 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 		ORDER BY task_id, rn
 	`, progressID, since, setID, recentWrongLimit)
 	if err != nil {
-		return Report{}, fmt.Errorf("getting wrong attempts: %w", err)
+		return Report{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var taskID int64
-		var wa WrongAttempt
-		if err := rows.Scan(&taskID, &wa.Answers, &wa.CreatedAt); err != nil {
-			return Report{}, fmt.Errorf("scanning wrong attempt: %w", err)
+	for _, w := range wrongs {
+		if tm, ok := byTask[w.taskID]; ok {
+			tm.RecentWrong = append(tm.RecentWrong, w.wa)
 		}
-		if tm, ok := byTask[taskID]; ok {
-			tm.RecentWrong = append(tm.RecentWrong, wa)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return Report{}, fmt.Errorf("getting wrong attempts: %w", err)
 	}
 	return rep, nil
 }

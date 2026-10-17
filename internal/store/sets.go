@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -12,7 +10,6 @@ import (
 	"unicode"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/pltanton/kena/internal/greek"
@@ -103,37 +100,29 @@ var greekTranslit = map[rune]string{
 const maxSlugLen = 60
 
 func Slugify(s string) string {
-	var stripped strings.Builder
+	var b strings.Builder
+	dash := false
 	for _, r := range norm.NFD.String(s) {
 		if unicode.Is(unicode.Mn, r) {
 			continue
 		}
-		stripped.WriteRune(r)
-	}
-
-	var translit strings.Builder
-	for _, r := range strings.ToLower(stripped.String()) {
-		if repl, ok := greekTranslit[r]; ok {
-			translit.WriteString(repl)
-		} else {
-			translit.WriteRune(r)
+		r = unicode.ToLower(r)
+		part, ok := greekTranslit[r]
+		if !ok {
+			part = string(r)
+		}
+		for _, c := range part {
+			switch {
+			case c >= 'a' && c <= 'z', c >= '0' && c <= '9':
+				b.WriteRune(c)
+				dash = false
+			case !dash:
+				b.WriteByte('-')
+				dash = true
+			}
 		}
 	}
-
-	var cleaned strings.Builder
-	lastDash := false
-	for _, r := range translit.String() {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			cleaned.WriteRune(r)
-			lastDash = false
-		case !lastDash:
-			cleaned.WriteByte('-')
-			lastDash = true
-		}
-	}
-
-	slug := strings.Trim(cleaned.String(), "-")
+	slug := strings.Trim(b.String(), "-")
 	if len(slug) > maxSlugLen {
 		slug = strings.TrimRight(slug[:maxSlugLen], "-")
 	}
@@ -144,17 +133,6 @@ func Slugify(s string) string {
 		return "set-" + slug
 	}
 	return slug
-}
-
-func marshalBlanks(blanks []greek.Blank) ([]byte, error) {
-	if blanks == nil {
-		blanks = []greek.Blank{}
-	}
-	b, err := json.Marshal(blanks)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling blanks: %w", err)
-	}
-	return b, nil
 }
 
 const setColumns = `
@@ -173,41 +151,22 @@ func (st *Set) dest() []any {
 		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.Rules, &st.CreatedAt, &st.UpdatedAt}
 }
 
-func marshalRules(rules []greek.Rule) ([]byte, error) {
-	if rules == nil {
-		rules = []greek.Rule{}
-	}
-	b, err := json.Marshal(rules)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling rules: %w", err)
-	}
-	return b, nil
-}
-
 const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, '')`
 
 func (t *Task) dest() []any {
 	return []any{&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule}
 }
 
-func scanSet(row pgx.Row) (Set, error) {
+func (s *Store) setWhere(ctx context.Context, cond string, arg any) (Set, error) {
 	var st Set
-	err := row.Scan(st.dest()...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Set{}, ErrNotFound
-		}
-		return Set{}, fmt.Errorf("getting set: %w", err)
+	if err := s.pool.QueryRow(ctx, "SELECT "+setColumns+setFromJoin+" WHERE "+cond, arg).Scan(st.dest()...); err != nil {
+		return Set{}, noRows(err, "getting set")
 	}
 	return st, nil
 }
 
 func (s *Store) setByID(ctx context.Context, id int64) (Set, error) {
-	return scanSet(s.pool.QueryRow(ctx, "SELECT "+setColumns+setFromJoin+" WHERE s.id = $1", id))
-}
-
-func (s *Store) setBySlug(ctx context.Context, slug string) (Set, error) {
-	return scanSet(s.pool.QueryRow(ctx, "SELECT "+setColumns+setFromJoin+" WHERE s.slug = $1", slug))
+	return s.setWhere(ctx, "s.id = $1", id)
 }
 
 var allDigitsRe = regexp.MustCompile(`^[0-9]+$`)
@@ -226,8 +185,7 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 	if !vis.valid() {
 		return Set{}, fmt.Errorf("visibility %q: %w", vis, ErrInvalid)
 	}
-
-	rules, err := marshalRules(in.Rules)
+	rules, err := jsonList(in.Rules)
 	if err != nil {
 		return Set{}, err
 	}
@@ -237,23 +195,21 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 	}
 	base = Slugify(base)
 
-	for attempt := 0; attempt < maxSlugAttempts; attempt++ {
+	for attempt := 1; attempt <= maxSlugAttempts; attempt++ {
 		slug := base
-		if attempt > 0 {
-			slug = fmt.Sprintf("%s-%d", base, attempt+1)
+		if attempt > 1 {
+			slug = fmt.Sprintf("%s-%d", base, attempt)
 		}
-
 		var id int64
 		err := s.pool.QueryRow(ctx, `
 			INSERT INTO sets (owner_id, slug, title, topic, level, instructions, source_ref, visibility, rules)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id
 		`, ownerID, slug, title, in.Topic, in.Level, in.Instructions, in.SourceRef, vis, rules).Scan(&id)
+		if isUniqueViolation(err) {
+			continue
+		}
 		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				continue
-			}
 			return Set{}, fmt.Errorf("creating set: %w", err)
 		}
 		return s.setByID(ctx, id)
@@ -262,14 +218,14 @@ func (s *Store) CreateSet(ctx context.Context, ownerID int64, in SetInput) (Set,
 }
 
 func (s *Store) GetSet(ctx context.Context, idOrSlug string) (Set, error) {
-	if allDigitsRe.MatchString(idOrSlug) {
-		id, err := strconv.ParseInt(idOrSlug, 10, 64)
-		if err != nil {
-			return Set{}, fmt.Errorf("invalid set id %q: %w", idOrSlug, ErrInvalid)
-		}
-		return s.setByID(ctx, id)
+	if !allDigitsRe.MatchString(idOrSlug) {
+		return s.setWhere(ctx, "s.slug = $1", idOrSlug)
 	}
-	return s.setBySlug(ctx, idOrSlug)
+	id, err := strconv.ParseInt(idOrSlug, 10, 64)
+	if err != nil {
+		return Set{}, fmt.Errorf("invalid set id %q: %w", idOrSlug, ErrInvalid)
+	}
+	return s.setByID(ctx, id)
 }
 
 type ListFilter struct {
@@ -279,29 +235,12 @@ type ListFilter struct {
 }
 
 func (s *Store) ListSets(ctx context.Context, f ListFilter) ([]Set, error) {
-	rows, err := s.pool.Query(ctx, `
+	return queryAll(ctx, s.pool, "listing sets", (*Set).dest, `
 		SELECT `+setColumns+setFromJoin+`
 		WHERE ($1 = '' OR u.username = $1)
 			AND ($2 OR s.owner_id = $3 OR s.visibility = 'public' OR (s.visibility = 'friends' AND $3 <> 0))
 		ORDER BY u.username, s.created_at DESC
 	`, f.Owner, f.All, f.ViewerID)
-	if err != nil {
-		return nil, fmt.Errorf("listing sets: %w", err)
-	}
-	defer rows.Close()
-
-	var sets []Set
-	for rows.Next() {
-		st, err := scanSet(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scanning set: %w", err)
-		}
-		sets = append(sets, st)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing sets: %w", err)
-	}
-	return sets, nil
 }
 
 func (s *Store) UpdateSet(ctx context.Context, setID int64, p SetPatch) (Set, error) {
@@ -317,13 +256,12 @@ func updateSet(ctx context.Context, db querier, setID int64, p SetPatch) error {
 	}
 	var rules []byte
 	if p.Rules != nil {
-		b, err := marshalRules(*p.Rules)
-		if err != nil {
+		var err error
+		if rules, err = jsonList(*p.Rules); err != nil {
 			return err
 		}
-		rules = b
 	}
-	tag, err := db.Exec(ctx, `
+	return execOne(ctx, db, "updating set", `
 		UPDATE sets SET
 			title = COALESCE($2, title),
 			topic = COALESCE($3, topic),
@@ -335,72 +273,55 @@ func updateSet(ctx context.Context, db querier, setID int64, p SetPatch) error {
 			updated_at = now()
 		WHERE id = $1
 	`, setID, p.Title, p.Topic, p.Level, p.Instructions, p.SourceRef, p.Visibility, rules)
-	if err != nil {
-		return fmt.Errorf("updating set: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
 }
 
 func (s *Store) DeleteSet(ctx context.Context, setID int64) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM sets WHERE id = $1`, setID)
-	if err != nil {
-		return fmt.Errorf("deleting set: %w", err)
+	return execOne(ctx, s.pool, "deleting set", `DELETE FROM sets WHERE id = $1`, setID)
+}
+
+// lockSet takes the set's row lock and, unless version is zero, refuses a set
+// changed since version.
+func lockSet(ctx context.Context, tx pgx.Tx, setID int64, version time.Time) error {
+	var updatedAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT updated_at FROM sets WHERE id = $1 FOR UPDATE`, setID).Scan(&updatedAt); err != nil {
+		return noRows(err, "locking set")
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+	if !version.IsZero() && !version.Equal(updatedAt) {
+		return fmt.Errorf("set changed since %s: %w", version.Format(time.RFC3339Nano), ErrConflict)
 	}
 	return nil
 }
 
 func (s *Store) AddTasks(ctx context.Context, setID int64, inputs []greek.TaskInput) ([]Task, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("beginning tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var exists bool
-	err = tx.QueryRow(ctx, `SELECT true FROM sets WHERE id = $1 FOR UPDATE`, setID).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, fmt.Errorf("locking set: %w", err)
-	}
-
-	var maxPos int
-	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(position), 0) FROM tasks WHERE set_id = $1`, setID).Scan(&maxPos); err != nil {
-		return nil, fmt.Errorf("getting max position: %w", err)
-	}
-
 	tasks := make([]Task, 0, len(inputs))
-	for i, in := range inputs {
-		blanksJSON, err := marshalBlanks(in.Blanks)
-		if err != nil {
-			return nil, err
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := lockSet(ctx, tx, setID, time.Time{}); err != nil {
+			return err
 		}
-
-		var t Task
-		err = tx.QueryRow(ctx, `
-			INSERT INTO tasks (set_id, position, text, blanks, explanation, rule)
-			VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
-			RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanksJSON, in.Explanation, in.Rule,
-		).Scan(t.dest()...)
-		if err != nil {
-			return nil, fmt.Errorf("inserting task: %w", err)
+		var maxPos int
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(position), 0) FROM tasks WHERE set_id = $1`, setID).Scan(&maxPos); err != nil {
+			return fmt.Errorf("getting max position: %w", err)
 		}
-		tasks = append(tasks, t)
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE sets SET updated_at = now() WHERE id = $1`, setID); err != nil {
-		return nil, fmt.Errorf("bumping set: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("committing tx: %w", err)
+		for i, in := range inputs {
+			blanks, err := jsonList(in.Blanks)
+			if err != nil {
+				return err
+			}
+			var t Task
+			if err := tx.QueryRow(ctx, `
+				INSERT INTO tasks (set_id, position, text, blanks, explanation, rule)
+				VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+				RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanks, in.Explanation, in.Rule,
+			).Scan(t.dest()...); err != nil {
+				return fmt.Errorf("inserting task: %w", err)
+			}
+			tasks = append(tasks, t)
+		}
+		_, err := exec(ctx, tx, "bumping set", `UPDATE sets SET updated_at = now() WHERE id = $1`, setID)
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
 	return tasks, nil
 }
@@ -410,53 +331,28 @@ func (s *Store) ListTasks(ctx context.Context, setID int64) ([]Task, error) {
 }
 
 func listTasks(ctx context.Context, db querier, setID int64) ([]Task, error) {
-	rows, err := db.Query(ctx, `
-		SELECT `+taskColumns+`
-		FROM tasks WHERE set_id = $1 ORDER BY position
-	`, setID)
-	if err != nil {
-		return nil, fmt.Errorf("listing tasks: %w", err)
-	}
-	defer rows.Close()
-
-	var tasks []Task
-	for rows.Next() {
-		var t Task
-		if err := rows.Scan(t.dest()...); err != nil {
-			return nil, fmt.Errorf("scanning task: %w", err)
-		}
-		tasks = append(tasks, t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing tasks: %w", err)
-	}
-	return tasks, nil
+	return queryAll(ctx, db, "listing tasks", (*Task).dest,
+		`SELECT `+taskColumns+` FROM tasks WHERE set_id = $1 ORDER BY position`, setID)
 }
 
 func (s *Store) GetTask(ctx context.Context, taskID int64) (Task, error) {
 	var t Task
-	err := s.pool.QueryRow(ctx, `SELECT `+taskColumns+` FROM tasks WHERE id = $1`, taskID).Scan(t.dest()...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Task{}, ErrNotFound
-		}
-		return Task{}, fmt.Errorf("getting task: %w", err)
+	if err := s.pool.QueryRow(ctx, `SELECT `+taskColumns+` FROM tasks WHERE id = $1`, taskID).Scan(t.dest()...); err != nil {
+		return Task{}, noRows(err, "getting task")
 	}
 	return t, nil
 }
 
 func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task, error) {
-	var blanksJSON []byte
+	var blanks []byte
 	if p.Blanks != nil {
-		b, err := marshalBlanks(*p.Blanks)
-		if err != nil {
+		var err error
+		if blanks, err = jsonList(*p.Blanks); err != nil {
 			return Task{}, err
 		}
-		blanksJSON = b
 	}
-
 	var t Task
-	err := s.pool.QueryRow(ctx, `
+	if err := s.pool.QueryRow(ctx, `
 		UPDATE tasks SET
 			text = COALESCE($2, text),
 			blanks = COALESCE($3, blanks),
@@ -464,34 +360,21 @@ func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task
 			rule = CASE WHEN $5::text IS NULL THEN rule ELSE NULLIF($5, '') END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+taskColumns, taskID, p.Text, blanksJSON, p.Explanation, p.Rule,
-	).Scan(t.dest()...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Task{}, ErrNotFound
-		}
-		return Task{}, fmt.Errorf("updating task: %w", err)
+		RETURNING `+taskColumns, taskID, p.Text, blanks, p.Explanation, p.Rule,
+	).Scan(t.dest()...); err != nil {
+		return Task{}, noRows(err, "updating task")
 	}
-
-	if _, err := s.pool.Exec(ctx, `UPDATE sets SET updated_at = now() WHERE id = $1`, t.SetID); err != nil {
-		return Task{}, fmt.Errorf("bumping set: %w", err)
+	if _, err := exec(ctx, s.pool, "bumping set", `UPDATE sets SET updated_at = now() WHERE id = $1`, t.SetID); err != nil {
+		return Task{}, err
 	}
-
 	return t, nil
 }
 
 func (s *Store) DeleteTask(ctx context.Context, taskID int64) error {
-	tag, err := s.pool.Exec(ctx, `
+	return execOne(ctx, s.pool, "deleting task", `
 		WITH d AS (DELETE FROM tasks WHERE id = $1 RETURNING set_id)
 		UPDATE sets SET updated_at = now() WHERE id IN (SELECT set_id FROM d)
 	`, taskID)
-	if err != nil {
-		return fmt.Errorf("deleting task: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
 }
 
 func CanView(viewerID int64, set Set) bool {

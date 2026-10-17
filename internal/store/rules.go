@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -39,65 +38,46 @@ func (e *RulesInUseError) Error() string {
 }
 
 func (s *Store) ReplaceRules(ctx context.Context, setID int64, version time.Time, rules []greek.Rule, renames map[string]string) (Set, error) {
-	tx, err := s.pool.Begin(ctx)
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := lockSet(ctx, tx, setID, version); err != nil {
+			return err
+		}
+		for from, to := range renames {
+			if _, err := exec(ctx, tx, "renaming rule", `UPDATE tasks SET rule = $3, updated_at = now() WHERE set_id = $1 AND rule = $2`, setID, from, to); err != nil {
+				return err
+			}
+		}
+		keys := make([]string, len(rules))
+		for i, r := range rules {
+			keys[i] = r.Key
+		}
+		type use struct {
+			key string
+			ref TaskRef
+		}
+		uses, err := queryAll(ctx, tx, "checking rule use", func(u *use) []any { return []any{&u.key, &u.ref.ID, &u.ref.Position} }, `
+			SELECT rule, id, position FROM tasks
+			WHERE set_id = $1 AND rule IS NOT NULL AND NOT rule = ANY($2)
+			ORDER BY rule, position
+		`, setID, keys)
+		if err != nil {
+			return err
+		}
+		var inUse RulesInUseError
+		for _, u := range uses {
+			if n := len(inUse.Uses); n == 0 || inUse.Uses[n-1].Key != u.key {
+				inUse.Uses = append(inUse.Uses, RuleUse{Key: u.key})
+			}
+			last := &inUse.Uses[len(inUse.Uses)-1]
+			last.Tasks = append(last.Tasks, u.ref)
+		}
+		if len(inUse.Uses) > 0 {
+			return &inUse
+		}
+		return updateSet(ctx, tx, setID, SetPatch{Rules: &rules})
+	})
 	if err != nil {
-		return Set{}, fmt.Errorf("beginning tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var updatedAt time.Time
-	if err := tx.QueryRow(ctx, `SELECT updated_at FROM sets WHERE id = $1 FOR UPDATE`, setID).Scan(&updatedAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Set{}, ErrNotFound
-		}
-		return Set{}, fmt.Errorf("locking set: %w", err)
-	}
-	if !version.IsZero() && !version.Equal(updatedAt) {
-		return Set{}, fmt.Errorf("set changed since %s: %w", version.Format(time.RFC3339Nano), ErrConflict)
-	}
-	for from, to := range renames {
-		if _, err := tx.Exec(ctx, `UPDATE tasks SET rule = $3, updated_at = now() WHERE set_id = $1 AND rule = $2`, setID, from, to); err != nil {
-			return Set{}, fmt.Errorf("renaming rule: %w", err)
-		}
-	}
-	keys := make([]string, len(rules))
-	for i, r := range rules {
-		keys[i] = r.Key
-	}
-	rows, err := tx.Query(ctx, `
-		SELECT rule, id, position FROM tasks
-		WHERE set_id = $1 AND rule IS NOT NULL AND NOT rule = ANY($2)
-		ORDER BY rule, position
-	`, setID, keys)
-	if err != nil {
-		return Set{}, fmt.Errorf("checking rule use: %w", err)
-	}
-	var inUse RulesInUseError
-	for rows.Next() {
-		var key string
-		var ref TaskRef
-		if err := rows.Scan(&key, &ref.ID, &ref.Position); err != nil {
-			rows.Close()
-			return Set{}, fmt.Errorf("scanning rule use: %w", err)
-		}
-		if n := len(inUse.Uses); n == 0 || inUse.Uses[n-1].Key != key {
-			inUse.Uses = append(inUse.Uses, RuleUse{Key: key})
-		}
-		u := &inUse.Uses[len(inUse.Uses)-1]
-		u.Tasks = append(u.Tasks, ref)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return Set{}, fmt.Errorf("checking rule use: %w", err)
-	}
-	if len(inUse.Uses) > 0 {
-		return Set{}, &inUse
-	}
-	if err := updateSet(ctx, tx, setID, SetPatch{Rules: &rules}); err != nil {
 		return Set{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Set{}, fmt.Errorf("committing tx: %w", err)
 	}
 	return s.setByID(ctx, setID)
 }

@@ -229,12 +229,8 @@ func TestRevokeTokenRevokesGrant(t *testing.T) {
 		t.Fatalf("IssueToken: %v", err)
 	}
 
-	gotUser, gotTokenID, err := s.TokenUser(ctx, secret)
-	if err != nil {
-		t.Fatalf("TokenUser: %v", err)
-	}
-	if gotUser.ID != u.ID || gotTokenID != tok.ID {
-		t.Fatalf("TokenUser = %+v, %d; want user %d, token %d", gotUser, gotTokenID, u.ID, tok.ID)
+	if got, err := s.UserByToken(ctx, secret); err != nil || got.ID != u.ID {
+		t.Fatalf("UserByToken = %+v, %v; want user %d", got, err, u.ID)
 	}
 
 	access, refresh, g, err := s.CreateGrant(ctx, u.ID, "client-8", "res", tok.ID, time.Hour, 24*time.Hour)

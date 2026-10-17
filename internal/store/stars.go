@@ -21,19 +21,13 @@ func (s *Store) Star(ctx context.Context, userID, setID int64) error {
 	if !CanView(userID, set) {
 		return ErrNotFound
 	}
-	if _, err := s.pool.Exec(ctx, `
-		INSERT INTO stars (user_id, set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
-	`, userID, setID); err != nil {
-		return fmt.Errorf("starring set: %w", err)
-	}
-	return nil
+	_, err = exec(ctx, s.pool, "starring set", `INSERT INTO stars (user_id, set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, setID)
+	return err
 }
 
 func (s *Store) Unstar(ctx context.Context, userID, setID int64) error {
-	if _, err := s.pool.Exec(ctx, `DELETE FROM stars WHERE user_id = $1 AND set_id = $2`, userID, setID); err != nil {
-		return fmt.Errorf("unstarring set: %w", err)
-	}
-	return nil
+	_, err := exec(ctx, s.pool, "unstarring set", `DELETE FROM stars WHERE user_id = $1 AND set_id = $2`, userID, setID)
+	return err
 }
 
 func (s *Store) IsStarred(ctx context.Context, userID, setID int64) (bool, error) {
@@ -56,27 +50,10 @@ func (s *Store) BrowseDecks(ctx context.Context, viewerID int64) ([]Deck, error)
 }
 
 func (s *Store) decks(ctx context.Context, where string, userID int64) ([]Deck, error) {
-	rows, err := s.pool.Query(ctx, `
+	return queryAll(ctx, s.pool, "listing decks", func(d *Deck) []any { return append(d.dest(), &d.Starred) }, `
 		SELECT `+setColumns+`, st.set_id IS NOT NULL`+setFromJoin+`
 		LEFT JOIN stars st ON st.set_id = s.id AND st.user_id = $1
 		WHERE `+where+`
 		ORDER BY lower(s.title), s.id
 	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("listing decks: %w", err)
-	}
-	defer rows.Close()
-
-	var decks []Deck
-	for rows.Next() {
-		var d Deck
-		if err := rows.Scan(append(d.dest(), &d.Starred)...); err != nil {
-			return nil, fmt.Errorf("scanning deck: %w", err)
-		}
-		decks = append(decks, d)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing decks: %w", err)
-	}
-	return decks, nil
 }

@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 )
@@ -35,21 +34,14 @@ func (s *Store) record(ctx context.Context, deviceID string, taskID int64, answe
 		return err
 	}
 
-	if answers == nil {
-		answers = []string{}
-	}
-	answersJSON, err := json.Marshal(answers)
+	answersJSON, err := jsonList(answers)
 	if err != nil {
-		return fmt.Errorf("marshaling answers: %w", err)
+		return err
 	}
-
-	_, err = s.pool.Exec(ctx, `
+	_, err = exec(ctx, s.pool, "recording attempt", `
 		INSERT INTO attempts (device_id, task_id, answers, correct, gave_up) VALUES ($1, $2, $3, $4, $5)
 	`, deviceID, taskID, answersJSON, correct, gaveUp)
-	if err != nil {
-		return fmt.Errorf("recording attempt: %w", err)
-	}
-	return nil
+	return err
 }
 
 type LastAttempt struct {
@@ -63,7 +55,13 @@ func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) 
 		return nil, err
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	type row struct {
+		id int64
+		la LastAttempt
+	}
+	rows, err := queryAll(ctx, s.pool, "getting last attempts", func(r *row) []any {
+		return []any{&r.id, &r.la.Answers, &r.la.Correct, &r.la.GaveUp}
+	}, `
 		SELECT DISTINCT ON (a.task_id) a.task_id, a.answers, a.correct, a.gave_up
 		FROM attempts a
 		JOIN tasks t ON t.id = a.task_id
@@ -71,21 +69,11 @@ func (s *Store) LastAttempts(ctx context.Context, deviceID string, setID int64) 
 		ORDER BY a.task_id, a.created_at DESC, a.id DESC
 	`, deviceID, setID)
 	if err != nil {
-		return nil, fmt.Errorf("getting last attempts: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	out := make(map[int64]LastAttempt)
-	for rows.Next() {
-		var taskID int64
-		var la LastAttempt
-		if err := rows.Scan(&taskID, &la.Answers, &la.Correct, &la.GaveUp); err != nil {
-			return nil, fmt.Errorf("scanning last attempt: %w", err)
-		}
-		out[taskID] = la
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("getting last attempts: %w", err)
+	out := make(map[int64]LastAttempt, len(rows))
+	for _, r := range rows {
+		out[r.id] = r.la
 	}
 	return out, nil
 }
@@ -95,7 +83,13 @@ func (s *Store) ProgressBySet(ctx context.Context, deviceID string) (map[int64]P
 		return nil, err
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	type row struct {
+		id int64
+		p  Progress
+	}
+	rows, err := queryAll(ctx, s.pool, "getting progress", func(r *row) []any {
+		return []any{&r.id, &r.p.Total, &r.p.Solved, &r.p.Mistakes}
+	}, `
 		WITH last_attempts AS (
 			SELECT DISTINCT ON (task_id) task_id, correct
 			FROM attempts
@@ -110,35 +104,21 @@ func (s *Store) ProgressBySet(ctx context.Context, deviceID string) (map[int64]P
 		GROUP BY t.set_id
 	`, deviceID)
 	if err != nil {
-		return nil, fmt.Errorf("getting progress: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	progress := make(map[int64]Progress)
-	for rows.Next() {
-		var setID int64
-		var p Progress
-		if err := rows.Scan(&setID, &p.Total, &p.Solved, &p.Mistakes); err != nil {
-			return nil, fmt.Errorf("scanning progress: %w", err)
-		}
-		progress[setID] = p
+	out := make(map[int64]Progress, len(rows))
+	for _, r := range rows {
+		out[r.id] = r.p
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("getting progress: %w", err)
-	}
-	return progress, nil
+	return out, nil
 }
 
 func (s *Store) ResetProgress(ctx context.Context, deviceID string, setID int64) (int64, error) {
 	if err := validateDeviceID(deviceID); err != nil {
 		return 0, err
 	}
-	tag, err := s.pool.Exec(ctx, `
+	return exec(ctx, s.pool, "resetting progress", `
 		DELETE FROM attempts a USING tasks t
 		WHERE a.task_id = t.id AND t.set_id = $2 AND a.device_id = $1
 	`, deviceID, setID)
-	if err != nil {
-		return 0, fmt.Errorf("resetting progress: %w", err)
-	}
-	return tag.RowsAffected(), nil
 }

@@ -5,14 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type User struct {
@@ -27,6 +25,14 @@ const userColumns = "u.id, u.username, u.is_admin, u.created_at, u.progress_id::
 
 func (u *User) dest() []any {
 	return []any{&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &u.ProgressID}
+}
+
+func (s *Store) userQuery(ctx context.Context, what, sql string, args ...any) (User, error) {
+	var u User
+	if err := s.pool.QueryRow(ctx, sql, args...).Scan(u.dest()...); err != nil {
+		return User{}, noRows(err, what)
+	}
+	return u, nil
 }
 
 type Token struct {
@@ -65,80 +71,35 @@ func (s *Store) CreateUser(ctx context.Context, username string, isAdmin bool) (
 	if err := validateUsername(username); err != nil {
 		return User{}, err
 	}
-	var u User
-	err := s.pool.QueryRow(ctx, `
+	u, err := s.userQuery(ctx, "creating user", `
 		INSERT INTO users AS u (username, is_admin) VALUES ($1, $2)
-		RETURNING `+userColumns, username, isAdmin).Scan(u.dest()...)
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return User{}, ErrConflict
-		}
-		return User{}, fmt.Errorf("creating user: %w", err)
+		RETURNING `+userColumns, username, isAdmin)
+	if isUniqueViolation(err) {
+		return User{}, ErrConflict
 	}
-	return u, nil
+	return u, err
 }
 
 func (s *Store) EnsureUser(ctx context.Context, username string, isAdmin bool) (User, error) {
 	if err := validateUsername(username); err != nil {
 		return User{}, err
 	}
-	var u User
-	err := s.pool.QueryRow(ctx, `
+	return s.userQuery(ctx, "ensuring user", `
 		INSERT INTO users AS u (username, is_admin) VALUES ($1, $2)
 		ON CONFLICT (username) DO UPDATE SET is_admin = u.is_admin OR EXCLUDED.is_admin
-		RETURNING `+userColumns, username, isAdmin).Scan(u.dest()...)
-	if err != nil {
-		return User{}, fmt.Errorf("ensuring user: %w", err)
-	}
-	return u, nil
+		RETURNING `+userColumns, username, isAdmin)
 }
 
 func (s *Store) UserByName(ctx context.Context, username string) (User, error) {
-	var u User
-	err := s.pool.QueryRow(ctx, `
-SELECT `+userColumns+` FROM users u WHERE u.username = $1`, username).Scan(u.dest()...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return User{}, ErrNotFound
-		}
-		return User{}, fmt.Errorf("looking up user: %w", err)
-	}
-	return u, nil
+	return s.userQuery(ctx, "looking up user", `SELECT `+userColumns+` FROM users u WHERE u.username = $1`, username)
 }
 
 func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
-	var u User
-	err := s.pool.QueryRow(ctx, `
-SELECT `+userColumns+` FROM users u WHERE u.id = $1`, id).Scan(u.dest()...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return User{}, ErrNotFound
-		}
-		return User{}, fmt.Errorf("looking up user: %w", err)
-	}
-	return u, nil
+	return s.userQuery(ctx, "looking up user", `SELECT `+userColumns+` FROM users u WHERE u.id = $1`, id)
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM users u ORDER BY u.username`)
-	if err != nil {
-		return nil, fmt.Errorf("listing users: %w", err)
-	}
-	defer rows.Close()
-
-	var users []User
-	for rows.Next() {
-		var u User
-		if err := rows.Scan(u.dest()...); err != nil {
-			return nil, fmt.Errorf("scanning user: %w", err)
-		}
-		users = append(users, u)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing users: %w", err)
-	}
-	return users, nil
+	return queryAll(ctx, s.pool, "listing users", (*User).dest, `SELECT `+userColumns+` FROM users u ORDER BY u.username`)
 }
 
 func (s *Store) IssueToken(ctx context.Context, userID int64, label string) (string, Token, error) {
@@ -146,41 +107,23 @@ func (s *Store) IssueToken(ctx context.Context, userID int64, label string) (str
 	if err != nil {
 		return "", Token{}, err
 	}
-	hash := HashSecret(secret)
-
 	var tok Token
-	err = s.pool.QueryRow(ctx, `
+	if err := s.pool.QueryRow(ctx, `
 		INSERT INTO tokens (user_id, label, hash) VALUES ($1, $2, $3)
 		RETURNING id, user_id, label, created_at
-	`, userID, label, hash).Scan(&tok.ID, &tok.UserID, &tok.Label, &tok.CreatedAt)
-	if err != nil {
+	`, userID, label, HashSecret(secret)).Scan(&tok.ID, &tok.UserID, &tok.Label, &tok.CreatedAt); err != nil {
 		return "", Token{}, fmt.Errorf("issuing token: %w", err)
 	}
 	return secret, tok, nil
 }
 
 func (s *Store) ListTokens(ctx context.Context, userID int64) ([]Token, error) {
-	rows, err := s.pool.Query(ctx, `
+	return queryAll(ctx, s.pool, "listing tokens", func(t *Token) []any {
+		return []any{&t.ID, &t.UserID, &t.Label, &t.CreatedAt, &t.LastUsedAt, &t.RevokedAt}
+	}, `
 		SELECT id, user_id, label, created_at, last_used_at, revoked_at
 		FROM tokens WHERE user_id = $1 ORDER BY created_at
 	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("listing tokens: %w", err)
-	}
-	defer rows.Close()
-
-	var tokens []Token
-	for rows.Next() {
-		var t Token
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Label, &t.CreatedAt, &t.LastUsedAt, &t.RevokedAt); err != nil {
-			return nil, fmt.Errorf("scanning token: %w", err)
-		}
-		tokens = append(tokens, t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing tokens: %w", err)
-	}
-	return tokens, nil
 }
 
 func (s *Store) RevokeToken(ctx context.Context, tokenID int64) error {
@@ -192,65 +135,35 @@ func (s *Store) RevokeUserToken(ctx context.Context, userID, tokenID int64) erro
 }
 
 func (s *Store) revokeToken(ctx context.Context, tokenID, userID int64) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("beginning tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	tag, err := tx.Exec(ctx, `
-		UPDATE tokens SET revoked_at = COALESCE(revoked_at, now())
-		WHERE id = $1 AND ($2::bigint IS NULL OR user_id = $2)
-	`, tokenID, nullableID(userID))
-	if err != nil {
-		return fmt.Errorf("revoking token: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-
-	if _, err := tx.Exec(ctx, `
-		UPDATE oauth_grants SET revoked_at = now() WHERE token_id = $1 AND revoked_at IS NULL
-	`, tokenID); err != nil {
-		return fmt.Errorf("revoking grants issued via token: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("committing tx: %w", err)
-	}
-	return nil
-}
-
-// TokenUser also returns the token's id, for callers (OAuth authorize) that must
-// tie a later grant back to the personal token that was used to approve it.
-func (s *Store) TokenUser(ctx context.Context, secret string) (User, int64, error) {
-	hash := HashSecret(secret)
-
-	var u User
-	var tokenID int64
-	err := s.pool.QueryRow(ctx, `
-		SELECT `+userColumns+`, t.id
-		FROM tokens t JOIN users u ON u.id = t.user_id
-		WHERE t.hash = $1 AND t.revoked_at IS NULL
-	`, hash).Scan(append(u.dest(), &tokenID)...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return User{}, 0, ErrNotFound
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := execOne(ctx, tx, "revoking token", `
+			UPDATE tokens SET revoked_at = COALESCE(revoked_at, now())
+			WHERE id = $1 AND ($2::bigint IS NULL OR user_id = $2)
+		`, tokenID, nullableID(userID)); err != nil {
+			return err
 		}
-		return User{}, 0, fmt.Errorf("looking up token: %w", err)
-	}
-
-	if _, err := s.pool.Exec(ctx, `
-		UPDATE tokens SET last_used_at = now()
-		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
-	`, tokenID); err != nil {
-		return User{}, 0, fmt.Errorf("updating last_used_at: %w", err)
-	}
-
-	return u, tokenID, nil
+		_, err := exec(ctx, tx, "revoking grants issued via token", `
+			UPDATE oauth_grants SET revoked_at = now() WHERE token_id = $1 AND revoked_at IS NULL
+		`, tokenID)
+		return err
+	})
 }
 
 func (s *Store) UserByToken(ctx context.Context, secret string) (User, error) {
-	u, _, err := s.TokenUser(ctx, secret)
-	return u, err
+	var u User
+	var tokenID int64
+	if err := s.pool.QueryRow(ctx, `
+		SELECT `+userColumns+`, t.id
+		FROM tokens t JOIN users u ON u.id = t.user_id
+		WHERE t.hash = $1 AND t.revoked_at IS NULL
+	`, HashSecret(secret)).Scan(append(u.dest(), &tokenID)...); err != nil {
+		return User{}, noRows(err, "looking up token")
+	}
+	if _, err := exec(ctx, s.pool, "updating last_used_at", `
+		UPDATE tokens SET last_used_at = now()
+		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
+	`, tokenID); err != nil {
+		return User{}, err
+	}
+	return u, nil
 }

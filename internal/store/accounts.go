@@ -41,36 +41,19 @@ func (s *Store) SetPassword(ctx context.Context, userID int64, pass, keepSession
 		return err
 	}
 
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("beginning tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	tag, err := tx.Exec(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, userID, hash)
-	if err != nil {
-		return fmt.Errorf("setting password: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE oauth_grants SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL
-	`, userID); err != nil {
-		return fmt.Errorf("revoking grants: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM oauth_codes WHERE user_id = $1`, userID); err != nil {
-		return fmt.Errorf("deleting codes: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-		DELETE FROM sessions WHERE user_id = $1 AND hash <> $2
-	`, userID, HashSecret(keepSession)); err != nil {
-		return fmt.Errorf("deleting sessions: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("committing tx: %w", err)
-	}
-	return nil
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := execOne(ctx, tx, "setting password", `UPDATE users SET password_hash = $2 WHERE id = $1`, userID, hash); err != nil {
+			return err
+		}
+		if _, err := exec(ctx, tx, "revoking grants", `UPDATE oauth_grants SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
+			return err
+		}
+		if _, err := exec(ctx, tx, "deleting codes", `DELETE FROM oauth_codes WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		_, err := exec(ctx, tx, "deleting sessions", `DELETE FROM sessions WHERE user_id = $1 AND hash <> $2`, userID, HashSecret(keepSession))
+		return err
+	})
 }
 
 func (s *Store) CheckPassword(ctx context.Context, username, pass string) (User, error) {
@@ -98,10 +81,10 @@ func (s *Store) CreateSession(ctx context.Context, userID int64, ttl time.Durati
 	if err != nil {
 		return "", err
 	}
-	if _, err := s.pool.Exec(ctx, `
+	if _, err := exec(ctx, s.pool, "creating session", `
 		INSERT INTO sessions (hash, user_id, expires_at) VALUES ($1, $2, $3)
 	`, HashSecret(secret), userID, time.Now().Add(ttl)); err != nil {
-		return "", fmt.Errorf("creating session: %w", err)
+		return "", err
 	}
 	return secret, nil
 }
@@ -110,26 +93,16 @@ func (s *Store) UserBySession(ctx context.Context, secret string) (User, error) 
 	if secret == "" {
 		return User{}, ErrNotFound
 	}
-	var u User
-	err := s.pool.QueryRow(ctx, `
+	return s.userQuery(ctx, "looking up session", `
 		SELECT `+userColumns+`
 		FROM sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.hash = $1 AND s.expires_at > now()
-	`, HashSecret(secret)).Scan(u.dest()...)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrNotFound
-	}
-	if err != nil {
-		return User{}, fmt.Errorf("looking up session: %w", err)
-	}
-	return u, nil
+	`, HashSecret(secret))
 }
 
 func (s *Store) DeleteSession(ctx context.Context, secret string) error {
-	if _, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE hash = $1`, HashSecret(secret)); err != nil {
-		return fmt.Errorf("deleting session: %w", err)
-	}
-	return nil
+	_, err := exec(ctx, s.pool, "deleting session", `DELETE FROM sessions WHERE hash = $1`, HashSecret(secret))
+	return err
 }
 
 func (s *Store) MergeAttempts(ctx context.Context, fromDevice, toDevice string) error {
@@ -145,66 +118,39 @@ func (s *Store) MergeAttempts(ctx context.Context, fromDevice, toDevice string) 
 	if owned {
 		return fmt.Errorf("device %s is an account's progress id: %w", fromDevice, ErrForbidden)
 	}
-	if _, err := s.pool.Exec(ctx, `
-		UPDATE attempts SET device_id = $2 WHERE device_id = $1
-	`, fromDevice, toDevice); err != nil {
-		return fmt.Errorf("merging attempts: %w", err)
-	}
-	return nil
+	_, err := exec(ctx, s.pool, "merging attempts", `UPDATE attempts SET device_id = $2 WHERE device_id = $1`, fromDevice, toDevice)
+	return err
 }
 
 func (s *Store) PurgeExpired(ctx context.Context) error {
-	if _, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE expires_at <= now()`); err != nil {
-		return fmt.Errorf("purging sessions: %w", err)
-	}
-	if _, err := s.pool.Exec(ctx, `
-		DELETE FROM oauth_codes
-		WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
-	`); err != nil {
-		return fmt.Errorf("purging codes: %w", err)
-	}
-	if _, err := s.pool.Exec(ctx, `
-		DELETE FROM login_codes
-		WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
-	`); err != nil {
-		return fmt.Errorf("purging login codes: %w", err)
+	for _, q := range []struct{ what, sql string }{
+		{"purging sessions", `DELETE FROM sessions WHERE expires_at <= now()`},
+		{"purging codes", `DELETE FROM oauth_codes WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'`},
+		{"purging login codes", `DELETE FROM login_codes WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'`},
+	} {
+		if _, err := exec(ctx, s.pool, q.what, q.sql); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (s *Store) ConnectedApps(ctx context.Context, userID int64) ([]ConnectedApp, error) {
-	rows, err := s.pool.Query(ctx, `
+	return queryAll(ctx, s.pool, "listing connected apps", func(a *ConnectedApp) []any {
+		return []any{&a.ClientID, &a.ClientName, &a.ConnectedAt}
+	}, `
 		SELECT g.client_id, COALESCE(c.client_name, ''), min(g.created_at)
 		FROM oauth_grants g LEFT JOIN oauth_clients c ON c.client_id = g.client_id
 		WHERE g.user_id = $1 AND g.revoked_at IS NULL AND g.refresh_expires_at > now()
 		GROUP BY g.client_id, c.client_name
 		ORDER BY min(g.created_at)
 	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("listing connected apps: %w", err)
-	}
-	defer rows.Close()
-
-	var apps []ConnectedApp
-	for rows.Next() {
-		var a ConnectedApp
-		if err := rows.Scan(&a.ClientID, &a.ClientName, &a.ConnectedAt); err != nil {
-			return nil, fmt.Errorf("scanning connected app: %w", err)
-		}
-		apps = append(apps, a)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing connected apps: %w", err)
-	}
-	return apps, nil
 }
 
 func (s *Store) DisconnectApp(ctx context.Context, userID int64, clientID string) error {
-	if _, err := s.pool.Exec(ctx, `
+	_, err := exec(ctx, s.pool, "disconnecting app", `
 		UPDATE oauth_grants SET revoked_at = now()
 		WHERE user_id = $1 AND client_id = $2 AND revoked_at IS NULL
-	`, userID, clientID); err != nil {
-		return fmt.Errorf("disconnecting app: %w", err)
-	}
-	return nil
+	`, userID, clientID)
+	return err
 }
