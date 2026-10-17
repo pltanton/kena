@@ -66,7 +66,7 @@ func TestInstructions(t *testing.T) {
 		t.Error("Instructions has wrong opening")
 	}
 	head := strings.ToLower(Instructions[:512])
-	for _, s := range []string{"copy", "one target", "accepted", "accent", "ς", "hint", "validate_tasks", "50", "explanation", "never generic"} {
+	for _, s := range []string{"copy", "one target", "accepted", "accent", "ς", "hint", "validate_tasks", "50", "explanation", "deck rules"} {
 		if !strings.Contains(head, s) {
 			t.Errorf("first 512 bytes of Instructions miss %q", s)
 		}

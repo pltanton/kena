@@ -76,13 +76,25 @@ Quotas across the whole set (adapt to the target):
 Before each batch, write its 20 grid rows: item number, lemma, slot
 (e.g. 3rd pl.), polarity/type, frame, context cue, blank position.
 
+## 3b. Define the deck rules
+
+Before writing items, write 2–6 deck rules from the grammar point: the general
+facts a learner needs again and again (how the form is built, agreement, the
+cue words that pick a tense or case, the irregular group). One line each, in
+the deck's explanation language, with a short key (`aorist-stem`,
+`agree-noun`). Pass them as `rules` to `create_set` (or `update_set` later);
+every item then points at the rule it practises with `rule`. See
+`item-rules`, rule 11, and `format`.
+
 ## 4. Write in batches of 20
 
 Write each batch from its grid rows, following `item-rules` and
 `greek-pitfalls`. Never write all N in one go: quality drops and templates repeat.
 
-Write each item's explanation together with the item, from its derivation and
-its cue (`item-rules`, rule 10), never as a template filled in afterwards.
+Give each item its `rule`, and write an explanation only when the item has
+something of its own to say (an irregular form, an accent shift, an unusual
+cue), from its derivation (`item-rules`, rule 10) — never a rule restated with
+the words swapped.
 
 ## 5. Self-check each batch
 

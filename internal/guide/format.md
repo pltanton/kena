@@ -16,7 +16,8 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
       "hint": "lemma or tag"
     }
   ],
-  "explanation": "Optional: what makes this form and why, for this item only."
+  "explanation": "Optional: what is specific to this item.",
+  "rule": "optional-rule-key"
 }
 ```
 
@@ -30,11 +31,40 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
   what goes into the blank: no punctuation, no neighbouring words.
 - `hint` (optional): shown to the learner next to the blank. Lemma or feature
   tag, never the answer. No brackets: the UI adds them.
-- `explanation` (optional but expected): one short sentence (≤ ~120 characters)
-  shown after a wrong attempt. Specific to this item: what makes this form (stem,
-  augment, irregular form, accent, ending) and, in a deck that mixes tenses or
-  cases, the cue that picks this one. Never the same text on two tasks. One
-  language per deck, short English by default up to B1. See `item-rules`, rule 10.
+- `rule` (optional): the key of a deck rule this item practises (see Deck
+  rules below). Shown with the explanation.
+- `explanation` (optional): one short sentence (≤ ~120 characters) shown after
+  a wrong attempt, only for what is specific to this item: an irregular form,
+  an accent shift, the cue in a deck that mixes tenses or cases. Never the same
+  text on two tasks — that is a deck rule. One language per deck, short English
+  by default up to B1. See `item-rules`, rules 10 and 11.
+
+## Deck rules
+
+The general grammar of a deck, written once: `rules` on `create_set` /
+`update_set`, a list of `{key, text}`. Key: a–z, 0–9 and `-`, at most 32
+characters; text: one line, at most 400 characters; at most 30 rules.
+`update_set` replaces the whole list and refuses to drop a key a task still
+uses.
+
+```json
+{
+  "rules": [
+    { "key": "aorist-stem", "text": "Aorist = finished action; stem + ψ/ξ or -σα (γράφω → έγραψα), augment έ- only when stressed." },
+    { "key": "irregular", "text": "Irregular aorists to learn: πηγαίνω → πήγα, βλέπω → είδα, τρώω → έφαγα, έρχομαι → ήρθα." }
+  ]
+}
+```
+
+In the deck editor (Edit deck) rules are lines at the top, and a task names
+its rule with an `@key` line under its sentence:
+
+```
+= aorist-stem: Aorist = finished action; stem + ψ/ξ or -σα, augment έ- only when stressed.
+
+Χθες η Μαρία {έγραψε | γράφω} δύο γράμματα.
+@aorist-stem
+```
 
 Checking: the learner's input and each answer are NFC-normalised, trimmed, inner
 spaces collapsed and lowercased, then compared exactly. Case and spacing do not
@@ -136,7 +166,9 @@ task index):
 
 - number of `___` differs from the number of blanks;
 - empty text, or a blank with no answers;
-- an empty line inside the text, or a text line starting with `>`;
+- an empty line inside the text, or a text line starting with `>`, `@` or `=`;
+- a `rule` that is not a key of the deck's rules; a malformed rule (key,
+  length, line break, more than 30);
 - Latin letters or digits mixed into a Greek word (lookalikes such as Latin o);
 - polytonic characters (U+1F00–U+1FFF);
 - medial sigma (U+03C3) at the end of a word, or final ς inside a word, in text or answers;
@@ -148,11 +180,7 @@ Warnings (the call succeeds; review them):
 - an answer word of two or more syllables without an accent;
 - text longer than 20 words;
 - the same explanation (ignoring case, spacing and final punctuation) on more
-  than two tasks of the batch and the set;
-- templated explanations: more than two that differ only in numbers, quoted
-  words («…», "…") or the item's own answers and hints;
-- a short Latin abbreviation in brackets, such as `(ma)`, inside a Greek
-  explanation;
+  than two tasks of the batch and the set — put it in a deck rule;
 - in a batch of 10 or more: over 60% of the tasks with the same sequence of
   hints (vary lemmas, cases and frames);
 - in a batch of 10 or more: over half the tasks without an explanation;

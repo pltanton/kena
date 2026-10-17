@@ -60,11 +60,13 @@ Read each sentence as a Greek speaker would.
 
 List the batch's explanations one under another, without the sentences.
 
-- [ ] Every task has one, at most ~120 characters, in the deck's language.
-- [ ] Each names what makes its form (stem, augment, irregular form, accent,
-      ending); in a mixed deck it also names the cue for the tense.
-- [ ] If two are identical or interchangeable, rewrite them: an explanation
-      that fits another item does not explain this one.
+- [ ] Every task has a `rule` from the deck's rules, or an explanation, or both.
+- [ ] No explanation is a copy of a rule, or a rule with only the words or
+      numbers swapped: move that text into the rule and drop the explanation.
+- [ ] Each explanation, at most ~120 characters in the deck's language, names
+      what is specific to its item (an irregular form, an accent shift, the cue).
+- [ ] If two explanations are identical or interchangeable, they are a rule:
+      add it to the deck's rules and point both items at it.
 
 ## 6. Mechanical lint
 

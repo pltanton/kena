@@ -45,13 +45,19 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   paragraph, blanks in braces, `>` lines for the explanation:
 
   ```
+  = present: Present tense: stem + ending of the person (γράφ-εις, γράφ-ει).
+
   Εσύ {γράφεις | γράφω} πολύ.
-  > Explanation, shown after a wrong answer.
+  @present
+  > Explanation, only what is specific to this task.
 
   Θα {πάω / θα πάω} αύριο στη θάλασσα.
   ```
 
-  `{a / b}` accepts both answers, `| hint` is shown next to the blank. Saving
+  `{a / b}` accepts both answers, `| hint` is shown next to the blank. A task
+  may span several lines (one dialogue turn per line). `= key: text` lines at
+  the top are deck rules, the grammar many tasks share; `@key` under a task
+  points it at one, and the learner sees the rule with the explanation. Saving
   runs the same checks as the MCP tools: any error is listed as `line N: …`
   and nothing is saved; warnings show after the save. Unchanged tasks keep
   everyone's progress even when you insert or reorder tasks. If the deck
