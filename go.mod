@@ -5,6 +5,7 @@ go 1.25.14
 require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/yuin/goldmark v1.8.6
 	golang.org/x/crypto v0.55.0
 	golang.org/x/text v0.41.0
 	rsc.io/qr v0.2.0
