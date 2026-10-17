@@ -1,4 +1,5 @@
 {{define "list_item"}}<li id="t-{{.Task.ID}}" class="item{{if .Checked}} {{if .Correct}}ok{{else}}bad{{end}}{{end}}">
+{{template "info_button" .Info}}
 {{- if .Checked}}
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 {{- if .Correct}}

@@ -38,6 +38,9 @@
 </select>
 </div>
 <label for="source">Tasks</label>
+{{- if not .New}}
+<p class="meta editor-rules"><a href="/s/{{.Slug}}/rules">Rules{{with .RuleCount}} ({{.}}){{end}}</a>: theory and tables for the deck; point a task at one with <code>@key</code>.</p>
+{{- end}}
 <details class="cheat">
 <summary>Format</summary>
 <p>One task per paragraph, an empty line between tasks. Write each blank in braces. A task may span several lines, e.g. one dialogue turn per line.</p>
@@ -49,7 +52,7 @@
 <li><code>{answer}</code>: a blank; <code>{a / b}</code>: two accepted answers.</li>
 <li><code>| hint</code> after the answers: shown next to the blank.</li>
 <li>Lines starting with <code>&gt;</code>: the explanation, only for what is specific to this task.</li>
-<li><code>= key: text</code> at the top: a deck rule, the general grammar many tasks share. <code>@key</code> under a task's sentence: that task's rule.</li>
+<li><code>@key</code> under a task's sentence: that task's rule. Rules themselves (theory, tables) live on the {{if .New}}Rules page, once the deck exists{{else}}<a href="/s/{{.Slug}}/rules">Rules page</a>{{end}}.</li>
 <li>Braces and <code>|</code> can't be used as plain text in a sentence.</li>
 </ul>
 </details>

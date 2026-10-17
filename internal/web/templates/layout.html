@@ -56,7 +56,34 @@
 
 {{define "why"}}{{if or .Explanation .Rule}}<details class="why"><summary>Why?</summary>{{template "notes_body" .}}</details>{{end}}{{end}}
 
-{{define "notes_body"}}{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}{{with .Rule}}<p class="rule"><span class="rule-label">Rule</span> {{.}}</p>{{end}}{{end}}
+{{define "notes_body"}}{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}{{with .Rule}}{{if $.Full}}<div class="rule rule-full"><p><span class="rule-label">Rule</span>{{with .Title}} <strong>{{.}}</strong>{{end}}</p><div class="md">{{.HTML}}</div></div>{{else}}<p class="rule"><span class="rule-label">Rule</span> <span class="rule-name">{{.Label}}</span>{{with .Preview}} — {{.}}{{end}} <button type="button" class="link-button" data-open-info hidden>Show rule</button></p>{{end}}{{end}}{{end}}
+
+{{define "info_icon"}}<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 11v5.25"/><circle cx="12" cy="7.9" r="0.6" fill="currentColor"/></svg>{{end}}
+
+{{define "info_button"}}{{if .}}<button type="button" class="info-btn" data-info aria-label="Rule" title="Rule" aria-haspopup="dialog" aria-controls="info-sheet" hidden>{{template "info_icon"}}</button>{{with .Rule}}<template class="info-rule" data-key="{{.Key}}">{{template "rule_full" .}}</template>{{end}}{{end}}{{end}}
+
+{{define "rule_full"}}<section class="rule-doc">{{with .Title}}<h2 class="rule-title">{{.}}</h2>{{end}}<div class="md">{{.HTML}}</div></section>{{end}}
+
+{{define "info_sheet"}}<div class="sheet info-sheet" id="info-sheet" role="dialog" aria-label="Rules" hidden>
+<div class="info-scroll">
+<div id="info-card"></div>
+{{- with .}}
+<div class="info-general">
+<p class="info-label">Whole deck</p>
+{{- if gt (len .) 1}}
+{{- range .}}
+<details class="rule-item" data-key="{{.Key}}"><summary>{{.Label}}</summary><div class="md">{{.HTML}}</div></details>
+{{- end}}
+{{- else}}
+{{- range .}}
+<div data-key="{{.Key}}">{{template "rule_full" .}}</div>
+{{- end}}
+{{- end}}
+</div>
+{{- end}}
+</div>
+<button type="button" class="secondary sheet-close" data-info-close>Close</button>
+</div>{{end}}
 
 {{define "bar"}}{{if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
 <span class="count">{{.Index}}/{{.Total}}</span>{{end}}{{end}}
@@ -77,7 +104,8 @@
 {{- end}}
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
-<script src="/static/reveal.js" defer></script>{{end}}
+<script src="/static/reveal.js" defer></script>
+<script src="/static/info.js" defer></script>{{end}}
 
 {{define "theme_switch"}}<form class="theme-switch" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}"><span class="label">Theme</span>{{range .Options}}<button type="submit" name="theme" value="{{.Value}}" aria-pressed="{{.Current}}">{{.Label}}</button>{{end}}</form>{{end}}
 

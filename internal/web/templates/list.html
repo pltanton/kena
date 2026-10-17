@@ -7,4 +7,5 @@
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
 {{- else}}{{template "done" .Done}}{{end}}
+{{template "info_sheet" .General}}
 {{end}}

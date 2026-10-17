@@ -1,5 +1,6 @@
 {{define "card_result"}}{{template "bar_oob" .Bar}}
 <div class="card result {{if .Correct}}ok{{else}}bad{{end}}">
+{{template "info_button" .Info}}
 {{- if .Correct}}
 <p class="verdict"><span class="tick" aria-hidden="true">✓</span> Correct{{if ge .Streak 2}}<span class="streak"> · {{.Streak}} in a row</span>{{end}}</p>
 {{- end}}

@@ -46,7 +46,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -68,6 +68,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
 	mux.HandleFunc("GET /s/{slug}/edit", h.requireUser(h.editPage))
 	mux.HandleFunc("POST /s/{slug}/edit", h.requireUser(h.saveDeck))
+	mux.HandleFunc("GET /s/{slug}/rules", h.requireUser(h.rulesPage))
+	mux.HandleFunc("POST /s/{slug}/rules", h.requireUser(h.saveRules))
 	mux.HandleFunc("GET /s/{slug}/delete", h.requireUser(h.deletePage))
 	mux.HandleFunc("POST /s/{slug}/delete", h.requireUser(h.deleteDeck))
 	mux.HandleFunc("GET /new", h.requireUser(h.newPage))
@@ -456,6 +458,7 @@ func (b progressBar) Pct() int {
 }
 
 type cardView struct {
+	Info   *cardInfo
 	Task   taskView
 	Bar    progressBar
 	InPage bool
@@ -466,23 +469,16 @@ type cardView struct {
 
 type notes struct {
 	Explanation string
-	Rule        string
-}
-
-func ruleText(set store.Set, key string) string {
-	for _, r := range set.Rules {
-		if r.Key == key {
-			return r.Text
-		}
-	}
-	return ""
+	Rule        *ruleView
+	Full        bool
 }
 
 func notesOf(set store.Set, t store.Task) notes {
-	return notes{Explanation: t.Explanation, Rule: ruleText(set, t.Rule)}
+	return notes{Explanation: t.Explanation, Rule: ruleFor(set, t.Rule)}
 }
 
 type cardResultView struct {
+	Info    *cardInfo
 	Task    taskView
 	Bar     progressBar
 	Correct bool
@@ -492,6 +488,7 @@ type cardResultView struct {
 }
 
 type itemView struct {
+	Info    *cardInfo
 	Task    taskView
 	Params  params
 	Retry   bool
@@ -511,9 +508,9 @@ type doneView struct {
 	LoggedIn    bool
 }
 
-func newCard(t store.Task, i, n int, p params, autofocus bool) *cardView {
+func newCard(set store.Set, t store.Task, i, n int, p params, autofocus bool) *cardView {
 	p.I, p.N = i, n
-	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{Index: i, Total: n}, Params: p}
+	return &cardView{Info: infoFor(set, t), Task: newTaskView(t, autofocus, nil), Bar: progressBar{Index: i, Total: n}, Params: p}
 }
 
 func firstUnsolved(tasks []store.Task, last map[int64]bool) (int64, bool) {
@@ -790,15 +787,17 @@ func (h *handler) loadSet(r *http.Request, slug string) (setData, error) {
 
 func listItem(set store.Set, t store.Task, p params, attempts map[int64]store.LastAttempt) itemView {
 	la, tried := attempts[t.ID]
+	info := infoFor(set, t)
 	if !tried {
-		return itemView{Task: newTaskView(t, false, nil), Params: p}
+		return itemView{Info: info, Task: newTaskView(t, false, nil), Params: p}
 	}
 	results, _ := greek.Check(t.Blanks, la.Answers)
 	if !la.Correct {
 		p.Tries = 1
-		return itemView{Task: retryTaskView(t, results), Params: p, Retry: true, Nudge: nudge(t, results)}
+		return itemView{Info: info, Task: retryTaskView(t, results), Params: p, Retry: true, Nudge: nudge(t, results)}
 	}
 	return itemView{
+		Info:    info,
 		Task:    newTaskView(t, false, results),
 		Params:  p,
 		Checked: true,
@@ -820,6 +819,8 @@ type deckPage struct {
 	Chooser      chooser
 	PracticeURL  string
 	WorksheetURL string
+	Rules        []*ruleView
+	General      []*ruleView
 }
 
 type choice struct {
@@ -920,6 +921,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	data.Chooser = newChooser(base, pr, filter, shuffle)
 	data.PracticeURL = pickURL(base+"/play", filter, shuffle)
 	data.WorksheetURL = pickURL(base+"/list", filter, shuffle)
+	data.Rules = overviewRules(d.set)
 	h.page(w, r, http.StatusOK, "set", data)
 }
 
@@ -960,6 +962,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	base := "/s/" + url.PathEscape(slug)
 	data.Chooser = newChooser(base+"/list", head.Progress, p.Filter, p.Shuffle)
 	data.PracticeURL = pickURL(base+"/play", p.Filter, p.Shuffle)
+	data.General = generalRules(d.set)
 	todo := filtered(ordered(d.tasks, p), p.Filter, last)
 	if len(todo) == 0 {
 		data.Done = newDone(r, slug, true, head.Progress)
@@ -994,6 +997,7 @@ type playPage struct {
 	FirstURL string
 	ResetURL string
 	Bar      progressBar
+	General  []*ruleView
 }
 
 func (h *handler) play(w http.ResponseWriter, r *http.Request) {
@@ -1020,7 +1024,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 	todo := filtered(order, p.Filter, last)
 	pr := progressOf(tasks, last)
 
-	data := playPage{Set: set, DeckURL: "/s/" + url.PathEscape(set.Slug)}
+	data := playPage{Set: set, DeckURL: "/s/" + url.PathEscape(set.Slug), General: generalRules(set)}
 	for _, f := range []string{"all", "unsolved", "mistakes"} {
 		lp := p
 		lp.Filter = f
@@ -1083,7 +1087,7 @@ func (h *handler) play(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	data.Card = newCard(rest[0], idx, len(todo), p, true)
+	data.Card = newCard(set, rest[0], idx, len(todo), p, true)
 	data.Card.InPage = true
 	data.Bar = data.Card.Bar
 	h.pageAs(w, r, http.StatusOK, "play", "focus", data)
@@ -1133,7 +1137,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false))
+	h.fragment(w, r, "card", newCard(set, rest[0], i, n, p, false))
 }
 
 func taskID(r *http.Request) (int64, error) {
@@ -1202,10 +1206,10 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		p.Tries++
 		view, hint := retryTaskView(task, results), nudge(task, results)
 		if p.Mode == "list" {
-			h.fragment(w, r, "list_item", itemView{Task: view, Params: p, Retry: true, Nudge: hint})
+			h.fragment(w, r, "list_item", itemView{Info: infoFor(set, task), Task: view, Params: p, Retry: true, Nudge: hint})
 			return
 		}
-		h.fragment(w, r, "card", &cardView{Task: view, Bar: progressBar{Index: p.I, Total: p.N}, Params: p, Retry: true, Nudge: hint})
+		h.fragment(w, r, "card", &cardView{Info: infoFor(set, task), Task: view, Bar: progressBar{Index: p.I, Total: p.N}, Params: p, Retry: true, Nudge: hint})
 		return
 	}
 	p.Tries = 0
@@ -1213,6 +1217,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	view := newTaskView(task, false, results)
 	if p.Mode == "list" {
 		h.fragment(w, r, "list_item", itemView{
+			Info:    infoFor(set, task),
 			Task:    view,
 			Params:  p,
 			Checked: true,
@@ -1223,6 +1228,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.fragment(w, r, "card_result", cardResultView{
+		Info:    infoFor(set, task),
 		Task:    view,
 		Bar:     progressBar{Index: p.I, Total: p.N},
 		Correct: correct,
@@ -1248,11 +1254,12 @@ func (h *handler) item(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	if _, err := h.visibleSet(r, strconv.FormatInt(task.SetID, 10)); err != nil {
+	set, err := h.visibleSet(r, strconv.FormatInt(task.SetID, 10))
+	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	h.fragment(w, r, "list_item", itemView{Task: newTaskView(task, false, nil), Params: p})
+	h.fragment(w, r, "list_item", itemView{Info: infoFor(set, task), Task: newTaskView(task, false, nil), Params: p})
 }
 
 func (h *handler) resetPage(w http.ResponseWriter, r *http.Request) {

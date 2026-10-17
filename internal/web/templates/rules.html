@@ -1,0 +1,73 @@
+{{define "title"}}Rules · {{.Set.Title}} · kena{{end}}
+{{define "main"}}<p class="crumb"><a href="/s/{{.Set.Slug}}">← {{.Set.Title}}</a></p>
+<div class="page-head"><h1>Rules</h1><a class="button small secondary" href="/s/{{.Set.Slug}}/edit">Edit tasks</a></div>
+<p class="lede">Theory for the deck, in short Markdown. A task shows its rule (<code>@key</code> in the editor) behind the ⓘ on its card and after a wrong answer. Deck-wide rules show on every card and first on the deck page.</p>
+{{- with .Errors}}
+<div class="error" role="alert"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+{{- end}}
+<details class="cheat">
+<summary>Markdown</summary>
+<pre lang="el">**πόσος** συμφωνεί με το ουσιαστικό: *πόσους φίλους;*
+
+- ονομαστική: υποκείμενο
+- αιτιατική: αντικείμενο
+
+|        | αρσ.   | θηλ.  | ουδ.  |
+|--------|--------|-------|-------|
+| ονομ.  | πόσοι  | πόσες | πόσα  |
+| αιτ.   | πόσους | πόσες | πόσα  |</pre>
+<ul>
+<li><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>~~struck~~</code>, <code>[link](https://…)</code>.</li>
+<li>Lines starting with <code>-</code> or <code>1.</code>: a list. An empty line starts a new paragraph.</li>
+<li>A table: a header row, a <code>|---|</code> row, then one row per line. The columns don't have to line up.</li>
+<li>No HTML and no images; they are not shown.</li>
+</ul>
+</details>
+{{- range .Rules}}
+{{template "rule_form" .}}
+{{- end}}
+<h2 class="rules-add">Add a rule</h2>
+{{template "rule_form" .New}}
+{{end}}
+
+{{define "rule_form"}}{{$f := .}}<form class="card rule-form" method="post" action="/s/{{.Slug}}/rules"{{with $f.Orig}} id="rule-{{.}}"{{end}}>
+<input type="hidden" name="version" value="{{.Version}}">
+<input type="hidden" name="orig" value="{{$f.Orig}}">
+{{- if $f.Saved}}
+<p class="notice" role="status">Saved.</p>
+{{- end}}
+{{- with $f.Errors}}
+<div class="error" role="alert"><p><strong>Not saved.</strong></p><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+{{- end}}
+{{- with $f.Warnings}}
+<div class="warning" role="status"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+{{- end}}
+<div class="pair rule-head">
+<div><label for="title-{{$f.Orig}}">Title</label>
+<input id="title-{{$f.Orig}}" name="title" value="{{$f.Title}}" maxlength="80" lang="el" placeholder="Πόσος: γένος, αριθμός, πτώση"></div>
+<div><label for="key-{{$f.Orig}}">Key</label>
+<input id="key-{{$f.Orig}}" name="key" value="{{$f.Key}}" required maxlength="32" pattern="[a-z0-9\-]{1,32}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="agree"></div>
+</div>
+<label class="check"><input type="checkbox" name="general" value="1"{{if $f.General}} checked{{end}}> Deck-wide: show on every card</label>
+<label for="body-{{$f.Orig}}">Rule</label>
+<textarea id="body-{{$f.Orig}}" name="body" class="rule-body" lang="el" rows="7" maxlength="4000" required spellcheck="false">{{$f.Body}}</textarea>
+{{- if $f.Orig}}
+<p class="meta rule-uses">{{if $f.Uses}}Used by {{$f.Uses}} {{if eq $f.Uses 1}}task{{else}}tasks{{end}}{{else}}Not used by any task yet{{end}} · <code>@{{$f.Orig}}</code></p>
+{{- end}}
+{{- with $f.Preview}}
+<div class="rule-preview"><p class="info-label">Preview</p><div class="md">{{.}}</div></div>
+{{- end}}
+<div class="form-actions">
+<button type="submit" name="op" value="save">{{if $f.Orig}}Save{{else}}Add rule{{end}}</button>
+<button type="submit" name="op" value="preview" class="secondary">Preview</button>
+{{- if $f.Orig}}
+<button type="submit" name="op" value="delete" class="quiet danger-link" formnovalidate data-confirm="Delete the rule {{$f.Orig}}?">Delete</button>
+{{- end}}
+</div>
+</form>
+<script>
+document.currentScript.previousElementSibling.addEventListener("submit", function (e) {
+  var b = e.submitter;
+  if (b && b.dataset.confirm && !confirm(b.dataset.confirm)) e.preventDefault();
+});
+</script>{{end}}

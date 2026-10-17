@@ -31,6 +31,7 @@
 </div>
 </div>
 </main>
+{{template "info_sheet" .General}}
 </div>{{end}}
 {{template "flash"}}
 <script>
@@ -62,8 +63,12 @@
     if (e.target.closest("input:not([readonly]), textarea")) return;
     e.preventDefault();
   }
-  main.addEventListener("pointerdown", holdFocus);
-  main.addEventListener("mousedown", holdFocus);
+  var info = document.getElementById("info-sheet");
+  [main, info].forEach(function (el) {
+    el.addEventListener("pointerdown", holdFocus);
+    el.addEventListener("mousedown", holdFocus);
+  });
+  document.addEventListener("info:close", function () { target().focus({preventScroll: true}); });
   document.body.addEventListener("htmx:beforeRequest", function (e) {
     if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
   });

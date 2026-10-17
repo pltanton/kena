@@ -41,7 +41,10 @@ type mistakesView struct {
 }
 
 func newMistakeRow(tm store.TaskMistakes) mistakeRow {
-	row := mistakeRow{WrongCount: tm.WrongCount, Fixed: tm.LastCorrect, Notes: notes{Explanation: tm.Task.Explanation, Rule: tm.RuleText}}
+	row := mistakeRow{WrongCount: tm.WrongCount, Fixed: tm.LastCorrect, Notes: notes{Explanation: tm.Task.Explanation, Full: true}}
+	if tm.Rule.Key != "" {
+		row.Notes.Rule = newRuleView(tm.Rule)
+	}
 	var given []string
 	if len(tm.RecentWrong) > 0 {
 		given = tm.RecentWrong[0].Answers

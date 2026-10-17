@@ -39,6 +39,7 @@ type editView struct {
 	Errors       []string
 	Lossy        string
 	Version      string
+	RuleCount    int
 }
 
 var fieldRe = regexp.MustCompile(`^blanks\[(\d+)\](?:\.answers\[(\d+)\])?$`)
@@ -69,7 +70,7 @@ func byLine(ms []lineMsg) []string {
 	return out
 }
 
-func checkSource(src string) (rules []greek.Rule, inputs []greek.TaskInput, errs, warnings []string) {
+func checkSource(src string, existing []greek.Rule) (rules []greek.Rule, inputs []greek.TaskInput, errs, warnings []string) {
 	d, perrs := deckfmt.ParseDeck(src)
 	items := d.Items
 	var es, ws []lineMsg
@@ -80,21 +81,46 @@ func checkSource(src string) (rules []greek.Rule, inputs []greek.TaskInput, errs
 		line := items[maxDeckTasks].Line
 		es = append(es, lineMsg{line, fmt.Sprintf("line %d: a deck holds at most %d tasks", line, maxDeckTasks)})
 	}
-	rules, rissues := greek.PrepareRules(d.Rules)
-	for _, iss := range rissues {
-		line := 1
-		var i int
-		if _, err := fmt.Sscanf(iss.Field, "rules[%d]", &i); err == nil && i < len(d.RuleLines) {
-			line = d.RuleLines[i]
-		}
-		m := lineMsg{line, fmt.Sprintf("line %d: %s", line, iss.Message)}
-		if iss.Severity == greek.Error {
-			es = append(es, m)
-		} else {
-			ws = append(ws, m)
+	merged := slices.Clone(existing)
+	lineOf := map[int]int{}
+	for k, r := range d.Rules {
+		line := d.RuleLines[k]
+		norm, _ := greek.PrepareRules([]greek.Rule{r})
+		j := slices.IndexFunc(merged, func(x greek.Rule) bool { return x.Key == norm[0].Key })
+		switch {
+		case j < 0:
+			lineOf[len(merged)] = line
+			merged = append(merged, r)
+		case merged[j].Body != norm[0].Body:
+			es = append(es, lineMsg{line, fmt.Sprintf("line %d: rule %q already exists with other text; edit it on the Rules page and drop this line", line, norm[0].Key)})
 		}
 	}
-	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, rules)
+	prepared := existing
+	if len(lineOf) > 0 {
+		var rissues []greek.Issue
+		prepared, rissues = greek.PrepareRules(merged)
+		rules = prepared
+		for _, iss := range rissues {
+			line := 1
+			if iss.Field != "rules" {
+				var i int
+				var ok bool
+				if _, err := fmt.Sscanf(iss.Field, "rules[%d]", &i); err == nil {
+					line, ok = lineOf[i]
+				}
+				if !ok {
+					continue
+				}
+			}
+			m := lineMsg{line, fmt.Sprintf("line %d: %s", line, iss.Message)}
+			if iss.Severity == greek.Error {
+				es = append(es, m)
+			} else {
+				ws = append(ws, m)
+			}
+		}
+	}
+	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, prepared)
 	for _, iss := range issues {
 		line := items[iss.Task].Line
 		m := lineMsg{line, fmt.Sprintf("line %d: %s%s", line, describeField(iss.Field), iss.Message)}
@@ -123,10 +149,7 @@ func taskInputs(tasks []store.Task) []greek.TaskInput {
 
 func lossyLines(rules []greek.Rule, inputs []greek.TaskInput) []int {
 	var lines []int
-	line := 1 + len(rules)
-	if len(rules) > 0 {
-		line++
-	}
+	line := 1
 	for _, in := range inputs {
 		src := deckfmt.Format([]greek.TaskInput{in})
 		items, errs := deckfmt.Parse(src)
@@ -160,12 +183,12 @@ func linesList(lines []int) string {
 	return "lines " + strings.Join(parts, ", ")
 }
 
-func deckSource(set store.Set, tasks []store.Task) string {
-	return deckfmt.FormatDeck(deckfmt.Deck{Rules: set.Rules, Tasks: taskInputs(tasks)})
+func deckSource(tasks []store.Task) string {
+	return deckfmt.Format(taskInputs(tasks))
 }
 
 func deckWarnings(set store.Set, tasks []store.Task) []string {
-	_, _, _, warnings := checkSource(deckSource(set, tasks))
+	_, _, _, warnings := checkSource(deckSource(tasks), set.Rules)
 	return warnings
 }
 
@@ -204,8 +227,8 @@ func (f deckForm) view(v editView) editView {
 	return v
 }
 
-func (f deckForm) check() ([]greek.Rule, []greek.TaskInput, []string) {
-	rules, inputs, errs, _ := checkSource(f.source)
+func (f deckForm) check(existing []greek.Rule) ([]greek.Rule, []greek.TaskInput, []string) {
+	rules, inputs, errs, _ := checkSource(f.source, existing)
 	if f.title == "" {
 		errs = append([]string{"Title is required."}, errs...)
 	}
@@ -233,7 +256,7 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 	v := editView{
 		Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug,
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
-		Source: deckSource(set, tasks), Version: versionOf(set),
+		Source: deckSource(tasks), Version: versionOf(set), RuleCount: len(set.Rules),
 	}
 	if lines := lossyLines(set.Rules, taskInputs(tasks)); len(lines) > 0 {
 		v.Lossy = linesList(lines)
@@ -259,16 +282,19 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		return
 	}
 	rerender := func(status int, errs []string) {
-		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs})
+		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs, RuleCount: len(set.Rules)})
 		h.page(w, r, status, "edit", v)
 	}
-	rules, inputs, errs := f.check()
+	rules, inputs, errs := f.check(set.Rules)
 	if len(errs) > 0 {
 		rerender(http.StatusUnprocessableEntity, errs)
 		return
 	}
 	patch := store.SetPatch{Title: &f.title, Topic: &f.topic, Level: &f.level, Instructions: &f.instructions,
-		SourceRef: &f.sourceRef, Visibility: &f.visibility, Rules: &rules}
+		SourceRef: &f.sourceRef, Visibility: &f.visibility}
+	if rules != nil {
+		patch.Rules = &rules
+	}
 	_, err = h.st.SaveDeck(r.Context(), set.ID, time.Unix(0, nanos), patch, inputs)
 	if errors.Is(err, store.ErrConflict) {
 		rerender(http.StatusConflict, []string{conflictMessage})
@@ -291,7 +317,7 @@ func (h *handler) createDeck(w http.ResponseWriter, r *http.Request, u store.Use
 		h.fail(w, r, err)
 		return
 	}
-	rules, inputs, errs := f.check()
+	rules, inputs, errs := f.check(nil)
 	if len(errs) > 0 {
 		h.page(w, r, http.StatusUnprocessableEntity, "edit", f.view(editView{New: true, Action: "/new", Errors: errs}))
 		return
