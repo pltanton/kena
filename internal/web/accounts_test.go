@@ -104,7 +104,7 @@ func TestLogin(t *testing.T) {
 	}
 
 	_, body = e.get("/")
-	if !strings.Contains(body, `class="uname">anna<`) || !strings.Contains(body, ">Account<") || !strings.Contains(body, `href="/account"`) {
+	if !strings.Contains(body, `aria-label="Account (anna)"`) || !strings.Contains(body, `href="/account"`) {
 		t.Fatalf("logged-in header:\n%s", body)
 	}
 }

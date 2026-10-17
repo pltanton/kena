@@ -41,7 +41,7 @@ func TestAnonymousHome(t *testing.T) {
 	e := setup(t)
 	set, _ := e.privateSet()
 	_, body := e.get("/")
-	for _, want := range []string{e.set.Title, "to keep your own list of decks", `href="/browse"`, `href="/login?next=%2F"`} {
+	for _, want := range []string{e.set.Title, "to keep your own decks", `href="/browse"`, `href="/login?next=%2F"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("anonymous home missing %q", want)
 		}

@@ -2,29 +2,22 @@
 {{define "main"}}<header class="set-head">
 <h1>{{.Set.Title}}</h1>
 {{with .Set.Instructions}}<p class="instructions" lang="el">{{.}}</p>{{end}}
-<p class="meta">{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="badge bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}{{if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">Edit deck</a>{{end}}</p>
-<nav class="controls">
-<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-<span class="seg">{{with .Shuffle}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-</nav>
+<div class="meta deck-meta"><span>{{.Progress.Solved}}/{{.Progress.Total}} solved{{with .Progress.Mistakes}} · <span class="bad">{{.}} {{if eq . 1}}mistake{{else}}mistakes{{end}}</span>{{end}}
+{{- if .Owner}} · <a href="/s/{{.Set.Slug}}/edit">Edit deck</a>{{end}}</span>
 {{- if .CanStar}}
-<form class="seg star-toggle" method="post" action="/s/{{.Set.Slug}}/star">
+<form class="star-toggle" method="post" action="/s/{{.Set.Slug}}/star">
 <input type="hidden" name="next" value="{{.Here}}">
 {{- if .Starred}}
-<button type="submit" name="star" value="0" aria-pressed="true">★ Starred</button>
+<button type="submit" name="star" value="0" aria-pressed="true" title="Remove from My decks"><span aria-hidden="true">★</span> Starred</button>
 {{- else}}
-<button type="submit" name="star" value="1">☆ Star</button>
+<button type="submit" name="star" value="1" aria-pressed="false" title="Add to My decks"><span aria-hidden="true">☆</span> Star</button>
 {{- end}}
 </form>
-{{- end}}
-{{- if .Owner}}
-<form class="seg visibility" method="post" action="/s/{{.Set.Slug}}/visibility" aria-label="Who can see this deck">
-{{- range .Visibility}}
-<button type="submit" name="visibility" value="{{.Value}}" aria-pressed="{{.Current}}"><span class="icon" aria-hidden="true">{{.Icon}}</span>{{.Label}}</button>
-{{- end}}
-</form>
-{{- end}}
+{{- end}}</div>
+<nav class="controls" aria-label="Practice options">
+<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+</nav>
 {{- if .Saved}}
 <div class="notice" role="status"><p>Saved.</p>
 {{- with .Warnings}}

@@ -1,7 +1,7 @@
 {{define "card_result"}}{{template "bar" .Bar}}
 <div class="card result {{if .Correct}}ok{{else}}bad{{end}}">
 {{- if .Correct}}
-<p class="verdict"><span class="tick" aria-label="Correct">✓</span>{{if ge .Streak 2}} <span class="streak">🔥 {{.Streak}} in a row</span>{{end}}</p>
+<p class="verdict"><span class="tick" aria-hidden="true">✓</span> Correct{{if ge .Streak 2}}<span class="streak"> · {{.Streak}} in a row</span>{{end}}</p>
 {{- end}}
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 {{- if not .Correct}}

@@ -44,7 +44,7 @@ type handler struct {
 
 func Handler(st *store.Store, publicURL string) http.Handler {
 	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
-	h.base = template.Must(template.New("").ParseFS(templateFS,
+	h.base = template.Must(template.New("").Funcs(template.FuncMap{"initial": initial}).ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
 	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect"} {
@@ -454,11 +454,12 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, status int, t *
 type layoutData struct {
 	User     *store.User
 	LoginURL string
+	Page     string
 	Data     any
 }
 
 func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	ld := layoutData{Data: data, LoginURL: "/login"}
+	ld := layoutData{Data: data, LoginURL: "/login", Page: page}
 	if u, ok := currentUser(r); ok {
 		ld.User = &u
 	}
@@ -468,6 +469,13 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 	h.render(w, r, status, h.pages[page], "layout", ld)
+}
+
+func initial(name string) string {
+	for _, r := range name {
+		return strings.ToUpper(string(r))
+	}
+	return ""
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
@@ -609,16 +617,15 @@ type link struct {
 
 type visibilityOption struct {
 	Value   store.Visibility
-	Icon    string
 	Label   string
 	Hint    string
 	Current bool
 }
 
 var visibilityOptions = []visibilityOption{
-	{Value: store.Private, Icon: "🔒", Label: "Private", Hint: "only you"},
-	{Value: store.Friends, Icon: "👥", Label: "Friends", Hint: "anyone logged in"},
-	{Value: store.Public, Icon: "🌍", Label: "Public", Hint: "everyone, also without login"},
+	{Value: store.Private, Label: "Private", Hint: "only you"},
+	{Value: store.Friends, Label: "Friends", Hint: "anyone logged in"},
+	{Value: store.Public, Label: "Public", Hint: "everyone, also without login"},
 }
 
 func visibilityChoices(current store.Visibility) []visibilityOption {
@@ -630,22 +637,21 @@ func visibilityChoices(current store.Visibility) []visibilityOption {
 }
 
 type setPage struct {
-	Set        store.Set
-	Owner      bool
-	Visibility []visibilityOption
-	Saved      bool
-	Warnings   []string
-	CanStar    bool
-	Starred    bool
-	Here       string
-	Progress   store.Progress
-	Params     params
-	Modes      []link
-	Filters    []link
-	Shuffle    link
-	Card       *cardView
-	Items      []itemView
-	Done       *doneView
+	Set      store.Set
+	Owner    bool
+	Saved    bool
+	Warnings []string
+	CanStar  bool
+	Starred  bool
+	Here     string
+	Progress store.Progress
+	Params   params
+	Modes    []link
+	Filters  []link
+	Shuffle  link
+	Card     *cardView
+	Items    []itemView
+	Done     *doneView
 }
 
 type setData struct {
@@ -725,7 +731,6 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 
 	data := setPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: pr, Params: p, Here: r.URL.RequestURI()}
 	if data.Owner {
-		data.Visibility = visibilityChoices(set.Visibility)
 		if q.Get("saved") == "1" {
 			data.Saved = true
 			data.Warnings = deckWarnings(tasks)

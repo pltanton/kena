@@ -19,17 +19,17 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
 - MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
   press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
   You can only edit your own sets; admins can edit everything and manage users.
-- Visibility: every deck is 🔒 Private (only its author), 👥 Friends (anyone
-  logged in) or 🌍 Public (everyone, also without login). A new deck is
-  private. The author switches the level on the set page, in the editor, or
+- Visibility: every deck is Private (only its author), Friends (anyone
+  logged in) or Public (everyone, also without login). A new deck is
+  private. The author switches the level in the editor (Who can see it), or
   by asking the agent (`update_set` with `visibility`); the agent asks after
   creating a set. Decks that were shared before the levels existed are public.
-- Browse and star: logged in, the home page shows only your own decks (with a
-  private / friends badge) and the ones you starred. Header → Browse lists
-  other authors' friends and public decks; ☆ adds one to your home page, ★
-  removes it (also on the set page). A starred deck that its author makes
-  private disappears from your list. Anonymous visitors see public decks on
-  the home page and in Browse.
+- Discover and star: logged in, My decks (the home page) shows only your own
+  decks (with a private / friends badge) and the ones you starred. Header →
+  Discover lists other authors' friends and public decks; ☆ adds one to My
+  decks, ★ removes it (also on the set page). A starred deck that its author
+  makes private disappears from your list. Anonymous visitors see public decks
+  on the home page and in Discover.
 - Editing: the author edits a whole deck as text (set page → Edit deck) and
   creates one from scratch with New deck on the home page. One task per
   paragraph, blanks in braces, `>` lines for the explanation:

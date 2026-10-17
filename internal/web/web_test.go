@@ -214,7 +214,7 @@ func TestCheckCorrectAndWrongCards(t *testing.T) {
 	}
 
 	_, body = e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}, "mode": {"cards"}, "streak": {"1"}}, true)
-	if !strings.Contains(body, "🔥 2 in a row") || !strings.Contains(body, "streak=2") {
+	if !strings.Contains(body, "2 in a row") || !strings.Contains(body, "streak=2") {
 		t.Fatalf("streak not counted:\n%s", body)
 	}
 
@@ -296,8 +296,8 @@ func TestNextWalksOrderAndEndsWithDone(t *testing.T) {
 
 	resp, body = e.get(fmt.Sprintf("/s/%s/next?after=%d", e.set.Slug, e.tasks[2].ID))
 	wantStatus(t, resp, http.StatusOK)
-	if !strings.Contains(body, "Mistakes only") || !strings.Contains(body, "Again") {
-		t.Fatalf("done fragment:\n%s", body)
+	if !strings.Contains(body, ">Done<") || !strings.Contains(body, "Practise again") || strings.Contains(body, "Mistakes only") {
+		t.Fatalf("done fragment without mistakes:\n%s", body)
 	}
 }
 
@@ -553,4 +553,56 @@ func TestBrandAssets(t *testing.T) {
 			t.Errorf("page head missing %q", want)
 		}
 	}
+}
+
+func navOf(t *testing.T, body string) string {
+	t.Helper()
+	start := strings.Index(body, `<nav class="nav"`)
+	end := strings.Index(body[start:], "</nav>")
+	if start < 0 || end < 0 {
+		t.Fatalf("no main nav:\n%s", body)
+	}
+	return body[start : start+end]
+}
+
+func TestNav(t *testing.T) {
+	e := setup(t)
+	nav := navOf(t, mustGet(t, e, "/browse"))
+	for _, want := range []string{`<a href="/browse" aria-current="page">Discover</a>`, `href="/connect"`, ">Log in<"} {
+		if !strings.Contains(nav, want) {
+			t.Errorf("anonymous nav misses %q:\n%s", want, nav)
+		}
+	}
+	if strings.Contains(nav, "My decks") || strings.Contains(nav, "Browse") {
+		t.Errorf("anonymous nav:\n%s", nav)
+	}
+
+	e.user("anna")
+	e.login("anna")
+	cases := map[string]string{
+		"/":         `<a href="/" aria-current="page">My decks</a>`,
+		"/browse":   `<a href="/browse" aria-current="page">Discover</a>`,
+		"/mistakes": `<a href="/mistakes" aria-current="page">Mistakes</a>`,
+		"/account":  `<a href="/account" class="acct" aria-current="page"`,
+	}
+	for path, want := range cases {
+		nav := navOf(t, mustGet(t, e, path))
+		if !strings.Contains(nav, want) || strings.Count(nav, "aria-current") != 1 {
+			t.Errorf("%s: want only %q current:\n%s", path, want, nav)
+		}
+	}
+	nav = navOf(t, mustGet(t, e, "/s/"+e.set.Slug))
+	if strings.Contains(nav, "aria-current") || !strings.Contains(nav, ">My decks<") || !strings.Contains(nav, ">Discover<") {
+		t.Errorf("set page nav:\n%s", nav)
+	}
+	if _, body := e.get("/browse"); !strings.Contains(body, "<h1>Discover decks</h1>") || !strings.Contains(body, "Star one to add it to My decks.") {
+		t.Errorf("discover page heading:\n%s", body)
+	}
+}
+
+func mustGet(t *testing.T, e *env, path string) string {
+	t.Helper()
+	resp, body := e.get(path)
+	wantStatus(t, resp, http.StatusOK)
+	return body
 }

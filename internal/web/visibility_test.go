@@ -188,20 +188,11 @@ func TestVisibilityToggle(t *testing.T) {
 
 	maria := e.as("maria", false)
 	_, body := maria.get("/s/" + set.Slug)
-	for _, want := range []string{
-		`action="/s/` + set.Slug + `/visibility"`,
-		`name="visibility" value="private" aria-pressed="true"`,
-		`name="visibility" value="friends" aria-pressed="false"`,
-		`name="visibility" value="public" aria-pressed="false"`,
-		"Private", "Friends", "Public",
-		`href="/s/` + set.Slug + `/edit"`,
-	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("owner's set page misses %q", want)
-		}
+	if !strings.Contains(body, `href="/s/`+set.Slug+`/edit"`) {
+		t.Error("owner's set page has no Edit deck link")
 	}
-	if strings.Contains(body, "/share") {
-		t.Error("old share toggle still rendered")
+	if strings.Contains(body, "/visibility") || strings.Contains(body, `name="visibility"`) || strings.Contains(body, "/share") {
+		t.Errorf("practice page renders a visibility toggle; it lives in the editor:\n%s", body)
 	}
 
 	resp, _ = maria.post(path, url.Values{"visibility": {"public"}}, "https://evil.example")
@@ -219,8 +210,8 @@ func TestVisibilityToggle(t *testing.T) {
 	if !bob.canOpen(set, task) || anon.canOpen(set, task) {
 		t.Fatal("friends deck: bob should see it, anonymous should not")
 	}
-	if _, body := maria.get("/s/" + set.Slug); !strings.Contains(body, `value="friends" aria-pressed="true"`) {
-		t.Error("toggle does not show friends as current")
+	if _, body := maria.get("/s/" + set.Slug + "/edit"); !strings.Contains(body, `<option value="friends" selected>`) {
+		t.Error("editor does not show friends as current")
 	}
 
 	maria.post(path, url.Values{"visibility": {"public"}}, e.srv.URL)
@@ -231,4 +222,19 @@ func TestVisibilityToggle(t *testing.T) {
 	maria.post(path, url.Values{"visibility": {"private"}}, e.srv.URL)
 	anon.wantHidden(set, task)
 	bob.wantHidden(set, task)
+}
+
+func TestPracticePageHasNoVisibilityToggle(t *testing.T) {
+	e := setup(t)
+	set, _ := e.privateSet()
+	maria := e.as("maria", false)
+	for _, mode := range []string{"cards", "list"} {
+		_, body := maria.get("/s/" + set.Slug + "?mode=" + mode)
+		if strings.Contains(body, `action="/s/`+set.Slug+`/visibility"`) || strings.Contains(body, `name="visibility"`) {
+			t.Errorf("%s mode renders a visibility toggle:\n%s", mode, body)
+		}
+		if !strings.Contains(body, `href="/s/`+set.Slug+`/edit">Edit deck</a>`) {
+			t.Errorf("%s mode has no Edit deck link", mode)
+		}
+	}
 }

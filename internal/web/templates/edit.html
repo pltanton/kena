@@ -33,7 +33,7 @@
 <label for="visibility">Who can see it</label>
 <select id="visibility" name="visibility">
 {{- range .Visibility}}
-<option value="{{.Value}}"{{if .Current}} selected{{end}}>{{.Icon}} {{.Label}} — {{.Hint}}</option>
+<option value="{{.Value}}"{{if .Current}} selected{{end}}>{{.Label}} — {{.Hint}}</option>
 {{- end}}
 </select>
 </div>

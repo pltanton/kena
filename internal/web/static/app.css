@@ -123,12 +123,12 @@ main {
 }
 
 header.site {
-  padding-top: 8px;
-  padding-bottom: 6px;
+  padding-top: 6px;
+  padding-bottom: 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .brand {
@@ -158,40 +158,62 @@ header.site {
 
 .nav {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  column-gap: 14px;
+  min-width: 0;
 }
 
-.who {
+.nav a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--text);
-  font-size: 0.9rem;
-  text-decoration: none;
-  overflow-wrap: anywhere;
-  text-align: right;
-}
-
-.who:hover {
-  color: var(--primary);
-}
-
-.who.acct {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  line-height: 1.25;
-}
-
-.who.acct .uname {
-  font-weight: 600;
-}
-
-.who.acct .label {
-  font-size: 0.8rem;
+  padding: 0 6px;
   color: var(--muted);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.nav a:last-child {
+  padding-right: 0;
+}
+
+.nav a:hover {
+  color: var(--text);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--text);
+  text-decoration: underline 2px var(--gold);
+  text-underline-offset: 0.45em;
+}
+
+.nav a.acct {
+  padding-left: 8px;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.nav a.acct[aria-current="page"] {
+  text-decoration: none;
+}
+
+.nav a.acct[aria-current="page"] .avatar,
+.nav a.acct:hover .avatar {
+  box-shadow: inset 0 0 0 2px var(--gold);
 }
 
 .strip {
@@ -210,8 +232,9 @@ h2 {
 h1 {
   font-size: 2rem;
   line-height: 1.15;
-  margin: 1rem 0 0.75rem;
+  margin: 0.9rem 0 0.6rem;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 h2 {
@@ -237,6 +260,16 @@ a:hover {
 
 p {
   margin: 0.5rem 0;
+}
+
+.lede {
+  color: var(--muted);
+  margin: -0.15rem 0 1rem;
+}
+
+.foot {
+  margin-top: 1.5rem;
+  font-size: 0.925rem;
 }
 
 .muted,
@@ -467,25 +500,16 @@ button.danger:hover {
 
 .verdict {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 0.5rem;
-  font-weight: 600;
+  align-items: baseline;
+  gap: 6px;
+  margin: -6px 0 0.35rem;
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
 .verdict .tick {
   color: var(--ok);
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.verdict .streak {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--gold-soft);
-  box-shadow: inset 0 0 0 1px var(--gold);
+  font-weight: 700;
 }
 
 .sentence {
@@ -551,12 +575,19 @@ button.danger:hover {
   white-space: pre-line;
 }
 
+.position {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
 .progress {
-  height: 4px;
+  flex: 1;
+  height: 3px;
   border-radius: 999px;
   background: var(--line);
   overflow: hidden;
-  margin-top: 1rem;
 }
 
 .progress .bar {
@@ -568,82 +599,99 @@ button.danger:hover {
 
 .count {
   font-size: 0.8rem;
-  text-align: right;
-  margin: 0.25rem 0 0;
   font-variant-numeric: tabular-nums;
 }
 
+.position + .card {
+  margin-top: 0.6rem;
+}
+
 .set-head h1 {
-  margin-bottom: 0.25rem;
+  font-size: 1.75rem;
+  margin-bottom: 0.3rem;
 }
 
 .set-head .instructions {
+  margin: 0 0 0.15rem;
+}
+
+.deck-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 28px;
+  font-size: 0.9rem;
+}
+
+.star-toggle button {
+  gap: 4px;
+  min-height: 44px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+}
+
+.star-toggle button:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.star-toggle button span {
   font-size: 1.05rem;
+}
+
+.star-toggle button[aria-pressed="true"] {
+  color: var(--text);
+}
+
+.star-toggle button[aria-pressed="true"] span {
+  color: var(--gold-line);
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0.75rem 0;
-}
-
-.set-head > form.seg {
-  margin: 0 8px 0.5rem 0;
-}
-
-.seg.visibility button {
-  gap: 6px;
-  padding: 0 12px;
-}
-
-.seg .icon {
-  font-size: 0.95em;
-  line-height: 1;
+  justify-content: space-between;
+  column-gap: 12px;
+  margin: 0.2rem 0 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .seg {
   display: inline-flex;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  overflow: hidden;
+  margin: 0 -8px;
 }
 
 .seg a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 14px;
-  color: var(--text);
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
   text-decoration: none;
-  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
-.seg button {
-  min-height: 44px;
-  margin: 0;
-  padding: 0 14px;
-  border-radius: 0;
-  font-size: 0.95rem;
-  font-weight: 400;
+.seg a:hover {
   color: var(--text);
-  background: transparent;
 }
 
-.seg a:hover,
-.seg button:hover {
-  background: var(--sunken);
+.seg a[aria-current] {
+  color: var(--text);
+  text-decoration: underline 2px var(--gold);
+  text-underline-offset: 0.5em;
 }
 
-.seg a + a,
-.seg button + button {
-  border-left: 1px solid var(--line-strong);
-}
-
-.seg a[aria-current],
-.seg button[aria-pressed="true"] {
-  background: var(--button);
-  color: var(--on-primary);
+.seg a.toggle {
+  margin-left: 4px;
+  padding-left: 12px;
+  background: linear-gradient(var(--line-strong), var(--line-strong)) left center / 1px 14px no-repeat;
 }
 
 .badge {
@@ -655,6 +703,12 @@ button.danger:hover {
   border-radius: 4px;
   background: var(--bad-bg);
   white-space: nowrap;
+}
+
+.badge.bad {
+  padding: 0;
+  background: none;
+  font-weight: 500;
 }
 
 .badge.vis {
@@ -768,13 +822,8 @@ button.danger:hover {
   background: var(--sunken);
 }
 
-.star button[aria-pressed="true"],
-.star-toggle button[aria-pressed="true"] {
+.star button[aria-pressed="true"] {
   color: var(--gold-line);
-}
-
-.star-toggle button[aria-pressed="true"] {
-  background: var(--gold-soft);
 }
 
 .items .item {
@@ -790,7 +839,13 @@ button.danger:hover {
   margin-top: 0.75rem;
 }
 
-.ask button {
+.ask {
+  margin-top: 2.5rem;
+}
+
+.copy-btn,
+.card .copy-btn,
+#ask-copy {
   width: auto;
   margin-top: 0;
 }
@@ -817,12 +872,12 @@ button.danger:hover {
 .kind {
   display: inline-block;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.5;
   padding: 0 7px;
   border-radius: 4px;
-  background: var(--bad-bg);
-  color: var(--bad);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--muted);
 }
 
 .motif {
@@ -861,7 +916,13 @@ button.danger:hover {
 }
 
 .done h2 {
-  margin-top: 0.75rem;
+  margin: 0.75rem 0 0.15rem;
+}
+
+.done .links {
+  margin: 0.9rem 0 0;
+  font-size: 0.925rem;
+  color: var(--muted);
 }
 
 .actions {
@@ -869,7 +930,7 @@ button.danger:hover {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
 .actions .button {
@@ -940,9 +1001,44 @@ button.danger:hover {
   gap: 12px;
 }
 
-.page-head .button {
+.page-head .button,
+.page-head button {
   margin-top: 0.25rem;
   flex-shrink: 0;
+}
+
+.inline-form {
+  display: flex;
+  gap: 8px;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.inline-form button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.gap {
+  white-space: nowrap;
+}
+
+.facts {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+
+.facts li + li {
+  margin-top: 0.2rem;
+}
+
+.ask-allow {
+  font-size: 1.1rem;
 }
 
 .issues {
@@ -1054,4 +1150,47 @@ textarea.deck-source {
 
 .confirm .button {
   margin-top: 8px;
+}
+
+.steps {
+  margin: 0.75rem 0 0.5rem;
+  padding-left: 1.3rem;
+}
+
+.steps li + li {
+  margin-top: 0.2rem;
+}
+
+.steps li::marker {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 389px) {
+  .nav a {
+    padding: 0 5px;
+  }
+
+  .controls {
+    column-gap: 6px;
+  }
+
+  .seg {
+    margin: 0 -6px;
+  }
+
+  .seg a {
+    padding: 0 6px;
+  }
+
+  .seg a.toggle {
+    margin-left: 2px;
+    padding-left: 9px;
+  }
+}
+
+@media (max-width: 369px) {
+  .brand .wordmark {
+    display: none;
+  }
 }
