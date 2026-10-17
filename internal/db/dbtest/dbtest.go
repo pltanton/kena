@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -216,5 +217,13 @@ func newDatabase(t testing.TB) (*pgxpool.Pool, string) {
 		_, _ = dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize())
 	})
 
-	return pool, dbCfg.ConnConfig.ConnString()
+	return pool, withDatabase(adminURL, dbName)
+}
+
+func withDatabase(connString, dbName string) string {
+	if u, err := url.Parse(connString); err == nil && u.Scheme != "" {
+		u.Path = "/" + dbName
+		return u.String()
+	}
+	return connString + " dbname=" + dbName
 }
