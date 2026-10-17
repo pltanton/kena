@@ -287,7 +287,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "get_set",
-		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, title, body, general}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task.",
+		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, title, body, general}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task, and rule keys with set_rule / delete_rule.",
 		Annotations: readOnly("Get set"),
 	}, handle(func(ctx context.Context, u store.User, in SetRef) (SetDetail, error) {
 		st, err := s.visibleSet(ctx, u, in.Set)
@@ -384,7 +384,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "update_set",
-		Description: "Change metadata of a set you own (admins: any set): title, topic, level, instructions, source_ref, visibility (private: only you; friends: every logged-in user; public: everyone), rules (replaces the whole list of deck rules; keys still used by tasks must stay). Only the fields you pass change. Returns the updated set without tasks.",
+		Description: "Change metadata of a set you own (admins: any set): title, topic, level, instructions, source_ref, visibility (private: only you; friends: every logged-in user; public: everyone), rules (replaces the whole list of deck rules; keys still used by tasks must stay; to edit or translate one rule use set_rule, to remove one use delete_rule). Only the fields you pass change. Returns the updated set without tasks.",
 		Annotations: destructive("Update set", true),
 	}, handle(func(ctx context.Context, u store.User, in UpdateSetIn) (SetDetail, error) {
 		if in.Title == nil && in.Topic == nil && in.Level == nil && in.Instructions == nil && in.SourceRef == nil && in.Visibility == nil && in.Rules == nil {
