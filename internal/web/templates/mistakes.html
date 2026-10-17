@@ -9,6 +9,7 @@
 <li class="item mistake">
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 <p class="meta">{{range .Kinds}}<span class="kind">{{.}}</span> {{end}}{{.WrongCount}} wrong{{if .Fixed}} · <span class="ok">fixed ✓</span>{{end}}</p>
+{{template "why" .Notes}}
 </li>
 {{- end}}
 </ul>

@@ -69,8 +69,9 @@ func byLine(ms []lineMsg) []string {
 	return out
 }
 
-func checkSource(src string) (inputs []greek.TaskInput, errs, warnings []string) {
-	items, perrs := deckfmt.Parse(src)
+func checkSource(src string) (rules []greek.Rule, inputs []greek.TaskInput, errs, warnings []string) {
+	d, perrs := deckfmt.ParseDeck(src)
+	items := d.Items
 	var es, ws []lineMsg
 	for _, e := range perrs {
 		es = append(es, lineMsg{e.Line, e.Error()})
@@ -79,7 +80,21 @@ func checkSource(src string) (inputs []greek.TaskInput, errs, warnings []string)
 		line := items[maxDeckTasks].Line
 		es = append(es, lineMsg{line, fmt.Sprintf("line %d: a deck holds at most %d tasks", line, maxDeckTasks)})
 	}
-	inputs, issues := greek.Prepare(deckfmt.Tasks(items), nil)
+	rules, rissues := greek.PrepareRules(d.Rules)
+	for _, iss := range rissues {
+		line := 1
+		var i int
+		if _, err := fmt.Sscanf(iss.Field, "rules[%d]", &i); err == nil && i < len(d.RuleLines) {
+			line = d.RuleLines[i]
+		}
+		m := lineMsg{line, fmt.Sprintf("line %d: %s", line, iss.Message)}
+		if iss.Severity == greek.Error {
+			es = append(es, m)
+		} else {
+			ws = append(ws, m)
+		}
+	}
+	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, rules)
 	for _, iss := range issues {
 		line := items[iss.Task].Line
 		m := lineMsg{line, fmt.Sprintf("line %d: %s%s", line, describeField(iss.Field), iss.Message)}
@@ -95,26 +110,29 @@ func checkSource(src string) (inputs []greek.TaskInput, errs, warnings []string)
 	if len(ws) > 0 {
 		warnings = byLine(ws)
 	}
-	return inputs, errs, warnings
+	return rules, inputs, errs, warnings
 }
 
 func taskInputs(tasks []store.Task) []greek.TaskInput {
 	out := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
-		out[i] = greek.TaskInput{Text: t.Text, Blanks: t.Blanks, Explanation: t.Explanation}
+		out[i] = greek.TaskInput{Text: t.Text, Blanks: t.Blanks, Explanation: t.Explanation, Rule: t.Rule}
 	}
 	return out
 }
 
-func lossyLines(inputs []greek.TaskInput) []int {
+func lossyLines(rules []greek.Rule, inputs []greek.TaskInput) []int {
 	var lines []int
-	line := 1
+	line := 1 + len(rules)
+	if len(rules) > 0 {
+		line++
+	}
 	for _, in := range inputs {
 		src := deckfmt.Format([]greek.TaskInput{in})
 		items, errs := deckfmt.Parse(src)
 		var back []greek.TaskInput
 		if len(errs) == 0 && len(items) == 1 {
-			back, _ = greek.Prepare(deckfmt.Tasks(items), nil)
+			back, _ = greek.PrepareDeck(deckfmt.Tasks(items), nil, rules)
 		}
 		if len(back) != 1 || !sameInput(back[0], in) {
 			lines = append(lines, line)
@@ -125,7 +143,7 @@ func lossyLines(inputs []greek.TaskInput) []int {
 }
 
 func sameInput(a, b greek.TaskInput) bool {
-	return a.Text == b.Text && a.Explanation == b.Explanation &&
+	return a.Text == b.Text && a.Explanation == b.Explanation && a.Rule == b.Rule &&
 		slices.EqualFunc(a.Blanks, b.Blanks, func(x, y greek.Blank) bool {
 			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers)
 		})
@@ -142,8 +160,12 @@ func linesList(lines []int) string {
 	return "lines " + strings.Join(parts, ", ")
 }
 
-func deckWarnings(tasks []store.Task) []string {
-	_, _, warnings := checkSource(deckfmt.Format(taskInputs(tasks)))
+func deckSource(set store.Set, tasks []store.Task) string {
+	return deckfmt.FormatDeck(deckfmt.Deck{Rules: set.Rules, Tasks: taskInputs(tasks)})
+}
+
+func deckWarnings(set store.Set, tasks []store.Task) []string {
+	_, _, _, warnings := checkSource(deckSource(set, tasks))
 	return warnings
 }
 
@@ -182,15 +204,15 @@ func (f deckForm) view(v editView) editView {
 	return v
 }
 
-func (f deckForm) check() ([]greek.TaskInput, []string) {
-	inputs, errs, _ := checkSource(f.source)
+func (f deckForm) check() ([]greek.Rule, []greek.TaskInput, []string) {
+	rules, inputs, errs, _ := checkSource(f.source)
 	if f.title == "" {
 		errs = append([]string{"Title is required."}, errs...)
 	}
 	if n := len(errs) - maxShownErrors; n > 0 {
 		errs = append(errs[:maxShownErrors], fmt.Sprintf("…and %d more", n))
 	}
-	return inputs, errs
+	return rules, inputs, errs
 }
 
 func savedURL(slug string) string {
@@ -211,9 +233,9 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 	v := editView{
 		Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug,
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
-		Source: deckfmt.Format(taskInputs(tasks)), Version: versionOf(set),
+		Source: deckSource(set, tasks), Version: versionOf(set),
 	}
-	if lines := lossyLines(taskInputs(tasks)); len(lines) > 0 {
+	if lines := lossyLines(set.Rules, taskInputs(tasks)); len(lines) > 0 {
 		v.Lossy = linesList(lines)
 	}
 	v.Visibility = visibilityChoices(set.Visibility)
@@ -240,13 +262,13 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		v := f.view(editView{Action: "/s/" + url.PathEscape(set.Slug) + "/edit", Slug: set.Slug, Errors: errs})
 		h.page(w, r, status, "edit", v)
 	}
-	inputs, errs := f.check()
+	rules, inputs, errs := f.check()
 	if len(errs) > 0 {
 		rerender(http.StatusUnprocessableEntity, errs)
 		return
 	}
 	patch := store.SetPatch{Title: &f.title, Topic: &f.topic, Level: &f.level, Instructions: &f.instructions,
-		SourceRef: &f.sourceRef, Visibility: &f.visibility}
+		SourceRef: &f.sourceRef, Visibility: &f.visibility, Rules: &rules}
 	_, err = h.st.SaveDeck(r.Context(), set.ID, time.Unix(0, nanos), patch, inputs)
 	if errors.Is(err, store.ErrConflict) {
 		rerender(http.StatusConflict, []string{conflictMessage})
@@ -269,14 +291,14 @@ func (h *handler) createDeck(w http.ResponseWriter, r *http.Request, u store.Use
 		h.fail(w, r, err)
 		return
 	}
-	inputs, errs := f.check()
+	rules, inputs, errs := f.check()
 	if len(errs) > 0 {
 		h.page(w, r, http.StatusUnprocessableEntity, "edit", f.view(editView{New: true, Action: "/new", Errors: errs}))
 		return
 	}
 	ctx := r.Context()
 	set, err := h.st.CreateSet(ctx, u.ID, store.SetInput{Title: f.title, Topic: f.topic, Level: f.level,
-		Instructions: f.instructions, SourceRef: f.sourceRef, Visibility: f.visibility})
+		Instructions: f.instructions, SourceRef: f.sourceRef, Visibility: f.visibility, Rules: rules})
 	if err != nil {
 		h.fail(w, r, err)
 		return

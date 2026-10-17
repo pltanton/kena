@@ -5,9 +5,9 @@
 {{- end}}
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 {{- if .Correct}}
-{{template "why" .Explanation}}
+{{template "why" .Notes}}
 {{- else}}
-{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
+{{template "notes_body" .Notes}}
 {{- end}}
 <button type="button" data-next hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML show:none">Next</button>
 </div>{{end}}

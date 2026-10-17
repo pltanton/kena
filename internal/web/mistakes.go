@@ -25,6 +25,7 @@ type mistakeRow struct {
 	Kinds      []string
 	WrongCount int
 	Fixed      bool
+	Notes      notes
 }
 
 type mistakeSet struct {
@@ -40,7 +41,7 @@ type mistakesView struct {
 }
 
 func newMistakeRow(tm store.TaskMistakes) mistakeRow {
-	row := mistakeRow{WrongCount: tm.WrongCount, Fixed: tm.LastCorrect}
+	row := mistakeRow{WrongCount: tm.WrongCount, Fixed: tm.LastCorrect, Notes: notes{Explanation: tm.Task.Explanation, Rule: tm.RuleText}}
 	var given []string
 	if len(tm.RecentWrong) > 0 {
 		given = tm.RecentWrong[0].Answers

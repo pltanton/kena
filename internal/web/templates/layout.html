@@ -54,7 +54,9 @@
 {{define "check_actions"}}{{with .Nudge}}<p class="nudge" role="status">{{.}}</p>{{else}}{{if .Retry}}<p class="visually-hidden" role="status">Not quite, try again.</p>{{end}}{{end}}
 <div class="check-actions"><button type="submit">Check</button><button type="submit" name="giveup" value="1" class="quiet">Give up</button></div>{{end}}
 
-{{define "why"}}{{with .}}<details class="why"><summary>Why?</summary><p>{{.}}</p></details>{{end}}{{end}}
+{{define "why"}}{{if or .Explanation .Rule}}<details class="why"><summary>Why?</summary>{{template "notes_body" .}}</details>{{end}}{{end}}
+
+{{define "notes_body"}}{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}{{with .Rule}}<p class="rule"><span class="rule-label">Rule</span> {{.}}</p>{{end}}{{end}}
 
 {{define "bar"}}{{if .Total}}<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
 <span class="count">{{.Index}}/{{.Total}}</span>{{end}}{{end}}

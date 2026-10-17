@@ -454,24 +454,42 @@ type cardView struct {
 	Nudge  string
 }
 
-type cardResultView struct {
-	Task        taskView
-	Bar         progressBar
-	Correct     bool
-	Streak      int
+type notes struct {
 	Explanation string
-	NextURL     string
+	Rule        string
+}
+
+func ruleText(set store.Set, key string) string {
+	for _, r := range set.Rules {
+		if r.Key == key {
+			return r.Text
+		}
+	}
+	return ""
+}
+
+func notesOf(set store.Set, t store.Task) notes {
+	return notes{Explanation: t.Explanation, Rule: ruleText(set, t.Rule)}
+}
+
+type cardResultView struct {
+	Task    taskView
+	Bar     progressBar
+	Correct bool
+	Streak  int
+	Notes   notes
+	NextURL string
 }
 
 type itemView struct {
-	Task        taskView
-	Params      params
-	Retry       bool
-	Nudge       string
-	Checked     bool
-	Correct     bool
-	Explanation string
-	ItemURL     string
+	Task    taskView
+	Params  params
+	Retry   bool
+	Nudge   string
+	Checked bool
+	Correct bool
+	Notes   notes
+	ItemURL string
 }
 
 type doneView struct {
@@ -760,7 +778,7 @@ func (h *handler) loadSet(r *http.Request, slug string) (setData, error) {
 	return d, nil
 }
 
-func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) itemView {
+func listItem(set store.Set, t store.Task, p params, attempts map[int64]store.LastAttempt) itemView {
 	la, tried := attempts[t.ID]
 	if !tried {
 		return itemView{Task: newTaskView(t, false, nil), Params: p}
@@ -771,12 +789,12 @@ func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) item
 		return itemView{Task: retryTaskView(t, results), Params: p, Retry: true, Nudge: nudge(t, results)}
 	}
 	return itemView{
-		Task:        newTaskView(t, false, results),
-		Params:      p,
-		Checked:     true,
-		Correct:     la.Correct,
-		Explanation: t.Explanation,
-		ItemURL:     itemURL(t.ID, p),
+		Task:    newTaskView(t, false, results),
+		Params:  p,
+		Checked: true,
+		Correct: la.Correct,
+		Notes:   notesOf(set, t),
+		ItemURL: itemURL(t.ID, p),
 	}
 }
 
@@ -802,7 +820,7 @@ func (h *handler) deckHead(w http.ResponseWriter, r *http.Request, d setData) (d
 	data := deckPage{Set: set, Owner: viewerID(r) != 0 && viewerID(r) == set.OwnerID, Progress: progressOf(d.tasks, d.last), Here: r.URL.RequestURI()}
 	if data.Owner && r.URL.Query().Get("saved") == "1" {
 		data.Saved = true
-		data.Warnings = deckWarnings(d.tasks)
+		data.Warnings = deckWarnings(d.set, d.tasks)
 	}
 	if u, ok := currentUser(r); ok && !data.Owner {
 		data.CanStar = true
@@ -906,7 +924,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 		data.Done = newDone(r, slug, true, head.Progress)
 	}
 	for _, t := range todo {
-		data.Items = append(data.Items, listItem(t, p, d.attempts))
+		data.Items = append(data.Items, listItem(d.set, t, p, d.attempts))
 	}
 	if id, ok := firstUnsolved(todo, last); ok && id != todo[0].ID {
 		data.First = id
@@ -1154,22 +1172,22 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	view := newTaskView(task, false, results)
 	if p.Mode == "list" {
 		h.fragment(w, r, "list_item", itemView{
-			Task:        view,
-			Params:      p,
-			Checked:     true,
-			Correct:     correct,
-			Explanation: task.Explanation,
-			ItemURL:     itemURL(task.ID, p),
+			Task:    view,
+			Params:  p,
+			Checked: true,
+			Correct: correct,
+			Notes:   notesOf(set, task),
+			ItemURL: itemURL(task.ID, p),
 		})
 		return
 	}
 	h.fragment(w, r, "card_result", cardResultView{
-		Task:        view,
-		Bar:         progressBar{Index: p.I, Total: p.N},
-		Correct:     correct,
-		Streak:      p.Streak,
-		Explanation: task.Explanation,
-		NextURL:     nextURL(set.Slug, task.ID, p),
+		Task:    view,
+		Bar:     progressBar{Index: p.I, Total: p.N},
+		Correct: correct,
+		Streak:  p.Streak,
+		Notes:   notesOf(set, task),
+		NextURL: nextURL(set.Slug, task.ID, p),
 	})
 }
 

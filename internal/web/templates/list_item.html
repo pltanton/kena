@@ -2,9 +2,9 @@
 {{- if .Checked}}
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
 {{- if .Correct}}
-{{template "why" .Explanation}}
+{{template "why" .Notes}}
 {{- else}}
-{{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
+{{template "notes_body" .Notes}}
 <button type="button" class="secondary" hx-get="{{.ItemURL}}" hx-target="#t-{{.Task.ID}}" hx-swap="outerHTML">Try again</button>
 {{- end}}
 {{- else}}

@@ -13,9 +13,10 @@ type Item struct {
 }
 
 type Deck struct {
-	Rules []greek.Rule
-	Tasks []greek.TaskInput
-	Items []Item
+	Rules     []greek.Rule
+	RuleLines []int
+	Tasks     []greek.TaskInput
+	Items     []Item
 }
 
 type LineError struct {
@@ -94,8 +95,9 @@ func ParseDeck(src string) (Deck, []LineError) {
 	src = strings.ReplaceAll(src, "\r", "\n")
 
 	var (
-		rules    []greek.Rule
-		begun    bool
+		rules     []greek.Rule
+		ruleLines []int
+		begun     bool
 		items    []Item
 		errs     []LineError
 		sentence []string
@@ -157,6 +159,7 @@ func ParseDeck(src string) (Deck, []LineError) {
 				continue
 			}
 			rules = append(rules, greek.Rule{Key: key, Text: strings.TrimSpace(text)})
+			ruleLines = append(ruleLines, n)
 		case strings.HasPrefix(trimmed, "@"):
 			closeSentence()
 			if broken {
@@ -198,7 +201,7 @@ func ParseDeck(src string) (Deck, []LineError) {
 		}
 	}
 	flush()
-	return Deck{Rules: rules, Items: items}, errs
+	return Deck{Rules: rules, RuleLines: ruleLines, Items: items}, errs
 }
 
 func parseLine(line string) (greek.TaskInput, string) {
