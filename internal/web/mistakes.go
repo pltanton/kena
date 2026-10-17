@@ -15,9 +15,9 @@ const (
 )
 
 var kindLabels = map[greek.ErrorKind]string{
-	greek.KindAccent:     msg("kind.accent"),
-	greek.KindFinalSigma: msg("kind.final_sigma"),
-	greek.KindNearMiss:   msg("kind.near_miss"),
+	greek.KindAccent:     "kind.accent",
+	greek.KindFinalSigma: "kind.final_sigma",
+	greek.KindNearMiss:   "kind.near_miss",
 }
 
 type mistakeRow struct {
@@ -50,7 +50,7 @@ func newMistakeRow(tm store.TaskMistakes) mistakeRow {
 		given = tm.RecentWrong[0].Answers
 	}
 	results, _ := greek.Check(tm.Task.Blanks, given)
-	row.Task = newTaskView(tm.Task, false, results)
+	row.Task = newTaskView(tm.Task, results)
 	seen := map[string]bool{}
 	for i, b := range tm.Task.Blanks {
 		if results[i].Correct {

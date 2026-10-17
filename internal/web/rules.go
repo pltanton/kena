@@ -149,7 +149,7 @@ func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request, u store.User
 	h.page(w, r, http.StatusOK, "rules", v)
 }
 
-var ruleFieldLabels = map[string]string{"key": msg("rules.field_key"), "title": msg("rules.field_title"), "body": msg("rules.field_body")}
+var ruleFieldLabels = map[string]string{"key": "rules.field_key", "title": "rules.field_title", "body": "rules.field_body"}
 
 func ruleIssues(r *http.Request, issues []greek.Issue, i int) (errs, warnings []string) {
 	prefix := fmt.Sprintf("rules[%d].", i)

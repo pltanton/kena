@@ -160,9 +160,9 @@ func (h *handler) adminUser(w http.ResponseWriter, r *http.Request, me store.Use
 func userPath(name string) string { return "/admin/users/" + url.PathEscape(name) }
 
 var guardMessages = map[error]string{
-	store.ErrOwnAdmin:   msg("admin.guard_own_admin"),
-	store.ErrLastAdmin:  msg("admin.guard_last_admin"),
-	store.ErrSelfDelete: msg("admin.guard_self_delete"),
+	store.ErrOwnAdmin:   "admin.guard_own_admin",
+	store.ErrLastAdmin:  "admin.guard_last_admin",
+	store.ErrSelfDelete: "admin.guard_self_delete",
 }
 
 func (h *handler) guardError(w http.ResponseWriter, r *http.Request, me store.User, err error) {

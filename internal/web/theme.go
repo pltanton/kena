@@ -1,37 +1,25 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/pltanton/kena/internal/i18n"
-	"github.com/pltanton/kena/internal/store"
 )
 
 const themeCookie = "kena_theme"
 
 var themes = []string{"auto", "light", "dark"}
 
-var themeLabels = map[string]string{"auto": msg("theme.auto"), "light": msg("theme.light"), "dark": msg("theme.dark")}
+var themeLabels = map[string]string{"auto": "theme.auto", "light": "theme.light", "dark": "theme.dark"}
 
-func validTheme(t string) bool {
-	return t == "auto" || t == "light" || t == "dark"
-}
+func validTheme(t string) bool { return slices.Contains(themes, t) }
 
 func themeOf(r *http.Request) string {
 	if c, err := r.Cookie(themeCookie); err == nil && validTheme(c.Value) {
 		return c.Value
 	}
 	return "auto"
-}
-
-func nextTheme(t string) string {
-	for i, x := range themes {
-		if x == t {
-			return themes[(i+1)%len(themes)]
-		}
-	}
-	return themes[0]
 }
 
 type themeOption struct {
@@ -58,7 +46,7 @@ type prefs struct {
 
 func newPrefs(r *http.Request, next string) prefs {
 	current, lang := themeOf(r), langOf(r)
-	p := prefs{Next: next, Theme: current, NextTheme: nextTheme(current), Lang: string(lang), LangName: i18n.Name(lang)}
+	p := prefs{Next: next, Theme: current, NextTheme: themes[(slices.Index(themes, current)+1)%len(themes)], Lang: string(lang), LangName: i18n.Name(lang)}
 	for _, t := range themes {
 		p.Themes = append(p.Themes, themeOption{Value: t, Label: themeLabels[t], Current: t == current})
 	}
@@ -68,38 +56,22 @@ func newPrefs(r *http.Request, next string) prefs {
 	return p
 }
 
-func (h *handler) setTheme(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
-		return
+// setPref stores the posted field in a cookie: htmx gets 204, a plain form goes back to next.
+func (h *handler) setPref(cookie, field string, valid func(string) bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.parseForm(w, r) {
+			return
+		}
+		v := r.PostForm.Get(field)
+		if !valid(v) {
+			h.fail(w, r, invalid(field, v))
+			return
+		}
+		setCookie(w, r, cookie, v)
+		if r.Header.Get("HX-Request") != "" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.Redirect(w, r, safeNext(r.PostForm.Get("next")), http.StatusSeeOther)
 	}
-	t := r.PostForm.Get("theme")
-	if !validTheme(t) {
-		h.fail(w, r, fmt.Errorf("theme %q: %w", t, store.ErrInvalid))
-		return
-	}
-	setCookie(w, r, themeCookie, t)
-	if r.Header.Get("HX-Request") != "" {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	http.Redirect(w, r, safeNext(r.PostForm.Get("next")), http.StatusSeeOther)
-}
-
-func (h *handler) setLang(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		h.fail(w, r, fmt.Errorf("parsing form: %v: %w", err, store.ErrInvalid))
-		return
-	}
-	l, ok := i18n.Parse(r.PostForm.Get("lang"))
-	if !ok {
-		h.fail(w, r, fmt.Errorf("lang %q: %w", r.PostForm.Get("lang"), store.ErrInvalid))
-		return
-	}
-	setCookie(w, r, i18n.CookieName, string(l))
-	if r.Header.Get("HX-Request") != "" {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	http.Redirect(w, r, safeNext(r.PostForm.Get("next")), http.StatusSeeOther)
 }

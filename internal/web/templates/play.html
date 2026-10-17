@@ -30,7 +30,7 @@
 <div class="card-area">
 <input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
 <div id="card">
-{{if .Card}}{{template "card" .Card}}{{else if .Result}}{{template "card_result" .Result}}{{else}}{{template "done" .Done}}{{end}}
+{{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
 </div>
 </div>
 </main>
