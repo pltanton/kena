@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"strings"
 	"sync"
 	"unicode"
@@ -126,8 +125,8 @@ func Render(src string) template.HTML {
 	if ok {
 		return h
 	}
-	out, err := render(src)
-	if err != nil {
+	out, errs := render(src)
+	if errs != nil {
 		return escaped(src)
 	}
 	out = strings.ReplaceAll(out, "<table>", `<div class="md-table"><table>`)
@@ -167,21 +166,21 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 	return w.buf.Write(p)
 }
 
-func render(src string) (string, error) {
+func render(src string) (string, []error) {
 	if err := wideDelimiter(src); err != nil {
-		return "", err
+		return "", []error{err}
 	}
 	b := []byte(src)
 	doc := md.Parser().Parse(text.NewReader(b))
 	if errs := tableErrors(doc); len(errs) > 0 {
-		return "", errs[0]
+		return "", errs
 	}
 	var w limitWriter
-	if err := md.Renderer().Render(io.Writer(&w), b, doc); err != nil {
+	if err := md.Renderer().Render(&w, b, doc); err != nil {
 		if errors.Is(err, errOverflow) {
-			return "", errTooLarge
+			err = errTooLarge
 		}
-		return "", err
+		return "", []error{err}
 	}
 	return w.buf.String(), nil
 }
@@ -233,18 +232,9 @@ func Errors(src string) []string {
 	if utf8.RuneCountInString(src) > MaxLen {
 		return []string{fmt.Sprintf("longer than %d characters", MaxLen)}
 	}
-	if err := wideDelimiter(src); err != nil {
-		return []string{err.Error()}
-	}
-	doc, _ := parse(src)
+	_, errs := render(src)
 	var out []string
-	for _, err := range tableErrors(doc) {
-		out = append(out, err.Error())
-	}
-	if len(out) > 0 {
-		return out
-	}
-	if _, err := render(src); err != nil {
+	for _, err := range errs {
 		out = append(out, err.Error())
 	}
 	return out
