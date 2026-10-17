@@ -1486,11 +1486,45 @@ body.focus {
   flex: 1;
 }
 
+.focus-pos:has(.nav-btn) {
+  gap: 4px;
+  padding: 0;
+}
+
+.focus-pos .count {
+  margin: 0 4px 0 6px;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-btn:hover {
+  color: var(--text);
+  background: var(--sunken);
+}
+
+.nav-btn[aria-disabled="true"] {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 .focus-main {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
 }
 
 .focus-main .card-area {

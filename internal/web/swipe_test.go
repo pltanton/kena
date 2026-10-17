@@ -84,7 +84,8 @@ func TestPlayNavLinks(t *testing.T) {
 	wantAll(t, "first card", body,
 		`data-nav="prev" aria-disabled="true" data-card="`+path+`/play/card?n=3"`,
 		fmt.Sprintf(`data-nav="next" href="%s/play?after=%d" data-id="%d" data-next="%s/next?after=%d&amp;n=3"`, path, t0, t0, path, t0),
-		`aria-label="Previous card"`, `aria-label="Skip to the next card"`, "1/3")
+		`aria-label="Previous card"`, `aria-label="Skip to the next card"`, "1/3",
+		`"touchend"`, "{passive: true}", "sessionStorage", "prefers-reduced-motion", "ArrowLeft")
 
 	_, body = e.get(fmt.Sprintf("%s/play?at=%d", path, t1))
 	wantAll(t, "second card via at", body, "Αυτός", "2/3",

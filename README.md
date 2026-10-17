@@ -13,7 +13,8 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   by default once you have started) and two buttons: Practise (one task at a
   time in a full-screen focus mode, `/s/<slug>/play`: a thin bar with back,
   progress and a ⋯ menu; Enter for the next task, a streak counter, resumes at
-  the first unsolved task) and Worksheet (all chosen tasks on one page,
+  the first unsolved task; swipe left, › or → skips a task without answering,
+  swipe right, ‹ or ← goes back to the previous card as you left it) and Worksheet (all chosen tasks on one page,
   `/s/<slug>/list`). A wrong answer is not revealed:
   you try again (with a nudge for a wrong accent, final ς or a letter or two
   off) or press Give up to see it; only first-try answers grow the streak, and

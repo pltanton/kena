@@ -10,7 +10,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-visibility-editor-design.md`, practice flow, QR login and theme:
 `docs/superpowers/specs/2026-10-17-practice-flow-design.md`, deck rules:
 `docs/superpowers/specs/2026-10-17-deck-rules-design.md`, rich rules and the ⓘ sheet:
-`docs/superpowers/specs/2026-10-17-rich-rules-design.md`, admin:
+`docs/superpowers/specs/2026-10-17-rich-rules-design.md`, swipe navigation:
+`docs/superpowers/specs/2026-10-17-swipe-nav-design.md`, admin:
 `docs/superpowers/specs/2026-10-17-admin-design.md`; client/OAuth research:
 `docs/research.md`.
 
@@ -37,11 +38,11 @@ nix flake check
 - `internal/oauth`: discovery metadata, DCR, CIMD (SSRF-guarded fetch), authorize page (login + Allow via the web session), token endpoint, bearer verifier.
 - `internal/passphrase`: EFF short wordlist passphrases, argon2id hashing.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.Prepare` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
-- Answers never reach the practice page before Give up or a correct check: a wrong check re-renders the form with the typed text and right blanks locked; checking is server-side. `/mistakes` shows expected answers, but only for tasks already attempted.
+- Answers never reach the practice page before Give up or a correct check: a wrong check re-renders the form with the typed text and right blanks locked; checking is server-side. `/mistakes` shows expected answers, but only for tasks already attempted. A revisited card (`/play/card`, `?at=`) shows the answer only when the viewer's last attempt is correct or a real give-up (`attempts.gave_up`); a wrong check comes back as the retry form.
 - QR login codes (`login_codes`) are hashed, one-time, 5 minutes, one unused code per user; the GET page never consumes a code, only the POST does. kena's logs redact `/login/qr/<secret>` (`session.RedactPath`); a reverse proxy's own access log still records full paths, so keep that log private or redact there too.
 - `get_mistakes_report` reads only the caller's own `progress_id`; no tool reads another user's attempts. The report (MCP and `/mistakes`) leaves out other users' private sets.
 - State-changing web and authorize POSTs go through `session.CrossOrigin` (net/http CrossOriginProtection, KENA_PUBLIC_URL trusted).
