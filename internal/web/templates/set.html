@@ -67,4 +67,7 @@
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
 {{- else}}{{template "done" .Done}}{{end}}
+{{- if or .Progress.Solved .Progress.Mistakes}}
+<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
+{{- end}}
 {{end}}

@@ -47,7 +47,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").Funcs(template.FuncMap{"initial": initial}).ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -62,6 +62,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
+	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
+	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
 	mux.HandleFunc("GET /s/{slug}/edit", h.requireUser(h.editPage))
 	mux.HandleFunc("POST /s/{slug}/edit", h.requireUser(h.saveDeck))
@@ -1026,6 +1028,28 @@ func (h *handler) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.fragment(w, r, "list_item", itemView{Task: newTaskView(task, false, nil), Params: p})
+}
+
+func (h *handler) resetPage(w http.ResponseWriter, r *http.Request) {
+	set, err := h.visibleSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.page(w, r, http.StatusOK, "reset", set)
+}
+
+func (h *handler) reset(w http.ResponseWriter, r *http.Request) {
+	set, err := h.visibleSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if _, err := h.st.ResetProgress(r.Context(), progressID(r), set.ID); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/s/"+url.PathEscape(set.Slug), http.StatusSeeOther)
 }
 
 func (h *handler) ownedSet(r *http.Request, u store.User) (store.Set, error) {

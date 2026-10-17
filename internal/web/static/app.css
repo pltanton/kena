@@ -1277,6 +1277,15 @@ button.quiet:hover {
   white-space: nowrap;
 }
 
+.page-foot {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+}
+
+.page-foot a {
+  color: var(--muted);
+}
+
 @media (max-width: 389px) {
   .nav a {
     padding: 0 5px;
