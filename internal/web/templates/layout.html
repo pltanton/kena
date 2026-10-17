@@ -20,7 +20,7 @@
 <a href="/"{{if eq .Page "index"}} aria-current="page"{{end}}>My decks</a>
 <a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>Discover</a>
 <a href="/mistakes"{{if eq .Page "mistakes"}} aria-current="page"{{end}}>Mistakes</a>
-<a href="/account" class="acct"{{if eq .Page "account"}} aria-current="page"{{end}} aria-label="Account ({{.User.Username}})" title="{{.User.Username}}"><span class="avatar" aria-hidden="true">{{initial .User.Username}}</span></a>
+<a href="/account" class="acct"{{if eq .Page "account"}} aria-current="page"{{end}} aria-label="Account ({{.User.Username}})" title="{{.User.Username}}"><svg class="icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.75"/><path d="M4.75 19.5c1.2-3.4 4-5.25 7.25-5.25s6.05 1.85 7.25 5.25"/></svg></a>
 {{- else}}
 <a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>Discover</a>
 <a href="/connect"{{if eq .Page "connect"}} aria-current="page"{{end}}>Connect</a>

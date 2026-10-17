@@ -189,31 +189,29 @@ header.site {
 }
 
 .nav a.acct {
-  padding-left: 8px;
+  position: relative;
+  justify-content: center;
+  min-width: 44px;
+  padding: 0;
 }
 
-.avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: var(--sunken);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 600;
-  line-height: 1;
+.nav a.acct .icon {
+  display: block;
 }
 
 .nav a.acct[aria-current="page"] {
   text-decoration: none;
 }
 
-.nav a.acct[aria-current="page"] .avatar,
-.nav a.acct:hover .avatar {
-  box-shadow: inset 0 0 0 2px var(--gold);
+.nav a.acct[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--gold);
 }
 
 .strip {

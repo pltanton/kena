@@ -44,7 +44,7 @@ type handler struct {
 
 func Handler(st *store.Store, publicURL string) http.Handler {
 	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
-	h.base = template.Must(template.New("").Funcs(template.FuncMap{"initial": initial}).ParseFS(templateFS,
+	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
 	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset"} {
@@ -536,13 +536,6 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 	h.render(w, r, status, h.pages[page], "layout", ld)
-}
-
-func initial(name string) string {
-	for _, r := range name {
-		return strings.ToUpper(string(r))
-	}
-	return ""
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {

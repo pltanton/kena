@@ -597,6 +597,10 @@ func TestNav(t *testing.T) {
 			t.Errorf("%s: want only %q current:\n%s", path, want, nav)
 		}
 	}
+	nav = navOf(t, mustGet(t, e, "/"))
+	if !strings.Contains(nav, `aria-label="Account (anna)"`) || !strings.Contains(nav, `<svg class="icon"`) || strings.Contains(nav, "avatar") {
+		t.Errorf("account link should be a labelled icon:\n%s", nav)
+	}
 	nav = navOf(t, mustGet(t, e, "/s/"+e.set.Slug))
 	if strings.Contains(nav, "aria-current") || !strings.Contains(nav, ">My decks<") || !strings.Contains(nav, ">Discover<") {
 		t.Errorf("set page nav:\n%s", nav)
