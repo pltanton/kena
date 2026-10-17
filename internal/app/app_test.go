@@ -31,18 +31,21 @@ func newServer(t *testing.T) (*httptest.Server, string, *store.Store) {
 	return ts, url, st
 }
 
-func TestIndexServesHTML(t *testing.T) {
+func TestRoutesAreWired(t *testing.T) {
 	ts, url, _ := newServer(t)
-	resp, err := ts.Client().Get(url + "/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
-	}
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
-		t.Fatalf("Content-Type = %q, want text/html", ct)
+	for path, ctype := range map[string]string{
+		"/":               "text/html",
+		"/static/app.css": "text/css",
+		"/.well-known/oauth-authorization-server": "application/json",
+	} {
+		resp, err := ts.Client().Get(url + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Type"), ctype) {
+			t.Errorf("%s: status %d, Content-Type %q", path, resp.StatusCode, resp.Header.Get("Content-Type"))
+		}
 	}
 }
 
@@ -80,30 +83,6 @@ func TestProtectedResourceMetadata(t *testing.T) {
 	}
 	if body.Resource != url+"/mcp" {
 		t.Fatalf("resource = %q, want %q", body.Resource, url+"/mcp")
-	}
-}
-
-func TestAuthorizationServerMetadata(t *testing.T) {
-	ts, url, _ := newServer(t)
-	resp, err := ts.Client().Get(url + "/.well-known/oauth-authorization-server")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
-	}
-}
-
-func TestStaticAsset(t *testing.T) {
-	ts, url, _ := newServer(t)
-	resp, err := ts.Client().Get(url + "/static/app.css")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 }
 

@@ -36,14 +36,7 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 
 	mux.Handle("/", web.Handler(st, cfg.PublicURL))
 
-	return http.MaxBytesHandler(withLogging(withNoSniff(mux)), maxBodyBytes)
-}
-
-func withNoSniff(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		next.ServeHTTP(w, r)
-	})
+	return http.MaxBytesHandler(withLogging(mux), maxBodyBytes)
 }
 
 type statusWriter struct {
@@ -62,6 +55,7 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 
 func withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if strings.HasPrefix(r.URL.Path, "/static/") {
 			next.ServeHTTP(w, r)
 			return
