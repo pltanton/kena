@@ -75,20 +75,5 @@
 <code class="copy" id="prompt-mistakes">{{.PromptMistakes}}</code>
 <button type="button" class="secondary small copy-btn" data-copy="prompt-mistakes" hidden>Copy</button>
 </div>
-<script>
-(function () {
-  if (!navigator.clipboard) return;
-  document.querySelectorAll(".copy-btn").forEach(function (btn) {
-    btn.hidden = false;
-    btn.addEventListener("click", function () {
-      var el = document.getElementById(btn.dataset.copy);
-      navigator.clipboard.writeText(el.textContent).then(function () {
-        var original = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(function () { btn.textContent = original; }, 1500);
-      });
-    });
-  });
-})();
-</script>
+{{template "copy_script"}}
 {{end}}

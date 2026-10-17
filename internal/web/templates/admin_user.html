@@ -1,0 +1,23 @@
+{{define "title"}}{{.Row.User.Username}} · Admin · kena{{end}}
+{{define "main"}}<p class="crumb"><a href="/admin">← Users</a></p>
+<h1>{{.Row.User.Username}}{{if .Row.User.IsAdmin}} <span class="badge vis">admin</span>{{end}}</h1>
+<p class="lede">{{.Row.Decks}} {{if eq .Row.Decks 1}}deck{{else}}decks{{end}} · active {{.Row.LastActive}} · {{.Row.Sessions}} {{if eq .Row.Sessions 1}}session{{else}}sessions{{end}} · {{.Row.Tokens}} {{if eq .Row.Tokens 1}}token{{else}}tokens{{end}}</p>
+{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+{{with .NewPass}}<div class="card secret" role="status">
+<p>New passphrase for <strong>{{$.Row.User.Username}}</strong>; it won't be shown again.</p>
+<code class="copy" id="new-pass">{{.}}</code>
+<button type="button" class="secondary small copy-btn" data-copy="new-pass" hidden>Copy</button>
+</div>{{end}}
+<ul class="rows admin-actions">
+<li><span><strong>Passphrase</strong><span class="meta">New one, shown once; logs them out.</span></span><a class="button secondary small" href="/admin/users/{{.Row.User.Username}}/passphrase">Reset passphrase</a></li>
+{{- if not .Self}}
+<li><span><strong>Admin rights</strong><span class="meta">{{if .Row.User.IsAdmin}}Can manage users and edit every deck.{{else}}A regular user.{{end}}</span></span>
+<form method="post" action="/admin/users/{{.Row.User.Username}}/admin"><input type="hidden" name="is_admin" value="{{if .Row.User.IsAdmin}}0{{else}}1{{end}}"><button type="submit" class="secondary small">{{if .Row.User.IsAdmin}}Remove admin{{else}}Make admin{{end}}</button></form></li>
+{{- end}}
+<li><span><strong>Sessions and apps</strong><span class="meta">Personal tokens stay.</span></span><a class="button secondary small" href="/admin/users/{{.Row.User.Username}}/logout">Log out everywhere</a></li>
+{{- if not .Self}}
+<li><span><strong>Account</strong><span class="meta">With decks and progress.</span></span><a class="button secondary small danger-link" href="/admin/users/{{.Row.User.Username}}/delete">Delete user</a></li>
+{{- end}}
+</ul>
+{{template "copy_script"}}
+{{end}}

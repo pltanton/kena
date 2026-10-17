@@ -1623,6 +1623,52 @@ body.focus {
   background: none;
 }
 
+.admin-new {
+  align-items: center;
+  margin: 0.5rem 0 1rem;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  min-height: 44px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.check input {
+  width: auto;
+  min-height: 0;
+}
+
+.admin-users li {
+  padding: 0;
+}
+
+.admin-users a {
+  display: block;
+  width: 100%;
+  padding: 10px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.admin-users .who-name {
+  font-weight: 600;
+}
+
+.admin-actions .button {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.button.danger-link {
+  color: var(--bad);
+}
+
 @media (max-width: 389px) {
   .nav a {
     padding: 0 5px;
