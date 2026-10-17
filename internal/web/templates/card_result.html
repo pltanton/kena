@@ -4,7 +4,9 @@
 <p class="verdict"><span class="tick" aria-hidden="true">✓</span> Correct{{if ge .Streak 2}}<span class="streak"> · {{.Streak}} in a row</span>{{end}}</p>
 {{- end}}
 <p class="sentence" lang="el">{{template "sentence" .Task}}</p>
-{{- if not .Correct}}
+{{- if .Correct}}
+{{template "why" .Explanation}}
+{{- else}}
 {{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
 {{- end}}
 <button type="button" data-next hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML show:none">Next</button>

@@ -47,7 +47,7 @@
   });
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
     var top = card.getBoundingClientRect().top;
     var height = window.visualViewport ? window.visualViewport.height : window.innerHeight;

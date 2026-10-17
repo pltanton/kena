@@ -195,6 +195,7 @@ type params struct {
 	Seed    uint64
 	I, N    int
 	Streak  int
+	Tries   int
 }
 
 var errMissingSeed = errors.New("shuffle without seed")
@@ -218,7 +219,7 @@ func parseParams(v url.Values, defaultMode string) (params, error) {
 	for _, f := range []struct {
 		name string
 		dst  *int
-	}{{"i", &p.I}, {"n", &p.N}, {"streak", &p.Streak}} {
+	}{{"i", &p.I}, {"n", &p.N}, {"streak", &p.Streak}, {"tries", &p.Tries}} {
 		if s := v.Get(f.name); s != "" {
 			n, err := strconv.Atoi(s)
 			if err != nil || n < 0 {
@@ -335,6 +336,9 @@ type segment struct {
 	Correct   bool
 	Given     string
 	Expected  string
+	Value     string
+	Locked    bool
+	Wrong     bool
 }
 
 type taskView struct {
@@ -367,6 +371,46 @@ func newTaskView(t store.Task, autofocus bool, results []greek.BlankResult) task
 	return v
 }
 
+func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
+	v := newTaskView(t, false, nil)
+	for i := range v.Segments {
+		s := &v.Segments[i]
+		if !s.Blank || s.Index-1 >= len(results) {
+			continue
+		}
+		res := results[s.Index-1]
+		s.Value = strings.TrimSpace(res.Given)
+		s.Locked = res.Correct
+		s.Wrong = !res.Correct
+	}
+	return v
+}
+
+var nudges = map[greek.ErrorKind]string{
+	greek.KindAccent:     "Almost — check the accent",
+	greek.KindFinalSigma: "Almost — final ς",
+	greek.KindNearMiss:   "Close — a letter or two off",
+}
+
+var nudgeRank = map[greek.ErrorKind]int{greek.KindAccent: 1, greek.KindFinalSigma: 2, greek.KindNearMiss: 3}
+
+func nudge(t store.Task, results []greek.BlankResult) string {
+	worst := greek.ErrorKind("")
+	for i, res := range results {
+		if res.Correct || i >= len(t.Blanks) {
+			continue
+		}
+		k := greek.Classify(res.Given, t.Blanks[i].Answers)
+		if _, ok := nudges[k]; !ok {
+			return ""
+		}
+		if nudgeRank[k] > nudgeRank[worst] {
+			worst = k
+		}
+	}
+	return nudges[worst]
+}
+
 type progressBar struct {
 	Index, Total int
 }
@@ -382,6 +426,8 @@ type cardView struct {
 	Task   taskView
 	Bar    progressBar
 	Params params
+	Retry  bool
+	Nudge  string
 }
 
 type cardResultView struct {
@@ -396,6 +442,8 @@ type cardResultView struct {
 type itemView struct {
 	Task        taskView
 	Params      params
+	Retry       bool
+	Nudge       string
 	Checked     bool
 	Correct     bool
 	Explanation string
@@ -687,6 +735,10 @@ func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) item
 		return itemView{Task: newTaskView(t, false, nil), Params: p}
 	}
 	results, _ := greek.Check(t.Blanks, la.Answers)
+	if !la.Correct {
+		p.Tries = 1
+		return itemView{Task: retryTaskView(t, results), Params: p, Retry: true, Nudge: nudge(t, results)}
+	}
 	return itemView{
 		Task:        newTaskView(t, false, results),
 		Params:      p,
@@ -899,10 +951,11 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results, correct := greek.Check(task.Blanks, answers)
-	if correct {
-		p.Streak++
-	} else {
+	switch {
+	case !correct:
 		p.Streak = 0
+	case p.Tries == 0:
+		p.Streak++
 	}
 	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
 		h.fail(w, r, err)
@@ -917,6 +970,18 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, loc, http.StatusSeeOther)
 		return
 	}
+
+	if !correct && r.PostForm.Get("giveup") != "1" {
+		p.Tries++
+		view, hint := retryTaskView(task, results), nudge(task, results)
+		if p.Mode == "list" {
+			h.fragment(w, r, "list_item", itemView{Task: view, Params: p, Retry: true, Nudge: hint})
+			return
+		}
+		h.fragment(w, r, "card", &cardView{Task: view, Bar: progressBar{p.I, p.N}, Params: p, Retry: true, Nudge: hint})
+		return
+	}
+	p.Tries = 0
 
 	view := newTaskView(task, false, results)
 	if p.Mode == "list" {

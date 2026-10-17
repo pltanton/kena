@@ -55,7 +55,7 @@
 </html>
 {{end}}
 
-{{define "sentence"}}{{range .Segments}}{{if not .Blank}}{{.Text}}{{else if .Checked}}{{if .Correct}}<span class="filled ok">{{.Given}}</span>{{else}}<span class="fix"><s class="given bad">{{or .Given "—"}}</s> → <span class="expected ok">{{.Expected}}</span></span>{{end}}{{else}}<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Blank {{.Index}}"{{with .Hint}} placeholder="{{.}}"{{end}}{{if .Autofocus}} autofocus{{end}}>{{with .Hint}} <span class="hint">({{.}})</span>{{end}}</span>{{end}}{{end}}{{end}}
+{{define "sentence"}}{{range .Segments}}{{if not .Blank}}{{.Text}}{{else if .Checked}}{{if .Correct}}<span class="filled ok">{{.Given}}</span>{{else}}<span class="fix"><s class="given bad">{{or .Given "—"}}</s> → <span class="expected ok">{{.Expected}}</span></span>{{end}}{{else}}<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Blank {{.Index}}"{{with .Hint}} placeholder="{{.}}"{{end}}{{with .Value}} value="{{.}}"{{end}}{{if .Locked}} readonly tabindex="-1" class="locked"{{else if .Wrong}} class="wrong" aria-invalid="true"{{end}}{{if .Autofocus}} autofocus{{end}}>{{with .Hint}} <span class="hint">({{.}})</span>{{end}}</span>{{end}}{{end}}{{end}}
 
 {{define "motif"}}<svg class="motif" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><rect x="0" y="0" width="6" height="6" rx="0.6"/><rect x="7" y="0" width="6" height="6" rx="0.6" class="slate"/><rect x="14" y="0" width="6" height="6" rx="0.6"/><rect x="0" y="7" width="6" height="6" rx="0.6" class="slate"/><rect x="7" y="7" width="6" height="6" rx="0.6"/><rect x="14.5" y="7.5" width="5" height="5" class="hole"/><rect x="0" y="14" width="6" height="6" rx="0.6"/><rect x="7" y="14" width="6" height="6" rx="0.6" class="slate"/><rect x="14" y="14" width="6" height="6" rx="0.6"/></svg>{{end}}
 
@@ -71,7 +71,15 @@
 {{- end}}
 {{- if .Streak}}
 <input type="hidden" name="streak" value="{{.Streak}}">
+{{- end}}
+{{- if .Tries}}
+<input type="hidden" name="tries" value="{{.Tries}}">
 {{- end}}{{end}}
+
+{{define "check_actions"}}{{with .Nudge}}<p class="nudge" role="status">{{.}}</p>{{else}}{{if .Retry}}<p class="visually-hidden" role="status">Not quite, try again.</p>{{end}}{{end}}
+<div class="check-actions"><button type="submit">Check</button><button type="submit" name="giveup" value="1" class="quiet">Give up</button></div>{{end}}
+
+{{define "why"}}{{with .}}<details class="why"><summary>Why?</summary><p>{{.}}</p></details>{{end}}{{end}}
 
 {{define "bar"}}{{if .Total}}<div class="position"><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
 <span class="count">{{.Index}}/{{.Total}}</span></div>{{end}}{{end}}
