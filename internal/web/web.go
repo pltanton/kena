@@ -45,7 +45,7 @@ type handler struct {
 	tmpl      map[i18n.Lang]templates
 }
 
-var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules"}
+var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules", "offline"}
 
 func parseTemplates(l i18n.Lang) templates {
 	ts := templates{pages: map[string]*template.Template{}}
@@ -76,6 +76,11 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /s/{slug}/play", h.play)
 	mux.HandleFunc("GET /s/{slug}/play/card", h.playCard)
 	mux.HandleFunc("GET /s/{slug}/list", h.list)
+	mux.HandleFunc("GET /s/{slug}/pack.json", h.pack)
+	mux.HandleFunc("GET /offline/decks.json", h.offlineDecks)
+	mux.HandleFunc("GET /offline", h.offline)
+	mux.HandleFunc("POST /sync", h.sync)
+	mux.Handle("GET /sw.js", newServiceWorker(static))
 	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
 	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))

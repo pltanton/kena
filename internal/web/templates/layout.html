@@ -6,9 +6,10 @@
 <title>{{block "title" .Data}}kena{{end}}</title>
 {{template "head_links" .}}
 </head>
-<body{{template "body_strings"}}>
+<body{{if .User}} data-auth{{end}}{{template "body_strings"}}>
 <header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a>
 <div class="site-right">
+{{template "sync_ind" "site-sync"}}
 <nav class="nav" aria-label="{{t "nav.main"}}">
 {{- if .User}}
 <a href="/"{{if eq .Page "index"}} aria-current="page"{{end}}>{{t "nav.my_decks"}}</a>
@@ -114,9 +115,12 @@
 <script src="/static/htmx.min.js" defer></script>
 <script src="/static/app.js" defer></script>
 <script src="/static/reveal.js" defer></script>
-<script src="/static/info.js" defer></script>{{end}}
+<script src="/static/info.js" defer></script>
+<script src="/static/sync.js" defer></script>{{end}}
 
-{{define "body_strings"}} data-msg-server="{{t "flash.server"}}" data-msg-network="{{t "flash.network"}}" data-msg-copied="{{t "common.copied"}}" data-msg-show="{{t "pass.show"}}" data-msg-hide="{{t "pass.hide"}}"{{end}}
+{{define "body_strings"}} data-msg-server="{{t "flash.server"}}" data-msg-network="{{t "flash.network"}}" data-msg-copied="{{t "common.copied"}}" data-msg-show="{{t "pass.show"}}" data-msg-hide="{{t "pass.hide"}}" data-msg-synced="{{t "sync.synced"}}" data-msg-pending="{{t "sync.pending"}}" data-msg-offline="{{t "sync.offline"}}" data-msg-offline-hint="{{t "sync.offline_hint"}}" data-msg-syncing="{{t "sync.syncing"}}" data-msg-sync-failed="{{t "sync.failed"}}" data-msg-offline-ready="{{t "offline.ready"}}"{{end}}
+
+{{define "sync_ind"}}<button type="button" class="sync-ind" id="{{.}}" data-state="synced" hidden><svg class="sync-off" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.3a3.7 3.7 0 0 0 .8-7.3 5.4 5.4 0 0 0-10.2-1.5 4.4 4.4 0 0 0 .1 8.8z"/><path d="M4 4l16 16"/></svg><span class="sync-text"></span></button>{{end}}
 
 {{define "theme_icons"}}<svg class="ti ti-auto" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><svg class="ti ti-light" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2.1M12 19.15v2.1M2.75 12h2.1M19.15 12h2.1M5.46 5.46l1.48 1.48M17.06 17.06l1.48 1.48M5.46 18.54l1.48-1.48M17.06 6.94l1.48-1.48"/></svg><svg class="ti ti-dark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M19.5 14.6A7.75 7.75 0 0 1 9.4 4.5a7.75 7.75 0 1 0 10.1 10.1z"/></svg>{{end}}
 

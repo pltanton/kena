@@ -792,6 +792,12 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cid := r.PostForm.Get("cid")
+	if cid != "" && !uuidRe.MatchString(cid) {
+		h.fail(w, r, invalid("cid", cid))
+		return
+	}
+
 	results, correct := greek.Check(task.Blanks, answers)
 	giveUp := !correct && r.PostForm.Get("giveup") == "1"
 	switch {
@@ -800,12 +806,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	case p.Tries == 0:
 		p.Streak++
 	}
-	if giveUp {
-		err = h.st.RecordGiveUp(r.Context(), progressID(r), task.ID, answers)
-	} else {
-		err = h.st.RecordAttempt(r.Context(), progressID(r), task.ID, answers, correct)
-	}
-	if err != nil {
+	if _, err := h.st.Record(r.Context(), progressID(r), store.Attempt{ClientID: cid, TaskID: task.ID, Answers: answers, Correct: correct, GaveUp: giveUp}); err != nil {
 		h.fail(w, r, err)
 		return
 	}

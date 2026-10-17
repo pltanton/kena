@@ -22,7 +22,10 @@ const CookieName = "kena_lang"
 var Langs = []Lang{En, Ru, El}
 
 type Plural struct {
-	One, Few, Many, Other string
+	One   string `json:"one,omitempty"`
+	Few   string `json:"few,omitempty"`
+	Many  string `json:"many,omitempty"`
+	Other string `json:"other,omitempty"`
 }
 
 func (p Plural) form(name string) string {
@@ -171,4 +174,14 @@ func Funcs(l Lang) template.FuncMap {
 		"th":   func(key string, args ...any) template.HTML { return HTML(l, key, args...) },
 		"lang": func() string { return string(l) },
 	}
+}
+
+func Raw(l Lang, key string) (string, bool) {
+	s, ok := lookup(l).msgs[key]
+	return s, ok
+}
+
+func RawPlural(l Lang, key string) (Plural, bool) {
+	p, ok := lookup(l).plurals[key]
+	return p, ok
 }

@@ -123,10 +123,10 @@ func TestPagesAreLocalisedAndScriptFree(t *testing.T) {
 		path string
 	}{
 		{anon, "/"}, {anon, "/browse"}, {anon, "/login"}, {anon, "/connect"}, {anon, slug}, {anon, slug + "/play"},
-		{anon, slug + "/list"}, {anon, slug + "/reset"}, {anon, "/nope"}, {anon, "/login/qr/nope"},
+		{anon, slug + "/list"}, {anon, slug + "/reset"}, {anon, "/nope"}, {anon, "/login/qr/nope"}, {anon, "/offline"},
 		{owner, "/"}, {owner, slug}, {owner, slug + "/play"}, {owner, slug + "/play?at=" + strconv.FormatInt(e.tasks[1].ID, 10)},
 		{owner, slug + "/list"}, {owner, slug + "/edit"}, {owner, slug + "/rules"}, {owner, slug + "/delete"},
-		{owner, "/new"}, {owner, "/account"}, {owner, "/mistakes"}, {owner, "/connect"},
+		{owner, "/new"}, {owner, "/account"}, {owner, "/mistakes"}, {owner, "/connect"}, {owner, "/offline"},
 		{admin, "/admin"}, {admin, "/admin/users/maria"}, {admin, "/admin/users/maria/delete"}, {admin, "/browse"},
 	}
 	for _, lang := range []string{"en", "ru", "el"} {

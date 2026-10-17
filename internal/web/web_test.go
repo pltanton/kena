@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/pltanton/kena/internal/db/dbtest"
 	"github.com/pltanton/kena/internal/greek"
 	"github.com/pltanton/kena/internal/session"
@@ -26,6 +28,7 @@ func TestMain(m *testing.M) {
 
 type env struct {
 	t      *testing.T
+	pool   *pgxpool.Pool
 	st     *store.Store
 	srv    *httptest.Server
 	client *http.Client
@@ -37,7 +40,8 @@ func setup(t *testing.T) *env {
 	t.Helper()
 	t.Parallel()
 	ctx := context.Background()
-	st := store.New(dbtest.New(t))
+	pool := dbtest.New(t)
+	st := store.New(pool)
 
 	owner, err := st.EnsureUser(ctx, "maria", false)
 	if err != nil {
@@ -67,7 +71,7 @@ func setup(t *testing.T) *env {
 	srv.Start()
 	t.Cleanup(srv.Close)
 
-	e := &env{t: t, st: st, srv: srv, set: set, tasks: tasks}
+	e := &env{t: t, pool: pool, st: st, srv: srv, set: set, tasks: tasks}
 	e.client = e.newClient()
 	return e
 }

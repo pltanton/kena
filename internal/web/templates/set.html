@@ -5,6 +5,7 @@
 <a class="button go-practise" href="{{.PracticeURL}}"><span>{{t "deck.practise"}}</span><small>{{t "deck.practise_hint"}}</small></a>
 <a class="button secondary go-sheet" href="{{.WorksheetURL}}"><span>{{t "worksheet.title"}}</span><small>{{t "deck.worksheet_hint"}}</small></a>
 </div>
+<p class="offline-line" id="offline-line" data-slug="{{.Set.Slug}}"{{if or .Owner .Starred}} data-auto{{end}} data-label-save="{{t "offline.save"}}" data-label-saving="{{t "offline.saving"}}" data-label-remove="{{t "offline.remove"}}" data-label-failed="{{t "offline.save_failed"}}" hidden><span class="offline-state" role="status"></span><button type="button" class="link-button offline-toggle" aria-pressed="false" hidden>{{t "offline.save"}}</button></p>
 {{- with .Rules}}
 <section class="deck-rules" id="rules" aria-labelledby="rules-h">
 <h2 id="rules-h" class="eyebrow">{{t "rules.title"}}</h2>

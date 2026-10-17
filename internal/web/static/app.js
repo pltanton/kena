@@ -12,7 +12,9 @@
     hideFlash = setTimeout(function () { flash.hidden = true; }, 6000);
   }
   document.body.addEventListener("htmx:responseError", function () { show(strings.msgServer); });
-  document.body.addEventListener("htmx:sendError", function () { show(strings.msgNetwork); });
+  document.body.addEventListener("htmx:sendError", function (e) {
+    if (!e.defaultPrevented) show(strings.msgNetwork);
+  });
   flash.addEventListener("click", function () { flash.hidden = true; });
 
   function say(msg) {
@@ -96,6 +98,10 @@
       d.querySelector("summary").focus();
     });
   });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js", {scope: "/"}).catch(function () {});
+  }
 
   if (navigator.clipboard) {
     document.querySelectorAll(".copy-btn").forEach(function (btn) {
