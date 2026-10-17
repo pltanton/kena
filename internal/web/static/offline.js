@@ -844,9 +844,7 @@
   document.body.addEventListener("htmx:beforeRequest", function (e) {
     if (!sync.isOffline()) return;
     var found = route(e.detail.requestConfig);
-    if (!found) return;
-    e.preventDefault();
-    runLocal(found, e.detail.requestConfig);
+    if (found && runLocal(found, e.detail.requestConfig)) e.preventDefault();
   });
 
   function failed(e) {
@@ -893,7 +891,11 @@
     if (rec) eng = engine(deckOf(rec.pack), stateOf(rec.pack, rec.attempts, rec.fetched));
   }).catch(function () {}).then(function () {
     if (root.dataset.offline !== "1") return;
-    if (eng) startOffline();
-    root.dataset.offline = eng ? "ready" : "nopack";
+    try {
+      if (eng) startOffline();
+      root.dataset.offline = eng ? "ready" : "nopack";
+    } catch (err) {
+      root.dataset.offline = "failed";
+    }
   });
 })(typeof window !== "undefined" ? window : globalThis);
