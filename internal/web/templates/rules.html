@@ -23,14 +23,23 @@
 <li>No HTML and no images; they are not shown.</li>
 </ul>
 </details>
+{{- if .Rules}}
+<div class="rule-list">
 {{- range .Rules}}
+<details class="rule-edit" id="rule-{{.Orig}}"{{if or .Saved .Errors .Preview}} open{{end}}>
+<summary><span class="rule-edit-name">{{.Label}}</span><span class="meta">{{if .General}}<span class="badge vis">whole deck</span> {{end}}@{{.Orig}} · {{.Uses}} {{if eq .Uses 1}}task{{else}}tasks{{end}}</span></summary>
 {{template "rule_form" .}}
+</details>
 {{- end}}
-<h2 class="rules-add">Add a rule</h2>
+</div>
+{{- end}}
+<details class="rule-edit rule-new" id="rule-new"{{if or (not .Rules) .New.Errors .New.Preview}} open{{end}}>
+<summary><span class="rule-edit-name">Add a rule</span></summary>
 {{template "rule_form" .New}}
+</details>
 {{end}}
 
-{{define "rule_form"}}{{$f := .}}<form class="card rule-form" method="post" action="/s/{{.Slug}}/rules"{{with $f.Orig}} id="rule-{{.}}"{{end}}>
+{{define "rule_form"}}{{$f := .}}<form class="rule-form" method="post" action="/s/{{.Slug}}/rules#rule-{{or $f.Orig "new"}}">
 <input type="hidden" name="version" value="{{.Version}}">
 <input type="hidden" name="orig" value="{{$f.Orig}}">
 {{- if $f.Saved}}
@@ -42,17 +51,17 @@
 {{- with $f.Warnings}}
 <div class="warning" role="status"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
 {{- end}}
-<div class="pair rule-head">
-<div><label for="title-{{$f.Orig}}">Title</label>
-<input id="title-{{$f.Orig}}" name="title" value="{{$f.Title}}" maxlength="80" lang="el" placeholder="Πόσος: γένος, αριθμός, πτώση"></div>
+<label for="title-{{$f.Orig}}">Title</label>
+<input id="title-{{$f.Orig}}" name="title" value="{{$f.Title}}" maxlength="80" lang="el" placeholder="Πόσος: γένος, αριθμός, πτώση">
+<div class="rule-head">
 <div><label for="key-{{$f.Orig}}">Key</label>
 <input id="key-{{$f.Orig}}" name="key" value="{{$f.Key}}" required maxlength="32" pattern="[a-z0-9\-]{1,32}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="agree"></div>
+<label class="check"><input type="checkbox" name="general" value="1"{{if $f.General}} checked{{end}}> Whole deck</label>
 </div>
-<label class="check"><input type="checkbox" name="general" value="1"{{if $f.General}} checked{{end}}> Deck-wide: show on every card</label>
 <label for="body-{{$f.Orig}}">Rule</label>
 <textarea id="body-{{$f.Orig}}" name="body" class="rule-body" lang="el" rows="7" maxlength="4000" required spellcheck="false">{{$f.Body}}</textarea>
 {{- if $f.Orig}}
-<p class="meta rule-uses">{{if $f.Uses}}Used by {{$f.Uses}} {{if eq $f.Uses 1}}task{{else}}tasks{{end}}{{else}}Not used by any task yet{{end}} · <code>@{{$f.Orig}}</code></p>
+<p class="meta rule-uses">{{if $f.Uses}}Used by {{$f.Uses}} {{if eq $f.Uses 1}}task{{else}}tasks{{end}}{{else}}Not used by any task yet{{end}}: <code>@{{$f.Orig}}</code> under a sentence in the editor</p>
 {{- end}}
 {{- with $f.Preview}}
 <div class="rule-preview"><p class="info-label">Preview</p><div class="md">{{.}}</div></div>

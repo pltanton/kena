@@ -1904,7 +1904,7 @@ body.focus {
 
 .md th,
 .md td {
-  padding: 5px 10px;
+  padding: 4px 8px;
   text-align: left;
   white-space: nowrap;
   border-bottom: 1px solid var(--line);
@@ -1970,12 +1970,66 @@ body.focus {
   font-size: 0.9rem;
 }
 
-.rule-form .rule-head {
-  grid-template-columns: 1fr 9rem;
+.rule-edit {
+  margin: 0.6rem 0;
+  padding: 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.rule-form .check {
-  margin-top: 0.5rem;
+.rule-edit summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: 56px;
+  padding: 8px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.rule-edit summary::-webkit-details-marker {
+  display: none;
+}
+
+.rule-edit-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rule-edit summary .meta {
+  font-size: 0.85rem;
+}
+
+.rule-edit[open] {
+  padding-bottom: 16px;
+}
+
+.rule-edit[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.rule-new summary .rule-edit-name {
+  color: var(--primary);
+}
+
+.rule-list {
+  margin-top: 1rem;
+}
+
+.rule-form .rule-head {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  align-items: end;
+  gap: 0 12px;
+}
+
+.rule-form .rule-head .check {
+  margin: 0;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 textarea.rule-body {
@@ -2008,12 +2062,7 @@ textarea.rule-body {
   margin: 0 0 0.5rem;
 }
 
-.rules-add {
-  margin: 2rem 0 0;
-  font-size: 1.2rem;
-}
-
-@media (max-width: 389px) {
+@media (max-width: 339px) {
   .rule-form .rule-head {
     grid-template-columns: 1fr;
   }

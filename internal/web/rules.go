@@ -92,6 +92,7 @@ type ruleForm struct {
 	Slug     string
 	Version  string
 	Orig     string
+	Label    string
 	Key      string
 	Title    string
 	Body     string
@@ -118,7 +119,7 @@ func (h *handler) rulesView(set store.Set, tasks []store.Task, version string) r
 	}
 	v := rulesPage{Set: set, Version: version, New: ruleForm{Slug: set.Slug, Version: version}}
 	for _, r := range set.Rules {
-		v.Rules = append(v.Rules, ruleForm{Slug: set.Slug, Version: version, Orig: r.Key, Key: r.Key, Title: r.Title, Body: r.Body, General: r.General,
+		v.Rules = append(v.Rules, ruleForm{Slug: set.Slug, Version: version, Orig: r.Key, Label: r.Label(), Key: r.Key, Title: r.Title, Body: r.Body, General: r.General,
 			Uses: uses[r.Key], Warnings: markdown.Issues(r.Body)})
 	}
 	return v
@@ -231,7 +232,7 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 		v.Errors = pageErrs
 		form.Slug, form.Version = set.Slug, version
 		if idx >= 0 {
-			form.Uses = v.Rules[idx].Uses
+			form.Uses, form.Label = v.Rules[idx].Uses, v.Rules[idx].Label
 			v.Rules[idx] = form
 		} else {
 			v.New = form
