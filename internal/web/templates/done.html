@@ -8,5 +8,5 @@
 <a class="button secondary" href="{{.MistakesURL}}">Mistakes only</a>
 {{- end}}
 </div>
-<p class="links">{{if .LoggedIn}}<a href="/mistakes">Review mistakes</a> · {{end}}<a href="/">{{if .LoggedIn}}My decks{{else}}All decks{{end}}</a></p>
+<p class="links"><a href="{{.DeckURL}}">Back to deck</a>{{if .LoggedIn}} · <a href="/mistakes">Review mistakes</a>{{end}}</p>
 </div>{{end}}

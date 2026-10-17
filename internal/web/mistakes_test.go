@@ -67,7 +67,7 @@ func TestMistakesPage(t *testing.T) {
 func TestMistakesLinks(t *testing.T) {
 	e := setup(t)
 	e.user("anna")
-	slug := "/s/" + e.set.Slug + "?filter=mistakes"
+	slug := "/s/" + e.set.Slug + "/play?filter=mistakes"
 
 	for _, p := range []string{"/", slug} {
 		if _, body := e.get(p); strings.Contains(body, `href="/mistakes"`) {

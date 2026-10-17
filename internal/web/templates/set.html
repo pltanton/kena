@@ -14,10 +14,6 @@
 {{- end}}
 </form>
 {{- end}}</div>
-<nav class="controls" aria-label="Practice options">
-<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
-</nav>
 {{- if .Saved}}
 <div class="notice" role="status"><p>Saved.</p>
 {{- with .Warnings}}
@@ -31,43 +27,26 @@
 </div>
 {{- end}}
 </header>
-{{if eq .Params.Mode "cards"}}<div class="card-area">
-<input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-<div id="card">
-{{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
+{{if eq .Params.Mode "cards"}}<div class="start">
+<a class="button start-button" href="{{.StartURL}}">{{if not .Left}}Practise again{{else if .Started}}Continue · {{.Left}} left{{else}}Start{{end}}</a>
 </div>
-</div>
-<script>
-(function () {
-  {{/* iOS opens the keyboard only on a focus made during a user gesture, so focus stays here while the next card loads. */}}
-  var keeper = document.getElementById("kbd-keeper");
-  var card = document.getElementById("card");
-  document.body.addEventListener("htmx:beforeRequest", function (e) {
-    if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
-  });
-  document.body.addEventListener("htmx:afterSettle", function (e) {
-    if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
-    if (el) el.focus({preventScroll: true});
-    var top = card.getBoundingClientRect().top;
-    var height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    if (top < 0 || top > height / 3) window.scrollBy({top: top - 8, behavior: "instant"});
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" || e.repeat || e.isComposing) return;
-    if (e.target !== keeper && e.target !== document.body && !card.contains(e.target)) return;
-    var next = card.querySelector("button[data-next]");
-    if (!next) return;
-    e.preventDefault();
-    next.click();
-  });
-})();
-</script>
-{{- else if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
+<section class="options">
+<h2 class="options-title">Options</h2>
+{{template "deck_controls" .}}
+</section>
+{{- else}}
+{{template "deck_controls" .}}
+{{- if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
 {{- else}}{{template "done" .Done}}{{end}}
+{{- end}}
 {{- if or .Progress.Solved .Progress.Mistakes}}
 <p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
 {{- end}}
 {{end}}
+
+{{define "deck_controls"}}<nav class="controls" aria-label="Practice options">
+<span class="seg">{{range .Modes}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+<span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}{{with .Shuffle}}<a href="{{.URL}}" class="toggle"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span>
+</nav>{{end}}

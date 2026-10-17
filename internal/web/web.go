@@ -47,7 +47,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -62,6 +62,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
+	mux.HandleFunc("GET /s/{slug}/play", h.play)
 	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
 	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
@@ -277,13 +278,24 @@ func setURL(slug string, p params) string {
 	return u
 }
 
+func playURL(slug string, p params) string {
+	v := p.query()
+	v.Del("mode")
+	u := "/s/" + url.PathEscape(slug) + "/play"
+	if q := v.Encode(); q != "" {
+		u += "?" + q
+	}
+	return u
+}
+
 func setURLAfter(slug string, p params, after int64) string {
 	v := p.query()
+	v.Del("mode")
 	v.Set("after", strconv.FormatInt(after, 10))
 	if p.Streak > 0 {
 		v.Set("streak", strconv.Itoa(p.Streak))
 	}
-	return "/s/" + url.PathEscape(slug) + "?" + v.Encode()
+	return "/s/" + url.PathEscape(slug) + "/play?" + v.Encode()
 }
 
 func nextURL(slug string, after int64, p params) string {
@@ -419,7 +431,6 @@ func nudge(t store.Task, results []greek.BlankResult) string {
 
 type progressBar struct {
 	Index, Total int
-	First        string
 }
 
 func (b progressBar) Pct() int {
@@ -432,6 +443,7 @@ func (b progressBar) Pct() int {
 type cardView struct {
 	Task   taskView
 	Bar    progressBar
+	InPage bool
 	Params params
 	Retry  bool
 	Nudge  string
@@ -462,6 +474,7 @@ type doneView struct {
 	Progress    store.Progress
 	AgainURL    string
 	MistakesURL string
+	DeckURL     string
 	LoggedIn    bool
 }
 
@@ -477,13 +490,6 @@ func firstUnsolved(tasks []store.Task, last map[int64]bool) (int64, bool) {
 		}
 	}
 	return 0, false
-}
-
-func (c *cardView) linkFirst(slug string, todo []store.Task, last map[int64]bool, p params) *cardView {
-	if id, ok := firstUnsolved(todo, last); ok && id != c.Task.ID {
-		c.Bar.First = setURL(slug, p)
-	}
-	return c
 }
 
 func progressOf(tasks []store.Task, last map[int64]bool) store.Progress {
@@ -506,8 +512,9 @@ func newDone(r *http.Request, slug string, empty bool, pr store.Progress) *doneV
 		LoggedIn:    loggedIn,
 		Empty:       empty,
 		Progress:    pr,
-		AgainURL:    "/s/" + url.PathEscape(slug),
-		MistakesURL: "/s/" + url.PathEscape(slug) + "?filter=mistakes",
+		AgainURL:    "/s/" + url.PathEscape(slug) + "/play",
+		MistakesURL: "/s/" + url.PathEscape(slug) + "/play?filter=mistakes",
+		DeckURL:     "/s/" + url.PathEscape(slug),
 	}
 }
 
@@ -551,6 +558,16 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 	h.render(w, r, status, h.pages[page], "layout", ld)
+}
+
+func (h *handler) pageAs(w http.ResponseWriter, r *http.Request, status int, page, layout string, data any) {
+	ld := layoutData{Data: data, Page: page, Theme: themeOf(r)}
+	if u, ok := currentUser(r); ok {
+		ld.User = &u
+	}
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+	h.render(w, r, status, h.pages[page], layout, ld)
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
@@ -724,7 +741,9 @@ type setPage struct {
 	Modes    []link
 	Filters  []link
 	Shuffle  link
-	Card     *cardView
+	StartURL string
+	Left     int
+	Started  bool
 	Items    []itemView
 	First    int64
 	Done     *doneView
@@ -843,54 +862,139 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 	shuffleURL := "/s/" + url.PathEscape(set.Slug) + "?" + sv.Encode()
 	data.Shuffle = link{"Shuffle", shuffleURL, p.Shuffle}
 
-	switch {
-	case len(todo) == 0:
+	if p.Mode == "cards" {
+		data.StartURL = playURL(set.Slug, p)
+		data.Left = countUnsolved(todo, last)
+		data.Started = pr.Solved+pr.Mistakes > 0
+		h.page(w, r, http.StatusOK, "set", data)
+		return
+	}
+	if len(todo) == 0 {
 		data.Done = newDone(r, set.Slug, true, pr)
-	case p.Mode == "cards":
-		rest := todo
-		if a := q.Get("after"); a != "" {
-			after, err := strconv.ParseInt(a, 10, 64)
-			if err != nil {
-				h.fail(w, r, fmt.Errorf("after %q: %w", a, store.ErrInvalid))
-				return
-			}
-			start := 0
-			for i, t := range order {
-				if t.ID == after {
-					start = i + 1
-					break
-				}
-			}
-			rest = filtered(order[start:], p.Filter, last)
-		} else {
-			for k, t := range todo {
-				if !last[t.ID] {
-					rest = todo[k:]
-					break
-				}
-			}
+	}
+	for _, t := range todo {
+		data.Items = append(data.Items, listItem(t, p, d.attempts))
+	}
+	if id, ok := firstUnsolved(todo, last); ok && len(todo) > 0 && id != todo[0].ID {
+		data.First = id
+	}
+	h.page(w, r, http.StatusOK, "set", data)
+}
+
+func countUnsolved(tasks []store.Task, last map[int64]bool) int {
+	n := 0
+	for _, t := range tasks {
+		if !last[t.ID] {
+			n++
 		}
-		if len(rest) == 0 {
-			data.Done = newDone(r, set.Slug, false, pr)
-			break
+	}
+	return n
+}
+
+type playPage struct {
+	Set      store.Set
+	DeckURL  string
+	Card     *cardView
+	Done     *doneView
+	Filters  []link
+	Order    []link
+	ListURL  string
+	FirstURL string
+	ResetURL string
+	Bar      progressBar
+}
+
+func (h *handler) play(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	p, err := parseParams(q, "cards")
+	if errors.Is(err, errMissingSeed) {
+		q.Set("seed", strconv.FormatUint(uint64(mrand.Uint32()), 10))
+		http.Redirect(w, r, r.URL.Path+"?"+q.Encode(), http.StatusFound)
+		return
+	}
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	p.Mode = "cards"
+	p.I, p.N, p.Tries = 0, 0, 0
+	d, err := h.loadSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	set, tasks, last := d.set, d.tasks, d.last
+	order := ordered(tasks, p)
+	todo := filtered(order, p.Filter, last)
+	pr := progressOf(tasks, last)
+
+	data := playPage{Set: set, DeckURL: "/s/" + url.PathEscape(set.Slug)}
+	for _, f := range []string{"all", "unsolved", "mistakes"} {
+		lp := p
+		lp.Filter = f
+		data.Filters = append(data.Filters, link{strings.ToUpper(f[:1]) + f[1:], playURL(set.Slug, lp), f == p.Filter})
+	}
+	ordered, shuffled := p, p
+	ordered.Shuffle, ordered.Seed = false, 0
+	shuffled.Shuffle = true
+	if !p.Shuffle {
+		shuffled.Seed = uint64(mrand.Uint32())
+	}
+	data.Order = []link{{"In order", playURL(set.Slug, ordered), !p.Shuffle}, {"Shuffled", playURL(set.Slug, shuffled), p.Shuffle}}
+	lp := p
+	lp.Mode = "list"
+	data.ListURL = setURL(set.Slug, lp)
+	if countUnsolved(todo, last) > 0 {
+		data.FirstURL = playURL(set.Slug, p)
+	}
+	if pr.Solved+pr.Mistakes > 0 {
+		data.ResetURL = "/s/" + url.PathEscape(set.Slug) + "/reset"
+	}
+
+	if len(todo) == 0 {
+		data.Done = newDone(r, set.Slug, true, pr)
+		h.pageAs(w, r, http.StatusOK, "play", "focus", data)
+		return
+	}
+	rest := todo
+	if a := q.Get("after"); a != "" {
+		after, err := strconv.ParseInt(a, 10, 64)
+		if err != nil {
+			h.fail(w, r, fmt.Errorf("after %q: %w", a, store.ErrInvalid))
+			return
 		}
-		idx := 1
-		for k, t := range todo {
-			if t.ID == rest[0].ID {
-				idx = k + 1
+		start := 0
+		for i, t := range order {
+			if t.ID == after {
+				start = i + 1
 				break
 			}
 		}
-		data.Card = newCard(rest[0], idx, len(todo), p, true).linkFirst(set.Slug, todo, last, p)
-	default:
-		for _, t := range todo {
-			data.Items = append(data.Items, listItem(t, p, d.attempts))
-		}
-		if id, ok := firstUnsolved(todo, last); ok && id != todo[0].ID {
-			data.First = id
+		rest = filtered(order[start:], p.Filter, last)
+	} else {
+		for k, t := range todo {
+			if !last[t.ID] {
+				rest = todo[k:]
+				break
+			}
 		}
 	}
-	h.page(w, r, http.StatusOK, "set", data)
+	if len(rest) == 0 {
+		data.Done = newDone(r, set.Slug, false, pr)
+		h.pageAs(w, r, http.StatusOK, "play", "focus", data)
+		return
+	}
+	idx := 1
+	for k, t := range todo {
+		if t.ID == rest[0].ID {
+			idx = k + 1
+			break
+		}
+	}
+	data.Card = newCard(rest[0], idx, len(todo), p, true)
+	data.Card.InPage = true
+	data.Bar = data.Card.Bar
+	h.pageAs(w, r, http.StatusOK, "play", "focus", data)
 }
 
 func (h *handler) next(w http.ResponseWriter, r *http.Request) {
@@ -937,7 +1041,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false).linkFirst(set.Slug, todo, last, p))
+	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false))
 }
 
 func taskID(r *http.Request) (int64, error) {

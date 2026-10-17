@@ -1,0 +1,100 @@
+{{define "title"}}{{.Set.Title}} · kena{{end}}
+{{define "focus"}}<!doctype html>
+<html lang="en" data-theme="{{.Theme}}" class="focus">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>{{template "title" .Data}}</title>
+{{template "head_links" .}}
+</head>
+<body class="focus">
+{{with .Data}}<div class="focus-app" id="focus-app">
+<header class="focus-bar">
+<a class="focus-close" href="{{.DeckURL}}" aria-label="Back to deck" title="Back to deck"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+<div id="focus-pos" class="focus-pos">{{template "bar" .Bar}}</div>
+<details class="focus-menu" id="focus-menu">
+<summary aria-label="Options" title="Options"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary>
+<div class="sheet" role="group" aria-label="Practice options">
+<p class="sheet-title">{{.Set.Title}}</p>
+<div class="sheet-row"><span class="sheet-label">Mode</span><span class="seg"><a aria-current="true">Cards</a><a href="{{.ListURL}}">List</a></span></div>
+<div class="sheet-row"><span class="sheet-label">Practise</span><span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+<div class="sheet-row"><span class="sheet-label">Order</span><span class="seg">{{range .Order}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+<div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">First unsolved</a>{{end}}{{with .ResetURL}}<a href="{{.}}">Reset progress</a>{{end}}<a href="{{.DeckURL}}">Back to deck</a></div>
+<button type="button" class="secondary sheet-close" data-close>Close</button>
+</div>
+</details>
+</header>
+<main class="focus-main" id="focus-main">
+<div class="card-area">
+<input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+<div id="card">
+{{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
+</div>
+</div>
+</main>
+</div>{{end}}
+{{template "flash"}}
+<script>
+(function () {
+  {{/* iOS opens the keyboard only on a focus made during a user gesture, so focus moves to the keeper while a card loads and never to a tapped control. */}}
+  var root = document.documentElement;
+  var keeper = document.getElementById("kbd-keeper");
+  var card = document.getElementById("card");
+  var main = document.getElementById("focus-main");
+  var menu = document.getElementById("focus-menu");
+  var vv = window.visualViewport;
+  function fit() {
+    if (!vv) return;
+    root.style.setProperty("--vvh", vv.height + "px");
+    root.style.setProperty("--vvt", vv.offsetTop + "px");
+  }
+  if (vv) {
+    vv.addEventListener("resize", fit);
+    vv.addEventListener("scroll", fit);
+    fit();
+  }
+  window.addEventListener("scroll", function () {
+    if (window.scrollY !== 0) window.scrollTo(0, 0);
+  });
+  function target() {
+    return card.querySelector('input[name="a"]:not([readonly])') || keeper;
+  }
+  function holdFocus(e) {
+    if (e.target.closest("input:not([readonly]), textarea")) return;
+    e.preventDefault();
+  }
+  main.addEventListener("pointerdown", holdFocus);
+  main.addEventListener("mousedown", holdFocus);
+  document.body.addEventListener("htmx:beforeRequest", function (e) {
+    if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
+  });
+  document.body.addEventListener("htmx:afterSettle", function (e) {
+    if (e.detail.target !== card) return;
+    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    if (el) el.focus({preventScroll: true});
+    main.scrollTop = 0;
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && menu.open) {
+      menu.open = false;
+      return;
+    }
+    if (e.key !== "Enter" || e.repeat || e.isComposing) return;
+    if (e.target !== keeper && e.target !== document.body && !card.contains(e.target)) return;
+    var next = card.querySelector("button[data-next]");
+    if (!next) return;
+    e.preventDefault();
+    next.click();
+  });
+  menu.addEventListener("toggle", function () {
+    if (!menu.open) target().focus({preventScroll: true});
+  });
+  menu.querySelector("[data-close]").addEventListener("click", function () { menu.open = false; });
+  document.addEventListener("click", function (e) {
+    if (menu.open && !menu.contains(e.target)) menu.open = false;
+  });
+})();
+</script>
+</body>
+</html>
+{{end}}

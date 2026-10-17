@@ -1,4 +1,4 @@
-{{define "card_result"}}{{template "bar" .Bar}}
+{{define "card_result"}}{{template "bar_oob" .Bar}}
 <div class="card result {{if .Correct}}ok{{else}}bad{{end}}">
 {{- if .Correct}}
 <p class="verdict"><span class="tick" aria-hidden="true">✓</span> Correct{{if ge .Streak 2}}<span class="streak"> · {{.Streak}} in a row</span>{{end}}</p>

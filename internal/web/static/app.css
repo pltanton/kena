@@ -590,13 +590,6 @@ button.danger:hover {
   white-space: pre-line;
 }
 
-.position {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 1rem;
-}
-
 .progress {
   flex: 1;
   height: 3px;
@@ -615,10 +608,6 @@ button.danger:hover {
 .count {
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
-}
-
-.position + .card {
-  margin-top: 0.6rem;
 }
 
 .set-head h1 {
@@ -1301,7 +1290,6 @@ button.quiet:hover {
   color: var(--muted);
 }
 
-.position .first,
 .jump a {
   display: inline-flex;
   align-items: center;
@@ -1417,6 +1405,177 @@ button.quiet:hover {
   color: var(--text);
   text-decoration: underline 2px var(--gold);
   text-underline-offset: 0.45em;
+}
+
+.start {
+  margin: 1.25rem 0 0.5rem;
+}
+
+.start-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+.options {
+  margin-top: 1.25rem;
+}
+
+.options-title {
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.options .controls {
+  border-bottom: 0;
+}
+
+html.focus,
+body.focus {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.focus-app {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--vvh, 100dvh);
+  transform: translateY(var(--vvt, 0px));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.focus-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2px 4px;
+}
+
+.focus-close,
+.focus-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.focus-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.focus-close:hover,
+.focus-menu summary:hover,
+.focus-menu[open] summary {
+  color: var(--text);
+  background: var(--sunken);
+}
+
+.focus-pos {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 6px;
+}
+
+.focus-pos .progress {
+  flex: 1;
+}
+
+.focus-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.focus-main .card-area {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 4px 12px 16px;
+}
+
+.focus-main .card {
+  margin: 0;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 30px -12px rgb(0 0 0 / 35%);
+}
+
+.sheet-title {
+  margin: 0 0 6px;
+  font-family: var(--display-font);
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-label {
+  width: 4.5rem;
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.sheet .seg {
+  margin: 0 -8px;
+}
+
+.sheet-links {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px;
+  font-size: 0.9rem;
+}
+
+.sheet-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.sheet-close {
+  width: 100%;
+  margin-top: 8px;
 }
 
 @media (max-width: 389px) {

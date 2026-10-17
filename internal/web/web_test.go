@@ -175,7 +175,7 @@ func TestIndexListsSetsAndSetsDeviceCookie(t *testing.T) {
 
 func TestSetCardsShowsFirstTaskWithoutAnswer(t *testing.T) {
 	e := setup(t)
-	resp, body := e.get("/s/" + e.set.Slug)
+	resp, body := e.get("/s/" + e.set.Slug + "/play")
 	wantStatus(t, resp, http.StatusOK)
 
 	if !strings.Contains(body, "Εσύ") {
@@ -236,9 +236,9 @@ func TestStreakCarriedThroughNextAndRedirect(t *testing.T) {
 	if !strings.Contains(body, `name="streak" value="4"`) {
 		t.Fatalf("next card lacks streak field:\n%s", body)
 	}
-	_, body = e.get("/s/" + e.set.Slug + "?streak=4")
+	_, body = e.get("/s/" + e.set.Slug + "/play?streak=4")
 	if !strings.Contains(body, `name="streak" value="4"`) {
-		t.Fatalf("set page lacks streak field:\n%s", body)
+		t.Fatalf("play page lacks streak field:\n%s", body)
 	}
 	if strings.Contains(body, "?filter=unsolved&amp;streak") || strings.Contains(body, "streak=4&amp;") {
 		t.Fatalf("streak leaks into navigation links:\n%s", body)
@@ -252,7 +252,7 @@ func TestStreakCarriedThroughNextAndRedirect(t *testing.T) {
 
 func TestCardsEnterAdvances(t *testing.T) {
 	e := setup(t)
-	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	_, body := e.get("/s/" + e.set.Slug + "/play")
 	if !strings.Contains(body, `"keydown"`) || !strings.Contains(body, "e.repeat") || !strings.Contains(body, "e.isComposing") || !strings.Contains(body, "card.contains(e.target)") {
 		t.Fatalf("cards page lacks the Enter handler:\n%s", body)
 	}
@@ -342,7 +342,7 @@ func TestListModeAndModeCookie(t *testing.T) {
 
 func TestKeyboardKeeperOnlyInCards(t *testing.T) {
 	e := setup(t)
-	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	_, body := e.get("/s/" + e.set.Slug + "/play")
 	if !strings.Contains(body, `id="kbd-keeper"`) || !strings.Contains(body, "htmx:beforeRequest") {
 		t.Fatalf("cards mode lacks keyboard keeper:\n%s", body)
 	}
@@ -441,7 +441,7 @@ func TestCheckWithoutHtmxCardsAdvancesInsteadOfLooping(t *testing.T) {
 	resp, _ := e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, false)
 	wantStatus(t, resp, http.StatusSeeOther)
 	loc := resp.Header.Get("Location")
-	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"?") || !strings.Contains(loc, fmt.Sprintf("after=%d", e.tasks[0].ID)) {
+	if !strings.HasPrefix(loc, "/s/"+e.set.Slug+"/play?") || !strings.Contains(loc, fmt.Sprintf("after=%d", e.tasks[0].ID)) {
 		t.Fatalf("redirect location %q", loc)
 	}
 
@@ -507,14 +507,14 @@ func TestCardsResumeAtFirstUnsolved(t *testing.T) {
 	e := setup(t)
 	e.get("/")
 	e.check(e.tasks[0].ID, url.Values{"a": {"γράφεις"}}, true)
-	_, body := e.get("/s/" + e.set.Slug + "?mode=cards")
+	_, body := e.get("/s/" + e.set.Slug + "/play")
 	if !strings.Contains(body, "Αυτός") || strings.Contains(body, "Εσύ") || !strings.Contains(body, "2/3") {
 		t.Fatalf("did not resume at the second task:\n%s", body)
 	}
 
 	e.check(e.tasks[1].ID, url.Values{"a": {"τρέχει"}}, true)
 	e.check(e.tasks[2].ID, url.Values{"a": {"πίνουμε"}}, true)
-	_, body = e.get("/s/" + e.set.Slug + "?mode=cards")
+	_, body = e.get("/s/" + e.set.Slug + "/play")
 	if !strings.Contains(body, "Εσύ") || !strings.Contains(body, "1/3") {
 		t.Fatalf("all solved: expected the first task:\n%s", body)
 	}
