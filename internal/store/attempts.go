@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 )
 
 type Progress struct {
@@ -22,26 +23,48 @@ func validateDeviceID(deviceID string) error {
 }
 
 func (s *Store) RecordAttempt(ctx context.Context, deviceID string, taskID int64, answers []string, correct bool) error {
-	return s.record(ctx, deviceID, taskID, answers, correct, false)
+	_, err := s.Record(ctx, deviceID, Attempt{TaskID: taskID, Answers: answers, Correct: correct})
+	return err
 }
 
 func (s *Store) RecordGiveUp(ctx context.Context, deviceID string, taskID int64, answers []string) error {
-	return s.record(ctx, deviceID, taskID, answers, false, true)
+	_, err := s.Record(ctx, deviceID, Attempt{TaskID: taskID, Answers: answers, GaveUp: true})
+	return err
 }
 
-func (s *Store) record(ctx context.Context, deviceID string, taskID int64, answers []string, correct, gaveUp bool) error {
-	if err := validateDeviceID(deviceID); err != nil {
-		return err
-	}
+type Attempt struct {
+	ClientID string
+	TaskID   int64
+	Answers  []string
+	Correct  bool
+	GaveUp   bool
+	At       time.Time
+}
 
-	answersJSON, err := jsonList(answers)
-	if err != nil {
-		return err
+func (s *Store) Record(ctx context.Context, deviceID string, a Attempt) (bool, error) {
+	if err := validateDeviceID(deviceID); err != nil {
+		return false, err
 	}
-	_, err = exec(ctx, s.pool, "recording attempt", `
-		INSERT INTO attempts (device_id, task_id, answers, correct, gave_up) VALUES ($1, $2, $3, $4, $5)
-	`, deviceID, taskID, answersJSON, correct, gaveUp)
-	return err
+	var clientID, at any
+	if a.ClientID != "" {
+		if !uuidRe.MatchString(a.ClientID) {
+			return false, fmt.Errorf("invalid client id %q: %w", a.ClientID, ErrInvalid)
+		}
+		clientID = a.ClientID
+	}
+	if !a.At.IsZero() {
+		at = a.At
+	}
+	answersJSON, err := jsonList(a.Answers)
+	if err != nil {
+		return false, err
+	}
+	n, err := exec(ctx, s.pool, "recording attempt", `
+		INSERT INTO attempts (device_id, task_id, answers, correct, gave_up, client_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))
+		ON CONFLICT (client_id) DO NOTHING
+	`, deviceID, a.TaskID, answersJSON, a.Correct, a.GaveUp, clientID, at)
+	return n == 1, err
 }
 
 type LastAttempt struct {
@@ -121,4 +144,36 @@ func (s *Store) ResetProgress(ctx context.Context, deviceID string, setID int64)
 		DELETE FROM attempts a USING tasks t
 		WHERE a.task_id = t.id AND t.set_id = $2 AND a.device_id = $1
 	`, deviceID, setID)
+}
+
+type AttemptStamp struct {
+	Count int
+	MaxID int64
+}
+
+func (s *Store) AttemptStamps(ctx context.Context, deviceID string, setIDs []int64) (map[int64]AttemptStamp, error) {
+	if err := validateDeviceID(deviceID); err != nil {
+		return nil, err
+	}
+	type row struct {
+		id int64
+		st AttemptStamp
+	}
+	rows, err := queryAll(ctx, s.pool, "getting attempt stamps", func(r *row) []any {
+		return []any{&r.id, &r.st.Count, &r.st.MaxID}
+	}, `
+		SELECT t.set_id, count(*), max(a.id)
+		FROM attempts a
+		JOIN tasks t ON t.id = a.task_id
+		WHERE a.device_id = $1 AND t.set_id = ANY($2)
+		GROUP BY t.set_id
+	`, deviceID, setIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]AttemptStamp, len(rows))
+	for _, r := range rows {
+		out[r.id] = r.st
+	}
+	return out, nil
 }

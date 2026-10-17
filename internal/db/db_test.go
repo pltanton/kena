@@ -24,8 +24,8 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("querying schema_migrations: %v", err)
 	}
-	if count != 10 {
-		t.Fatalf("schema_migrations count = %d, want 10", count)
+	if count != 11 {
+		t.Fatalf("schema_migrations count = %d, want 11", count)
 	}
 
 	if _, err := pool.Exec(ctx, "INSERT INTO users (username) VALUES ($1)", "anton"); err != nil {
@@ -114,5 +114,26 @@ func TestRichRulesMigration(t *testing.T) {
 			_ = pool.QueryRow(ctx, `SELECT rules::text FROM sets WHERE slug = $1`, slug).Scan(&got)
 			t.Errorf("%s: rules = %s, want %s (%v)", slug, got, w, err)
 		}
+	}
+}
+
+func TestClientIDMigration(t *testing.T) {
+	ctx := context.Background()
+	pool := dbtest.New(t)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, username) VALUES (1, 'ann');
+		INSERT INTO sets (id, owner_id, slug, title) VALUES (1, 1, 's', 'S');
+		INSERT INTO tasks (id, set_id, position, text, blanks) VALUES (1, 1, 1, 'x ___', '[]');
+		INSERT INTO attempts (device_id, task_id, answers, correct) VALUES
+			('11111111-1111-4111-8111-111111111111', 1, '[]', false),
+			('11111111-1111-4111-8111-111111111111', 1, '[]', false);
+		INSERT INTO attempts (device_id, task_id, answers, correct, client_id) VALUES
+			('11111111-1111-4111-8111-111111111111', 1, '[]', true, '22222222-2222-4222-8222-222222222222');
+	`); err != nil {
+		t.Fatalf("NULL client ids must coexist: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO attempts (device_id, task_id, answers, correct, client_id) VALUES
+		('33333333-3333-4333-8333-333333333333', 1, '[]', true, '22222222-2222-4222-8222-222222222222')`); err == nil {
+		t.Fatal("duplicate client_id accepted")
 	}
 }

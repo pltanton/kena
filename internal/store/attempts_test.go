@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/pltanton/kena/internal/db/dbtest"
 	"github.com/pltanton/kena/internal/greek"
@@ -292,5 +293,80 @@ func TestRecordGiveUpIsAWrongLastAttempt(t *testing.T) {
 	}
 	if la := last[task.ID]; !la.Correct || la.GaveUp {
 		t.Fatalf("solved after give-up: got %+v", la)
+	}
+}
+
+func TestRecordClientIDOnce(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	task := newTaskForAttempts(ctx, t, s, "syncer")
+	device := "44444444-4444-4444-8444-444444444444"
+	cid := "55555555-5555-4555-8555-555555555555"
+	at := time.Now().Add(-48 * time.Hour).Truncate(time.Microsecond)
+
+	ok, err := s.Record(ctx, device, store.Attempt{ClientID: cid, TaskID: task.ID, Answers: []string{"τρεχω"}, GaveUp: true, At: at})
+	if err != nil || !ok {
+		t.Fatalf("Record = %v, %v", ok, err)
+	}
+	ok, err = s.Record(ctx, device, store.Attempt{ClientID: cid, TaskID: task.ID, Answers: []string{"τρέχω"}, Correct: true})
+	if err != nil || ok {
+		t.Fatalf("second Record with the same client id = %v, %v", ok, err)
+	}
+	if ok, err := s.Record(ctx, device, store.Attempt{TaskID: task.ID, Answers: []string{"x"}}); err != nil || !ok {
+		t.Fatalf("Record without client id = %v, %v", ok, err)
+	}
+	if ok, err := s.Record(ctx, device, store.Attempt{TaskID: task.ID, Answers: []string{"x"}}); err != nil || !ok {
+		t.Fatalf("second Record without client id = %v, %v", ok, err)
+	}
+	if _, err := s.Record(ctx, device, store.Attempt{ClientID: "nope", TaskID: task.ID}); !errors.Is(err, store.ErrInvalid) {
+		t.Fatalf("bad client id: %v", err)
+	}
+
+	var n int
+	var created time.Time
+	if err := s.Pool().QueryRow(ctx, `SELECT count(*) OVER (), created_at FROM attempts WHERE client_id = $1`, cid).Scan(&n, &created); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || !created.Equal(at) {
+		t.Fatalf("client attempt rows %d at %v, want 1 at %v", n, created, at)
+	}
+	last, err := s.LastAttempts(ctx, device, task.SetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if la := last[task.ID]; la.Correct || la.GaveUp || la.Answers[0] != "x" {
+		t.Fatalf("last attempt %+v: the back-dated one must not win", la)
+	}
+}
+
+func TestAttemptStamps(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+	task := newTaskForAttempts(ctx, t, s, "stamper")
+	device := "66666666-6666-4666-8666-666666666666"
+	stamps, err := s.AttemptStamps(ctx, device, []int64{task.SetID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := stamps[task.SetID]; st != (store.AttemptStamp{}) {
+		t.Fatalf("no attempts: %+v", st)
+	}
+	for range 2 {
+		if err := s.RecordAttempt(ctx, device, task.ID, []string{"x"}, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RecordAttempt(ctx, "77777777-7777-4777-8777-777777777777", task.ID, []string{"x"}, false); err != nil {
+		t.Fatal(err)
+	}
+	stamps, err = s.AttemptStamps(ctx, device, []int64{task.SetID, 999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := stamps[task.SetID]; st.Count != 2 || st.MaxID == 0 {
+		t.Fatalf("stamp %+v", st)
+	}
+	if len(stamps) != 1 {
+		t.Fatalf("stamps for sets without attempts: %v", stamps)
 	}
 }
