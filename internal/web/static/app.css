@@ -2240,3 +2240,82 @@ textarea.rule-body {
 .choices button {
   flex: 1;
 }
+
+html[data-offline="1"] #card {
+  visibility: hidden;
+}
+
+.sync-ind {
+  flex: none;
+  gap: 2px;
+  min-width: 40px;
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 999px;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sync-ind[hidden] {
+  display: none;
+}
+
+.sync-ind:hover {
+  color: var(--text);
+  background: var(--sunken);
+}
+
+.sync-ind[data-state="synced"] {
+  color: var(--ok);
+}
+
+.sync-ind[data-state="pending"],
+.sync-ind[data-state="syncing"] {
+  color: var(--gold-line);
+}
+
+.sync-ind .sync-off {
+  display: none;
+}
+
+.sync-ind[data-state="offline"] .sync-off {
+  display: block;
+}
+
+.sync-ind[data-state="syncing"] .sync-text {
+  opacity: 0.6;
+}
+
+.offline-line {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.offline-line[hidden] {
+  display: none;
+}
+
+.offline-line .offline-state {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.offline-line .offline-state:not(:empty) + .offline-toggle {
+  margin-left: 0.6em;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.set-row .offline-mark {
+  grid-column: 1;
+  font-size: 0.8rem;
+  color: var(--ok);
+}

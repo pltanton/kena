@@ -28,6 +28,8 @@
     }, 1600);
   }
 
+  window.kenaSay = say;
+
   function post(url, data) {
     return fetch(url, {method: "POST", headers: {"HX-Request": "true"}, body: new URLSearchParams(data)}).then(function (r) {
       if (!r.ok) throw new Error(r.status);

@@ -36,7 +36,8 @@ var (
 		"play.correct", "play.next", "play.check", "play.give_up", "play.not_quite", "play.why", "play.back_to_deck",
 		"play.prev", "play.skip", "play.skip_long", "play.card_of", "rule.label", "rule.show", "task.blank",
 		"nudge.accent", "nudge.final_sigma", "nudge.near_miss", "done.all_solved", "done.empty", "done.done",
-		"done.again", "done.mistakes_only", "done.review_mistakes", "progress.solved",
+		"done.again", "done.mistakes_only", "done.review_mistakes", "progress.solved", "filter.all", "filter.unsolved",
+		"filter.mistakes", "order.in_order", "order.shuffled", "play.first_unsolved", "play.to_worksheet", "reset.title",
 	}
 	packPlurals = []string{"count.in_a_row", "count.mistakes"}
 )

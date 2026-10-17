@@ -206,5 +206,5 @@
     if (dx < 0) forward();
     else back();
   }, {passive: true});
-  sync();
+  if (!root.dataset.offline) sync();
 })();
