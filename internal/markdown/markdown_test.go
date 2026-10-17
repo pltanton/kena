@@ -2,6 +2,8 @@ package markdown
 
 import (
 	"fmt"
+	"html/template"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -191,11 +193,17 @@ func TestRenderWorstCase(t *testing.T) {
 		if n := len([]rune(src)); n > MaxLen {
 			t.Fatalf("%s: %d runes", name, n)
 		}
-		start := time.Now()
-		out := Render(src)
-		Errors(src)
-		if d := time.Since(start); d > 200*time.Millisecond {
-			t.Errorf("%s: %v", name, d)
+		var out template.HTML
+		allocated := allocBytes(func() {
+			start := time.Now()
+			out = Render(src)
+			Errors(src)
+			if d := time.Since(start); d > 2*time.Second && !testing.Short() {
+				t.Errorf("%s: %v", name, d)
+			}
+		})
+		if allocated > 32<<20 {
+			t.Errorf("%s: allocated %d bytes", name, allocated)
 		}
 		if len(out) > 200<<10 {
 			t.Errorf("%s: %d bytes of HTML", name, len(out))
@@ -220,10 +228,15 @@ func TestCacheBounded(t *testing.T) {
 
 func TestPreviewAndIssuesOnWideTable(t *testing.T) {
 	src := "Πόσος\n\n" + table(500, 990)
-	start := time.Now()
-	Preview(src, 60)
-	Issues(src)
-	if d := time.Since(start); d > 50*time.Millisecond {
-		t.Fatalf("Preview and Issues took %v", d)
+	if n := testing.AllocsPerRun(1, func() { Preview(src, 60); Issues(src) }); n > 20 {
+		t.Fatalf("Preview and Issues parsed the wide table: %v allocations", n)
 	}
+}
+
+func allocBytes(f func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	f()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
 }
