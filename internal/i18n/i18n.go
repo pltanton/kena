@@ -49,12 +49,10 @@ var catalogs = map[Lang]*catalog{En: &en, Ru: &ru, El: &el}
 var requiredForms = map[Lang][]string{En: {"one", "other"}, Ru: {"one", "few", "many"}, El: {"one", "other"}}
 
 func Parse(s string) (Lang, bool) {
-	l := Lang(s)
-	_, ok := catalogs[l]
-	if !ok {
-		return "", false
+	if _, ok := catalogs[Lang(s)]; ok {
+		return Lang(s), true
 	}
-	return l, true
+	return "", false
 }
 
 func Name(l Lang) string {
@@ -151,12 +149,12 @@ func HTML(l Lang, key string, args ...any) template.HTML {
 	if !ok {
 		return template.HTML(template.HTMLEscapeString("!" + key))
 	}
+	if len(args) == 0 {
+		return template.HTML(s)
+	}
 	esc := make([]any, len(args))
 	for i, a := range args {
 		esc[i] = template.HTMLEscapeString(fmt.Sprint(a))
-	}
-	if len(esc) == 0 {
-		return template.HTML(s)
 	}
 	return template.HTML(fmt.Sprintf(s, esc...))
 }

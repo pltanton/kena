@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	_ "embed"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -77,33 +76,26 @@ func Hash(p string) (string, error) {
 }
 
 func Verify(p, encoded string) bool {
-	m, t, par, salt, key, err := parse(encoded)
-	if err != nil {
-		return false
-	}
-	got := idKey(p, salt, t, m, par, uint32(len(key)))
-	return subtle.ConstantTimeCompare(got, key) == 1
+	m, t, par, salt, key, ok := parse(encoded)
+	return ok && subtle.ConstantTimeCompare(idKey(p, salt, t, m, par, uint32(len(key))), key) == 1
 }
 
-var errMalformed = errors.New("malformed argon2id hash")
-
-func parse(encoded string) (m, t uint32, p uint8, salt, key []byte, err error) {
+func parse(encoded string) (m, t uint32, p uint8, salt, key []byte, ok bool) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" {
-		return 0, 0, 0, nil, nil, errMalformed
+		return
 	}
 	var v int
 	if _, err := fmt.Sscanf(parts[2], "v=%d", &v); err != nil || v != argon2.Version {
-		return 0, 0, 0, nil, nil, errMalformed
+		return
 	}
 	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &m, &t, &p); err != nil || m == 0 || t == 0 || p == 0 {
-		return 0, 0, 0, nil, nil, errMalformed
+		return
 	}
-	if salt, err = b64.DecodeString(parts[4]); err != nil {
-		return 0, 0, 0, nil, nil, errMalformed
+	salt, err := b64.DecodeString(parts[4])
+	if err != nil {
+		return
 	}
-	if key, err = b64.DecodeString(parts[5]); err != nil || len(key) == 0 {
-		return 0, 0, 0, nil, nil, errMalformed
-	}
-	return m, t, p, salt, key, nil
+	key, err = b64.DecodeString(parts[5])
+	return m, t, p, salt, key, err == nil && len(key) > 0
 }
