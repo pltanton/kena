@@ -415,6 +415,7 @@ func nudge(t store.Task, results []greek.BlankResult) string {
 
 type progressBar struct {
 	Index, Total int
+	First        string
 }
 
 func (b progressBar) Pct() int {
@@ -462,7 +463,23 @@ type doneView struct {
 
 func newCard(t store.Task, i, n int, p params, autofocus bool) *cardView {
 	p.I, p.N = i, n
-	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{i, n}, Params: p}
+	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{Index: i, Total: n}, Params: p}
+}
+
+func firstUnsolved(tasks []store.Task, last map[int64]bool) (int64, bool) {
+	for _, t := range tasks {
+		if !last[t.ID] {
+			return t.ID, true
+		}
+	}
+	return 0, false
+}
+
+func (c *cardView) linkFirst(slug string, todo []store.Task, last map[int64]bool, p params) *cardView {
+	if id, ok := firstUnsolved(todo, last); ok && id != c.Task.ID {
+		c.Bar.First = setURL(slug, p)
+	}
+	return c
 }
 
 func progressOf(tasks []store.Task, last map[int64]bool) store.Progress {
@@ -701,6 +718,7 @@ type setPage struct {
 	Shuffle  link
 	Card     *cardView
 	Items    []itemView
+	First    int64
 	Done     *doneView
 }
 
@@ -855,10 +873,13 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		data.Card = newCard(rest[0], idx, len(todo), p, true)
+		data.Card = newCard(rest[0], idx, len(todo), p, true).linkFirst(set.Slug, todo, last, p)
 	default:
 		for _, t := range todo {
 			data.Items = append(data.Items, listItem(t, p, d.attempts))
+		}
+		if id, ok := firstUnsolved(todo, last); ok && id != todo[0].ID {
+			data.First = id
 		}
 	}
 	h.page(w, r, http.StatusOK, "set", data)
@@ -898,17 +919,17 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	todo := filtered(order, p.Filter, last)
 	i, n := p.N-len(rest)+1, p.N
 	if p.N == 0 || i < 1 {
-		all := filtered(order, p.Filter, last)
-		n = len(all)
-		for k, t := range all {
+		n = len(todo)
+		for k, t := range todo {
 			if t.ID == rest[0].ID {
 				i = k + 1
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false))
+	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false).linkFirst(set.Slug, todo, last, p))
 }
 
 func taskID(r *http.Request) (int64, error) {
@@ -980,7 +1001,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 			h.fragment(w, r, "list_item", itemView{Task: view, Params: p, Retry: true, Nudge: hint})
 			return
 		}
-		h.fragment(w, r, "card", &cardView{Task: view, Bar: progressBar{p.I, p.N}, Params: p, Retry: true, Nudge: hint})
+		h.fragment(w, r, "card", &cardView{Task: view, Bar: progressBar{Index: p.I, Total: p.N}, Params: p, Retry: true, Nudge: hint})
 		return
 	}
 	p.Tries = 0
@@ -999,7 +1020,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 	h.fragment(w, r, "card_result", cardResultView{
 		Task:        view,
-		Bar:         progressBar{p.I, p.N},
+		Bar:         progressBar{Index: p.I, Total: p.N},
 		Correct:     correct,
 		Streak:      p.Streak,
 		Explanation: task.Explanation,

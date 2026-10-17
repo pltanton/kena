@@ -1286,6 +1286,26 @@ button.quiet:hover {
   color: var(--muted);
 }
 
+.position .first,
+.jump a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -14px 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.jump {
+  margin: 0.25rem 0 -0.5rem;
+  text-align: right;
+}
+
+.jump a {
+  margin: 0;
+}
+
 @media (max-width: 389px) {
   .nav a {
     padding: 0 5px;

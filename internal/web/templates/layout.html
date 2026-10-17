@@ -82,4 +82,4 @@
 {{define "why"}}{{with .}}<details class="why"><summary>Why?</summary><p>{{.}}</p></details>{{end}}{{end}}
 
 {{define "bar"}}{{if .Total}}<div class="position"><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="{{.Total}}" aria-valuenow="{{.Index}}" aria-label="Card {{.Index}} of {{.Total}}"><div class="bar" style="width: {{.Pct}}%"></div></div>
-<span class="count">{{.Index}}/{{.Total}}</span></div>{{end}}{{end}}
+<span class="count">{{.Index}}/{{.Total}}</span>{{with .First}}<a class="first" href="{{.}}">First unsolved</a>{{end}}</div>{{end}}{{end}}
