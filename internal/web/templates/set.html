@@ -31,10 +31,12 @@
 </div>
 {{- end}}
 </header>
-{{if eq .Params.Mode "cards"}}<div id="card">
+{{if eq .Params.Mode "cards"}}<div class="card-area">
+<input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+<div id="card">
 {{if .Card}}{{template "card" .Card}}{{else}}{{template "done" .Done}}{{end}}
 </div>
-<input id="kbd-keeper" aria-hidden="true" tabindex="-1" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+</div>
 <script>
 (function () {
   {{/* iOS opens the keyboard only on a focus made during a user gesture, so focus stays here while the next card loads. */}}
@@ -47,6 +49,9 @@
     if (e.detail.target !== card) return;
     var el = card.querySelector('input[name="a"]') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
+    var top = card.getBoundingClientRect().top;
+    var height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    if (top < 0 || top > height / 3) window.scrollBy({top: top - 8, behavior: "instant"});
   });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" || e.repeat || e.isComposing) return;

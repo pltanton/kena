@@ -7,5 +7,5 @@
 {{- if not .Correct}}
 {{with .Explanation}}<p class="explanation">{{.}}</p>{{end}}
 {{- end}}
-<button type="button" data-next hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML">Next</button>
+<button type="button" data-next hx-get="{{.NextURL}}" hx-target="#card" hx-swap="innerHTML show:none">Next</button>
 </div>{{end}}

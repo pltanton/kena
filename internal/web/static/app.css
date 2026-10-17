@@ -953,8 +953,12 @@ button.danger:hover {
   margin-top: 2px;
 }
 
+.card-area {
+  position: relative;
+}
+
 #kbd-keeper {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 1px;

@@ -410,9 +410,9 @@ type doneView struct {
 	LoggedIn    bool
 }
 
-func newCard(t store.Task, i, n int, p params) *cardView {
+func newCard(t store.Task, i, n int, p params, autofocus bool) *cardView {
 	p.I, p.N = i, n
-	return &cardView{Task: newTaskView(t, true, nil), Bar: progressBar{i, n}, Params: p}
+	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{i, n}, Params: p}
 }
 
 func progressOf(tasks []store.Task, last map[int64]bool) store.Progress {
@@ -801,7 +801,7 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		data.Card = newCard(rest[0], idx, len(todo), p)
+		data.Card = newCard(rest[0], idx, len(todo), p, true)
 	default:
 		for _, t := range todo {
 			data.Items = append(data.Items, listItem(t, p, d.attempts))
@@ -854,7 +854,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(rest[0], i, n, p))
+	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false))
 }
 
 func taskID(r *http.Request) (int64, error) {
