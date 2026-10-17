@@ -8,8 +8,9 @@ of a textbook exercise, it writes new tasks on the same grammar point and upload
 them through kena's MCP server. The MCP server also hands the agent an authoring
 guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate.
 
-- Web: `/` lists your decks, `/s/<slug>` practises one. Cards
-  mode (one task per screen, Enter for the next one, a streak counter, resumes
+- Web: `/` lists your decks, `/s/<slug>` is a deck's overview (progress,
+  options, Start). Cards run in a full-screen focus mode (`/s/<slug>/play`: a
+  thin bar with back, progress and a ⋯ menu; one task per screen, Enter for the next one, a streak counter, resumes
   at the first unsolved task) or List mode (shows your latest result per
   task). Filters: all, unsolved, mistakes. A wrong answer is not revealed:
   you try again (with a nudge for a wrong accent, final ς or a letter or two
