@@ -49,31 +49,6 @@ func TestParseLegacyRuleLines(t *testing.T) {
 	}
 }
 
-func TestParseDeckRuleErrors(t *testing.T) {
-	for _, c := range []struct {
-		name, src string
-		want      []string
-	}{
-		{"rule after a task", "Α {β}.\n\n= late: x", []string{"line 3: rule definitions go at the top, before the first task"}},
-		{"rule without colon", "= agree", []string{"line 1: write a rule as = key: text"}},
-		{"rule without key", "= : text", []string{"line 1: write a rule as = key: text"}},
-		{"reference without a task", "@agree\nΑ {β}.", []string{"line 1: @ rule without a sentence above it"}},
-		{"two references", "Α {β}.\n@a\n@b", []string{"line 3: a task can use only one rule"}},
-		{"empty reference", "Α {β}.\n@", []string{"line 2: write the rule key after @"}},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			_, errs := ParseDeck(c.src)
-			var got []string
-			for _, e := range errs {
-				got = append(got, e.Error())
-			}
-			if !reflect.DeepEqual(got, c.want) {
-				t.Fatalf("errors = %q, want %q", got, c.want)
-			}
-		})
-	}
-}
-
 func TestRuleReferencesRoundTrip(t *testing.T) {
 	rules := []greek.Rule{{Key: "agree", Body: "x"}, {Key: "polys", Body: "y"}}
 	tasks, issues := greek.PrepareDeck(ruleTasks, nil, rules)

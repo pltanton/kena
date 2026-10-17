@@ -154,6 +154,7 @@ func TestParseErrors(t *testing.T) {
 	}{
 		{"unclosed brace", "Εσύ {γράφεις πολύ.", []string{"line 1: unclosed {"}},
 		{"unclosed on later line", "Α {β}.\n\nΓ {δ", []string{"line 3: unclosed {"}},
+		{"CRLF line numbers", "Α {β}.\r\n\r\nΓ {", []string{"line 3: unclosed {"}},
 		{"nested brace", "Α {β {γ}}.", []string{"line 1: { inside a blank"}},
 		{"stray closing brace", "Α β}.", []string{"line 1: } without {"}},
 		{"empty blank", "Α {}.", []string{"line 1: blank has no answer"}},
@@ -167,6 +168,12 @@ func TestParseErrors(t *testing.T) {
 		{"explanation first", "> why\nΑ {β}.", []string{"line 1: explanation without a sentence above it"}},
 		{"explanation after blank line", "Α {β}.\n\n> why", []string{"line 3: explanation without a sentence above it"}},
 		{"explanation under a broken sentence", "Α {β.\n> why", []string{"line 1: unclosed {"}},
+		{"rule after a task", "Α {β}.\n\n= late: x", []string{"line 3: rule definitions go at the top, before the first task"}},
+		{"rule without colon", "= agree", []string{"line 1: write a rule as = key: text"}},
+		{"rule without key", "= : text", []string{"line 1: write a rule as = key: text"}},
+		{"reference without a task", "@agree\nΑ {β}.", []string{"line 1: @ rule without a sentence above it"}},
+		{"two references", "Α {β}.\n@a\n@b", []string{"line 3: a task can use only one rule"}},
+		{"empty reference", "Α {β}.\n@", []string{"line 2: write the rule key after @"}},
 		{"all errors reported", "Α {β.\nΓ {}.\nΔ {ε}.\n\nΖ }", []string{"line 1: unclosed {", "line 2: blank has no answer", "line 5: } without {"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -182,32 +189,7 @@ func TestParseErrors(t *testing.T) {
 	}
 }
 
-func TestParseErrorLine(t *testing.T) {
-	_, errs := Parse("Α {β}.\r\n\r\nΓ {")
-	if len(errs) != 1 || errs[0].Line != 3 || !strings.Contains(errs[0].Msg, "unclosed") {
-		t.Fatalf("errs = %+v", errs)
-	}
-}
-
-func roundTrips(t *testing.T, task greek.TaskInput) {
-	t.Helper()
-	prepared, issues := greek.PrepareDeck([]greek.TaskInput{task}, nil, nil)
-	for _, iss := range issues {
-		if iss.Severity == greek.Error {
-			return
-		}
-	}
-	items, errs := Parse(Format(prepared))
-	if len(errs) != 0 {
-		t.Fatalf("lint-clean task %+q does not parse: %v\n%s", prepared[0], errs, Format(prepared))
-	}
-	got, _ := greek.PrepareDeck(Tasks(items), nil, nil)
-	if !reflect.DeepEqual(got, prepared) {
-		t.Fatalf("lint-clean task does not round-trip:\n%+q\n%+q", got, prepared)
-	}
-}
-
-func roundTripsDeck(t *testing.T, rules []greek.Rule, task greek.TaskInput) {
+func roundTrips(t *testing.T, rules []greek.Rule, task greek.TaskInput) {
 	t.Helper()
 	prepared, issues := greek.PrepareDeck([]greek.TaskInput{task}, nil, rules)
 	for _, iss := range issues {
@@ -217,11 +199,11 @@ func roundTripsDeck(t *testing.T, rules []greek.Rule, task greek.TaskInput) {
 	}
 	items, errs := Parse(Format(prepared))
 	if len(errs) != 0 {
-		t.Fatalf("lint-clean task with a rule does not parse: %v\n%s", errs, Format(prepared))
+		t.Fatalf("lint-clean task %+q does not parse: %v\n%s", prepared[0], errs, Format(prepared))
 	}
 	got, _ := greek.PrepareDeck(Tasks(items), nil, rules)
 	if !reflect.DeepEqual(got, prepared) {
-		t.Fatalf("lint-clean task with a rule does not round-trip:\n%+q\n%+q", got, prepared)
+		t.Fatalf("lint-clean task does not round-trip:\n%+q\n%+q", got, prepared)
 	}
 }
 
@@ -248,7 +230,7 @@ var tricky = []greek.TaskInput{
 
 func TestLintCleanTasksRoundTrip(t *testing.T) {
 	for i, task := range tricky {
-		t.Run(fmt.Sprint(i), func(t *testing.T) { roundTrips(t, task) })
+		t.Run(fmt.Sprint(i), func(t *testing.T) { roundTrips(t, nil, task) })
 	}
 }
 
@@ -262,8 +244,8 @@ func FuzzRoundTrip(f *testing.F) {
 		for i := range blanks {
 			blanks[i] = blank(hint, answer)
 		}
-		roundTrips(t, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
-		roundTripsDeck(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
+		roundTrips(t, nil, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
+		roundTrips(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
 	})
 }
 
@@ -273,5 +255,5 @@ func TestMultilineTaskRoundTrips(t *testing.T) {
 	if got := Format([]greek.TaskInput{task}); got != want {
 		t.Fatalf("Format = %q, want %q", got, want)
 	}
-	roundTrips(t, task)
+	roundTrips(t, nil, task)
 }

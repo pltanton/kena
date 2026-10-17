@@ -27,15 +27,6 @@ func TestPrepareTrimsTextLines(t *testing.T) {
 	}
 }
 
-func hasWarning(issues []TaskIssue, field, msg string) bool {
-	for _, iss := range issues {
-		if iss.Severity == Warning && iss.Field == field && strings.Contains(iss.Message, msg) {
-			return true
-		}
-	}
-	return false
-}
-
 func TestSameHintPatternWarns(t *testing.T) {
 	var batch []TaskInput
 	nouns := []string{"φίλους", "φίλες", "παιδιά", "βιβλία", "γάτες", "σκύλους", "πόλεις", "δρόμους", "μήλα", "ώρες"}
@@ -50,20 +41,11 @@ func TestSameHintPatternWarns(t *testing.T) {
 		})
 	}
 	_, issues := PrepareDeck(batch, nil, nil)
-	if !hasWarning(issues, "blanks", "7 of 10 tasks use the same hint pattern") {
+	if !hasIssue(plainIssues(issues), Warning, "blanks", "7 of 10 tasks use the same hint pattern") {
 		t.Fatalf("hint monotony not flagged: %+v", issues)
 	}
 	_, issues = PrepareDeck(batch[:9], nil, nil)
-	if hasWarning(issues, "blanks", "hint pattern") {
+	if hasIssue(plainIssues(issues), Warning, "blanks", "hint pattern") {
 		t.Fatal("hint monotony flagged in a batch under 10")
 	}
-}
-
-func hasLint(issues []Issue, sev Severity, field, msg string) bool {
-	for _, iss := range issues {
-		if iss.Severity == sev && iss.Field == field && strings.Contains(iss.Message, msg) {
-			return true
-		}
-	}
-	return false
 }
