@@ -12,6 +12,12 @@ type Item struct {
 	Line int
 }
 
+type Deck struct {
+	Rules []greek.Rule
+	Tasks []greek.TaskInput
+	Items []Item
+}
+
 type LineError struct {
 	Line int
 	Msg  string
@@ -54,6 +60,9 @@ func Format(tasks []greek.TaskInput) string {
 			b.WriteString("}")
 		}
 		b.WriteString("\n")
+		if t.Rule != "" {
+			b.WriteString("@" + t.Rule + "\n")
+		}
 		if t.Explanation != "" {
 			for _, line := range strings.Split(t.Explanation, "\n") {
 				b.WriteString("> " + line + "\n")
@@ -63,11 +72,30 @@ func Format(tasks []greek.TaskInput) string {
 	return b.String()
 }
 
+func FormatDeck(d Deck) string {
+	var b strings.Builder
+	for _, r := range d.Rules {
+		b.WriteString("= " + r.Key + ": " + r.Text + "\n")
+	}
+	if len(d.Rules) > 0 && len(d.Tasks) > 0 {
+		b.WriteString("\n")
+	}
+	b.WriteString(Format(d.Tasks))
+	return b.String()
+}
+
 func Parse(src string) ([]Item, []LineError) {
+	d, errs := ParseDeck(src)
+	return d.Items, errs
+}
+
+func ParseDeck(src string) (Deck, []LineError) {
 	src = strings.ReplaceAll(src, "\r\n", "\n")
 	src = strings.ReplaceAll(src, "\r", "\n")
 
 	var (
+		rules    []greek.Rule
+		begun    bool
 		items    []Item
 		errs     []LineError
 		sentence []string
@@ -118,6 +146,36 @@ func Parse(src string) ([]Item, []LineError) {
 		switch {
 		case trimmed == "":
 			flush()
+		case strings.HasPrefix(trimmed, "=") && sentence == nil:
+			if begun {
+				errs = append(errs, LineError{n, "rule definitions go at the top, before the first task"})
+				continue
+			}
+			key, text, ok := strings.Cut(trimmed[1:], ":")
+			if key = strings.TrimSpace(key); !ok || key == "" {
+				errs = append(errs, LineError{n, "write a rule as = key: text"})
+				continue
+			}
+			rules = append(rules, greek.Rule{Key: key, Text: strings.TrimSpace(text)})
+		case strings.HasPrefix(trimmed, "@"):
+			closeSentence()
+			if broken {
+				continue
+			}
+			if !open {
+				errs = append(errs, LineError{n, "@ rule without a sentence above it"})
+				continue
+			}
+			key := strings.TrimSpace(trimmed[1:])
+			last := &items[len(items)-1].Task
+			switch {
+			case key == "":
+				errs = append(errs, LineError{n, "write the rule key after @"})
+			case last.Rule != "":
+				errs = append(errs, LineError{n, "a task can use only one rule"})
+			default:
+				last.Rule = key
+			}
 		case strings.HasPrefix(trimmed, ">"):
 			closeSentence()
 			if broken {
@@ -134,12 +192,13 @@ func Parse(src string) ([]Item, []LineError) {
 			if sentence == nil {
 				flush()
 				start = n
+				begun = true
 			}
 			sentence = append(sentence, trimmed)
 		}
 	}
 	flush()
-	return items, errs
+	return Deck{Rules: rules, Items: items}, errs
 }
 
 func parseLine(line string) (greek.TaskInput, string) {
