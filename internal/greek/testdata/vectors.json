@@ -1,0 +1,58 @@
+{
+  "normalize": [
+    {"in": "  Έγραψα \t ", "out": "έγραψα"},
+    {"in": "έ", "out": "έ"},
+    {"in": "θα  γράψω", "out": "θα γράψω"},
+    {"in": "ΣΑΣ", "out": "σασ"},
+    {"in": "ΟΔΟΣ ΜΟΥ", "out": "οδοσ μου"},
+    {"in": "ΆΈΉΊΌΎΏ", "out": "άέήίόύώ"},
+    {"in": "Ϊ Ϋ", "out": "ϊ ϋ"},
+    {"in": "α β", "out": "α β"},
+    {"in": "α\u0085β", "out": "α β"},
+    {"in": "α﻿β", "out": "α﻿β"},
+    {"in": " χ　", "out": "χ"},
+    {"in": "α​β", "out": "α​β"},
+    {"in": "", "out": ""},
+    {"in": " \n ", "out": ""}
+  ],
+  "check": [
+    {"blanks": [["έγραψα"]], "given": ["εγραψα"], "results": [{"given": "εγραψα", "correct": false, "expected": "έγραψα"}], "all": false},
+    {"blanks": [["ήρθα", "ήλθα"]], "given": ["ήλθα"], "results": [{"given": "ήλθα", "correct": true, "expected": "ήρθα"}], "all": true},
+    {"blanks": [["Έγραψα"]], "given": ["έγραψα"], "results": [{"given": "έγραψα", "correct": true, "expected": "Έγραψα"}], "all": true},
+    {"blanks": [["γράφω"], ["διαβάζω"]], "given": ["γράφω", "λάθος"], "results": [{"given": "γράφω", "correct": true, "expected": "γράφω"}, {"given": "λάθος", "correct": false, "expected": "διαβάζω"}], "all": false},
+    {"blanks": [["ένα"], ["δύο"]], "given": ["ένα"], "results": [{"given": "ένα", "correct": true, "expected": "ένα"}, {"given": "", "correct": false, "expected": "δύο"}], "all": false},
+    {"blanks": [["φίλος"]], "given": ["ΦΊΛΟΣ"], "results": [{"given": "ΦΊΛΟΣ", "correct": false, "expected": "φίλος"}], "all": false},
+    {"blanks": [["θα γράψω"]], "given": ["  θα  γράψω "], "results": [{"given": "  θα  γράψω ", "correct": true, "expected": "θα γράψω"}], "all": true},
+    {"blanks": [["έ"]], "given": ["έ"], "results": [{"given": "έ", "correct": true, "expected": "έ"}], "all": true},
+    {"blanks": [[]], "given": ["κάτι"], "results": [{"given": "κάτι", "correct": false, "expected": ""}], "all": false},
+    {"blanks": [], "given": [], "results": [], "all": true}
+  ],
+  "classify": [
+    {"given": "", "accepted": ["έγραψα"], "kind": "empty"},
+    {"given": "   ", "accepted": ["έγραψα"], "kind": "empty"},
+    {"given": "εγραψα", "accepted": ["έγραψα"], "kind": "accent"},
+    {"given": "εγράψα", "accepted": ["έγραψα"], "kind": "accent"},
+    {"given": "προυπόθεση", "accepted": ["προϋπόθεση"], "kind": "accent"},
+    {"given": "φίλοσ", "accepted": ["φίλος"], "kind": "final_sigma"},
+    {"given": "ΦΊΛΟΣ", "accepted": ["φίλος"], "kind": "final_sigma"},
+    {"given": "φίλςς", "accepted": ["φίλσς"], "kind": "final_sigma"},
+    {"given": "έγραψε", "accepted": ["έγραψα"], "kind": "near_miss"},
+    {"given": "γράφει", "accepted": ["γράφω"], "kind": "near_miss"},
+    {"given": "φιλοσ", "accepted": ["φίλος"], "kind": "near_miss"},
+    {"given": "γράφουμε", "accepted": ["έγραψα"], "kind": "other"},
+    {"given": "ηλθα", "accepted": ["πήγα", "ήλθα"], "kind": "accent"},
+    {"given": "ηρθα", "accepted": ["ήλθα", "ήρθα"], "kind": "accent"},
+    {"given": "Έγραψα ", "accepted": ["έγραψα"], "kind": "correct"},
+    {"given": "κάτι", "accepted": [], "kind": "other"},
+    {"given": "θα γραψω", "accepted": ["θα γράψω"], "kind": "accent"},
+    {"given": "έγραψα", "accepted": ["έγραψα"], "kind": "correct"}
+  ],
+  "levenshtein": [
+    {"a": "", "b": "", "d": 0},
+    {"a": "αβγ", "b": "", "d": 3},
+    {"a": "γράφω", "b": "γράφω", "d": 0},
+    {"a": "γράφω", "b": "γράφει", "d": 2},
+    {"a": "kitten", "b": "sitting", "d": 3},
+    {"a": "𝔸β", "b": "β", "d": 1}
+  ]
+}
