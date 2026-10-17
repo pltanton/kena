@@ -47,7 +47,7 @@
   });
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
-    var el = card.querySelector('input[name="a"]') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    var el = card.querySelector('input[name="a"]:not([readonly])') || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
     var top = card.getBoundingClientRect().top;
     var height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -63,8 +63,11 @@
   });
 })();
 </script>
-{{- else if .Items}}<ol class="items">
+{{- else if .Items}}{{with .First}}<p class="jump"><a href="#t-{{.}}">First unsolved</a></p>{{end}}<ol class="items">
 {{range .Items}}{{template "list_item" .}}
 {{end}}</ol>
 {{- else}}{{template "done" .Done}}{{end}}
+{{- if or .Progress.Solved .Progress.Mistakes}}
+<p class="page-foot"><a href="/s/{{.Set.Slug}}/reset">Reset progress</a></p>
+{{- end}}
 {{end}}

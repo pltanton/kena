@@ -218,7 +218,7 @@ func TestCheckCorrectAndWrongCards(t *testing.T) {
 		t.Fatalf("streak not counted:\n%s", body)
 	}
 
-	resp, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"cards"}, "streak": {"3"}}, true)
+	resp, body = e.check(e.tasks[1].ID, url.Values{"a": {"τρεχει"}, "mode": {"cards"}, "streak": {"3"}, "giveup": {"1"}}, true)
 	wantStatus(t, resp, http.StatusOK)
 	for _, want := range []string{"τρέχει", "τρεχει", "Next", "third person singular", "bad"} {
 		if !strings.Contains(body, want) {
@@ -355,7 +355,7 @@ func TestKeyboardKeeperOnlyInCards(t *testing.T) {
 func TestCheckListModeAndItem(t *testing.T) {
 	e := setup(t)
 	e.get("/")
-	resp, body := e.check(e.tasks[1].ID, url.Values{"a": {"τρέχω"}, "mode": {"list"}}, true)
+	resp, body := e.check(e.tasks[1].ID, url.Values{"a": {"τρέχω"}, "mode": {"list"}, "giveup": {"1"}}, true)
 	wantStatus(t, resp, http.StatusOK)
 	id := fmt.Sprintf(`<li id="t-%d"`, e.tasks[1].ID)
 	for _, want := range []string{id, "τρέχει", "Try again", fmt.Sprintf("/t/%d/item", e.tasks[1].ID)} {
@@ -486,14 +486,17 @@ func TestListShowsLatestResults(t *testing.T) {
 	_, body := e.get("/s/" + e.set.Slug + "?mode=list")
 	for _, want := range []string{
 		fmt.Sprintf(`<li id="t-%d" class="item ok">`, e.tasks[0].ID), `<span class="filled ok">γράφεις</span>`,
-		fmt.Sprintf(`<li id="t-%d" class="item bad">`, e.tasks[1].ID), "τρεχει", "τρέχει", "third person singular", "Try again",
+		fmt.Sprintf(`<li id="t-%d" class="item">`, e.tasks[1].ID), `value="τρεχει"`, "Give up",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("list missing %q", want)
 		}
 	}
-	if n := answerInputs(body); n != 1 {
-		t.Errorf("got %d answer inputs, want 1 (untried task only)", n)
+	if strings.Contains(body, "τρέχει") || strings.Contains(body, "third person singular") {
+		t.Error("list reveals the answer of a task still being retried")
+	}
+	if n := answerInputs(body); n != 2 {
+		t.Errorf("got %d answer inputs, want 2 (untried and retried tasks)", n)
 	}
 	if strings.Contains(body, "πίνουμε") {
 		t.Error("untried task's answer leaked")
@@ -593,6 +596,10 @@ func TestNav(t *testing.T) {
 		if !strings.Contains(nav, want) || strings.Count(nav, "aria-current") != 1 {
 			t.Errorf("%s: want only %q current:\n%s", path, want, nav)
 		}
+	}
+	nav = navOf(t, mustGet(t, e, "/"))
+	if !strings.Contains(nav, `aria-label="Account (anna)"`) || !strings.Contains(nav, `<svg class="icon"`) || strings.Contains(nav, "avatar") {
+		t.Errorf("account link should be a labelled icon:\n%s", nav)
 	}
 	nav = navOf(t, mustGet(t, e, "/s/"+e.set.Slug))
 	if strings.Contains(nav, "aria-current") || !strings.Contains(nav, ">My decks<") || !strings.Contains(nav, ">Discover<") {

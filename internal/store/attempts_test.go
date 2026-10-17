@@ -241,3 +241,39 @@ func TestLastAttempts(t *testing.T) {
 		t.Fatalf("invalid device: %v", err)
 	}
 }
+
+func TestResetProgressOnlyTouchesThatDeviceAndSet(t *testing.T) {
+	ctx := context.Background()
+	s := store.New(dbtest.New(t))
+
+	task := newTaskForAttempts(ctx, t, s, "resetter")
+	other := newTaskForAttempts(ctx, t, s, "other")
+	me := "11111111-1111-1111-1111-111111111111"
+	them := "22222222-2222-2222-2222-222222222222"
+	for _, a := range []struct {
+		device string
+		task   int64
+	}{{me, task.ID}, {me, task.ID}, {me, other.ID}, {them, task.ID}} {
+		if err := s.RecordAttempt(ctx, a.device, a.task, []string{"x"}, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	n, err := s.ResetProgress(ctx, me, task.SetID)
+	if err != nil || n != 2 {
+		t.Fatalf("ResetProgress = %d, %v; want 2", n, err)
+	}
+	for _, c := range []struct {
+		device string
+		set    int64
+		want   int
+	}{{me, task.SetID, 0}, {me, other.SetID, 1}, {them, task.SetID, 1}} {
+		got, err := s.LastAttempts(ctx, c.device, c.set)
+		if err != nil || len(got) != c.want {
+			t.Errorf("LastAttempts(%s, %d) = %d tasks, %v; want %d", c.device, c.set, len(got), err, c.want)
+		}
+	}
+	if _, err := s.ResetProgress(ctx, "nope", task.SetID); !errors.Is(err, store.ErrInvalid) {
+		t.Errorf("bad device id: %v", err)
+	}
+}

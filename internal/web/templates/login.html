@@ -7,7 +7,7 @@
 <label for="username">Username</label>
 <input id="username" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if not .Username}} autofocus{{end}}>
 <label for="passphrase">Passphrase</label>
-<input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}>
+<div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="Show passphrase" hidden>Show</button></div>
 <button type="submit">Log in</button>
 </form>
 {{end}}

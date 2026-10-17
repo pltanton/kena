@@ -163,6 +163,12 @@ func (s *Store) PurgeExpired(ctx context.Context) error {
 	`); err != nil {
 		return fmt.Errorf("purging codes: %w", err)
 	}
+	if _, err := s.pool.Exec(ctx, `
+		DELETE FROM login_codes
+		WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
+	`); err != nil {
+		return fmt.Errorf("purging login codes: %w", err)
+	}
 	return nil
 }
 

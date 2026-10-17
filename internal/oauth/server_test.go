@@ -168,6 +168,9 @@ func TestFullFlow(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(body, `name="passphrase"`) || !strings.Contains(body, "Test App") {
 		t.Fatalf("authorize GET: status %d body %s", resp.StatusCode, body)
 	}
+	if !strings.Contains(body, `aria-controls="passphrase"`) || !strings.Contains(body, `src="/static/reveal.js"`) {
+		t.Errorf("authorize login form lacks the passphrase reveal toggle: %s", body)
+	}
 
 	bad := authParams(clientID, redirect, verifier)
 	bad.Set("action", "login")

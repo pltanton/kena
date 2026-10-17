@@ -119,3 +119,17 @@ func (s *Store) ProgressBySet(ctx context.Context, deviceID string) (map[int64]P
 	}
 	return progress, nil
 }
+
+func (s *Store) ResetProgress(ctx context.Context, deviceID string, setID int64) (int64, error) {
+	if err := validateDeviceID(deviceID); err != nil {
+		return 0, err
+	}
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM attempts a USING tasks t
+		WHERE a.task_id = t.id AND t.set_id = $2 AND a.device_id = $1
+	`, deviceID, setID)
+	if err != nil {
+		return 0, fmt.Errorf("resetting progress: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

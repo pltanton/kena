@@ -44,10 +44,10 @@ type handler struct {
 
 func Handler(st *store.Store, publicURL string) http.Handler {
 	h := &handler{st: st, publicURL: publicURL, pages: map[string]*template.Template{}}
-	h.base = template.Must(template.New("").Funcs(template.FuncMap{"initial": initial}).ParseFS(templateFS,
+	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -62,6 +62,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /s/{slug}", h.set)
 	mux.HandleFunc("GET /s/{slug}/next", h.next)
+	mux.HandleFunc("GET /s/{slug}/reset", h.resetPage)
+	mux.HandleFunc("POST /s/{slug}/reset", h.reset)
 	mux.HandleFunc("POST /s/{slug}/visibility", h.requireUser(h.visibility))
 	mux.HandleFunc("GET /s/{slug}/edit", h.requireUser(h.editPage))
 	mux.HandleFunc("POST /s/{slug}/edit", h.requireUser(h.saveDeck))
@@ -77,6 +79,10 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
+	mux.HandleFunc("POST /theme", h.setTheme)
+	mux.HandleFunc("GET /login/qr/{secret}", h.qrLoginPage)
+	mux.HandleFunc("POST /login/qr/{secret}", h.qrLogin)
+	mux.HandleFunc("POST /account/qr", h.requireUser(h.createLoginQR))
 	mux.HandleFunc("GET /account", h.requireUser(h.account))
 	mux.HandleFunc("GET /mistakes", h.requireUser(h.mistakes))
 	mux.HandleFunc("POST /account/passphrase", h.requireUser(h.changePassphrase))
@@ -195,6 +201,7 @@ type params struct {
 	Seed    uint64
 	I, N    int
 	Streak  int
+	Tries   int
 }
 
 var errMissingSeed = errors.New("shuffle without seed")
@@ -218,7 +225,7 @@ func parseParams(v url.Values, defaultMode string) (params, error) {
 	for _, f := range []struct {
 		name string
 		dst  *int
-	}{{"i", &p.I}, {"n", &p.N}, {"streak", &p.Streak}} {
+	}{{"i", &p.I}, {"n", &p.N}, {"streak", &p.Streak}, {"tries", &p.Tries}} {
 		if s := v.Get(f.name); s != "" {
 			n, err := strconv.Atoi(s)
 			if err != nil || n < 0 {
@@ -335,6 +342,9 @@ type segment struct {
 	Correct   bool
 	Given     string
 	Expected  string
+	Value     string
+	Locked    bool
+	Wrong     bool
 }
 
 type taskView struct {
@@ -367,8 +377,49 @@ func newTaskView(t store.Task, autofocus bool, results []greek.BlankResult) task
 	return v
 }
 
+func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
+	v := newTaskView(t, false, nil)
+	for i := range v.Segments {
+		s := &v.Segments[i]
+		if !s.Blank || s.Index-1 >= len(results) {
+			continue
+		}
+		res := results[s.Index-1]
+		s.Value = strings.TrimSpace(res.Given)
+		s.Locked = res.Correct
+		s.Wrong = !res.Correct
+	}
+	return v
+}
+
+var nudges = map[greek.ErrorKind]string{
+	greek.KindAccent:     "Almost — check the accent",
+	greek.KindFinalSigma: "Almost — final ς",
+	greek.KindNearMiss:   "Close — a letter or two off",
+}
+
+var nudgeRank = map[greek.ErrorKind]int{greek.KindAccent: 1, greek.KindFinalSigma: 2, greek.KindNearMiss: 3}
+
+func nudge(t store.Task, results []greek.BlankResult) string {
+	worst := greek.ErrorKind("")
+	for i, res := range results {
+		if res.Correct || i >= len(t.Blanks) {
+			continue
+		}
+		k := greek.Classify(res.Given, t.Blanks[i].Answers)
+		if _, ok := nudges[k]; !ok {
+			return ""
+		}
+		if nudgeRank[k] > nudgeRank[worst] {
+			worst = k
+		}
+	}
+	return nudges[worst]
+}
+
 type progressBar struct {
 	Index, Total int
+	First        string
 }
 
 func (b progressBar) Pct() int {
@@ -382,6 +433,8 @@ type cardView struct {
 	Task   taskView
 	Bar    progressBar
 	Params params
+	Retry  bool
+	Nudge  string
 }
 
 type cardResultView struct {
@@ -396,6 +449,8 @@ type cardResultView struct {
 type itemView struct {
 	Task        taskView
 	Params      params
+	Retry       bool
+	Nudge       string
 	Checked     bool
 	Correct     bool
 	Explanation string
@@ -412,7 +467,23 @@ type doneView struct {
 
 func newCard(t store.Task, i, n int, p params, autofocus bool) *cardView {
 	p.I, p.N = i, n
-	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{i, n}, Params: p}
+	return &cardView{Task: newTaskView(t, autofocus, nil), Bar: progressBar{Index: i, Total: n}, Params: p}
+}
+
+func firstUnsolved(tasks []store.Task, last map[int64]bool) (int64, bool) {
+	for _, t := range tasks {
+		if !last[t.ID] {
+			return t.ID, true
+		}
+	}
+	return 0, false
+}
+
+func (c *cardView) linkFirst(slug string, todo []store.Task, last map[int64]bool, p params) *cardView {
+	if id, ok := firstUnsolved(todo, last); ok && id != c.Task.ID {
+		c.Bar.First = setURL(slug, p)
+	}
+	return c
 }
 
 func progressOf(tasks []store.Task, last map[int64]bool) store.Progress {
@@ -455,11 +526,22 @@ type layoutData struct {
 	User     *store.User
 	LoginURL string
 	Page     string
+	Theme    string
+	Switch   themeSwitch
 	Data     any
 }
 
 func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page string, data any) {
-	ld := layoutData{Data: data, LoginURL: "/login", Page: page}
+	here := "/"
+	if r.Method == http.MethodGet {
+		q := r.URL.Query()
+		q.Del("next")
+		here = r.URL.Path
+		if len(q) > 0 {
+			here += "?" + q.Encode()
+		}
+	}
+	ld := layoutData{Data: data, LoginURL: "/login", Page: page, Theme: themeOf(r), Switch: newThemeSwitch(r, here)}
 	if u, ok := currentUser(r); ok {
 		ld.User = &u
 	}
@@ -469,13 +551,6 @@ func (h *handler) page(w http.ResponseWriter, r *http.Request, status int, page 
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 	h.render(w, r, status, h.pages[page], "layout", ld)
-}
-
-func initial(name string) string {
-	for _, r := range name {
-		return strings.ToUpper(string(r))
-	}
-	return ""
 }
 
 func (h *handler) fragment(w http.ResponseWriter, r *http.Request, name string, data any) {
@@ -651,6 +726,7 @@ type setPage struct {
 	Shuffle  link
 	Card     *cardView
 	Items    []itemView
+	First    int64
 	Done     *doneView
 }
 
@@ -687,6 +763,10 @@ func listItem(t store.Task, p params, attempts map[int64]store.LastAttempt) item
 		return itemView{Task: newTaskView(t, false, nil), Params: p}
 	}
 	results, _ := greek.Check(t.Blanks, la.Answers)
+	if !la.Correct {
+		p.Tries = 1
+		return itemView{Task: retryTaskView(t, results), Params: p, Retry: true, Nudge: nudge(t, results)}
+	}
 	return itemView{
 		Task:        newTaskView(t, false, results),
 		Params:      p,
@@ -801,10 +881,13 @@ func (h *handler) set(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		data.Card = newCard(rest[0], idx, len(todo), p, true)
+		data.Card = newCard(rest[0], idx, len(todo), p, true).linkFirst(set.Slug, todo, last, p)
 	default:
 		for _, t := range todo {
 			data.Items = append(data.Items, listItem(t, p, d.attempts))
+		}
+		if id, ok := firstUnsolved(todo, last); ok && id != todo[0].ID {
+			data.First = id
 		}
 	}
 	h.page(w, r, http.StatusOK, "set", data)
@@ -844,17 +927,17 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	todo := filtered(order, p.Filter, last)
 	i, n := p.N-len(rest)+1, p.N
 	if p.N == 0 || i < 1 {
-		all := filtered(order, p.Filter, last)
-		n = len(all)
-		for k, t := range all {
+		n = len(todo)
+		for k, t := range todo {
 			if t.ID == rest[0].ID {
 				i = k + 1
 			}
 		}
 	}
-	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false))
+	h.fragment(w, r, "card", newCard(rest[0], i, n, p, false).linkFirst(set.Slug, todo, last, p))
 }
 
 func taskID(r *http.Request) (int64, error) {
@@ -899,10 +982,11 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results, correct := greek.Check(task.Blanks, answers)
-	if correct {
-		p.Streak++
-	} else {
+	switch {
+	case !correct:
 		p.Streak = 0
+	case p.Tries == 0:
+		p.Streak++
 	}
 	if err := h.st.RecordAttempt(ctx, progressID(r), task.ID, answers, correct); err != nil {
 		h.fail(w, r, err)
@@ -918,6 +1002,18 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !correct && r.PostForm.Get("giveup") != "1" {
+		p.Tries++
+		view, hint := retryTaskView(task, results), nudge(task, results)
+		if p.Mode == "list" {
+			h.fragment(w, r, "list_item", itemView{Task: view, Params: p, Retry: true, Nudge: hint})
+			return
+		}
+		h.fragment(w, r, "card", &cardView{Task: view, Bar: progressBar{Index: p.I, Total: p.N}, Params: p, Retry: true, Nudge: hint})
+		return
+	}
+	p.Tries = 0
+
 	view := newTaskView(task, false, results)
 	if p.Mode == "list" {
 		h.fragment(w, r, "list_item", itemView{
@@ -932,7 +1028,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	}
 	h.fragment(w, r, "card_result", cardResultView{
 		Task:        view,
-		Bar:         progressBar{p.I, p.N},
+		Bar:         progressBar{Index: p.I, Total: p.N},
 		Correct:     correct,
 		Streak:      p.Streak,
 		Explanation: task.Explanation,
@@ -961,6 +1057,28 @@ func (h *handler) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.fragment(w, r, "list_item", itemView{Task: newTaskView(task, false, nil), Params: p})
+}
+
+func (h *handler) resetPage(w http.ResponseWriter, r *http.Request) {
+	set, err := h.visibleSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.page(w, r, http.StatusOK, "reset", set)
+}
+
+func (h *handler) reset(w http.ResponseWriter, r *http.Request) {
+	set, err := h.visibleSet(r, r.PathValue("slug"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if _, err := h.st.ResetProgress(r.Context(), progressID(r), set.ID); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/s/"+url.PathEscape(set.Slug), http.StatusSeeOther)
 }
 
 func (h *handler) ownedSet(r *http.Request, u store.User) (store.Set, error) {

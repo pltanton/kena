@@ -11,11 +11,17 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
 - Web: `/` lists your decks, `/s/<slug>` practises one. Cards
   mode (one task per screen, Enter for the next one, a streak counter, resumes
   at the first unsolved task) or List mode (shows your latest result per
-  task). Filters: all, unsolved, mistakes.
+  task). Filters: all, unsolved, mistakes. A wrong answer is not revealed:
+  you try again (with a nudge for a wrong accent, final ς or a letter or two
+  off) or press Give up to see it; only first-try answers grow the streak, and
+  every wrong try still counts in Mistakes. "First unsolved" jumps back,
+  "Reset progress" (bottom of the deck page) clears your answers on that deck.
   Practising needs no login: progress is tied to an anonymous device cookie.
   Logging in (username + passphrase) keeps progress in the account, so every
   device sees the same; what you solved before logging in moves to the account.
-- Account page (`/account`): change passphrase, personal tokens, connected apps.
+- Account page (`/account`): log in on your phone by scanning a one-time QR
+  code (5 minutes), theme (Auto, Light, Dark; also in the page footer), change
+  passphrase, personal tokens, connected apps.
 - MCP: `/mcp` (Streamable HTTP). OAuth (Claude app, ChatGPT: you log in and
   press Allow on a kena page) or personal bearer tokens (Claude Code, Hermes).
   You can only edit your own sets; admins can edit everything and manage users.
