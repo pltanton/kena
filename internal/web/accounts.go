@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -117,6 +118,7 @@ type accountView struct {
 	Tokens   []tokenRow
 	Apps     []appRow
 	NewToken *newToken
+	QR       template.HTML
 	Notice   string
 	Error    string
 }

@@ -47,7 +47,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	h.base = template.Must(template.New("").ParseFS(templateFS,
 		"templates/layout.html", "templates/card.html", "templates/card_result.html",
 		"templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
-	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset"} {
+	for _, page := range []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login"} {
 		t := template.Must(h.base.Clone())
 		h.pages[page] = template.Must(t.ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -79,6 +79,9 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
+	mux.HandleFunc("GET /login/qr/{secret}", h.qrLoginPage)
+	mux.HandleFunc("POST /login/qr/{secret}", h.qrLogin)
+	mux.HandleFunc("POST /account/qr", h.requireUser(h.createLoginQR))
 	mux.HandleFunc("GET /account", h.requireUser(h.account))
 	mux.HandleFunc("GET /mistakes", h.requireUser(h.mistakes))
 	mux.HandleFunc("POST /account/passphrase", h.requireUser(h.changePassphrase))

@@ -77,17 +77,22 @@ func Login(w http.ResponseWriter, r *http.Request, st *store.Store, username, pa
 	if err != nil {
 		return store.User{}, err
 	}
+	return u, Start(w, r, st, u.ID)
+}
+
+func Start(w http.ResponseWriter, r *http.Request, st *store.Store, userID int64) error {
+	ctx := r.Context()
 	if old := Secret(r); old != "" {
 		if err := st.DeleteSession(ctx, old); err != nil {
-			return store.User{}, err
+			return err
 		}
 	}
-	secret, err := st.CreateSession(ctx, u.ID, TTL)
+	secret, err := st.CreateSession(ctx, userID, TTL)
 	if err != nil {
-		return store.User{}, err
+		return err
 	}
 	Set(w, r, secret)
-	return u, nil
+	return nil
 }
 
 func Sleep(ctx context.Context, d time.Duration) {

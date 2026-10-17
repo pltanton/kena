@@ -35,6 +35,15 @@
 </div>
 </form>
 
+<h2 id="phone">Log in on your phone</h2>
+{{if .QR}}<div class="qr-box">
+{{.QR}}
+<p class="muted">Scan it with your phone's camera. It works once, for 5 minutes.</p>
+</div>
+<p class="warning">Anyone who scans this logs in as you — don't share screenshots.</p>
+{{else}}<p class="muted">Show a QR code, scan it with your phone, and you're logged in there too. No passphrase typing.</p>
+{{end}}<form method="post" action="/account/qr#phone"><button type="submit" class="secondary small">{{if .QR}}New code{{else}}Show code{{end}}</button></form>
+
 <h2>Change passphrase</h2>
 <form class="card stack" method="post" action="/account/passphrase">
 <input type="text" name="username" value="{{.User.Username}}" autocomplete="username" hidden>
