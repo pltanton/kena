@@ -15,7 +15,43 @@ type BlankIn struct {
 type TaskIn struct {
 	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
-	Explanation string    `json:"explanation,omitempty" jsonschema:"one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case"`
+	Explanation string    `json:"explanation,omitempty" jsonschema:"optional; one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case. General grammar shared by many items goes into a deck rule instead"`
+	Rule        string    `json:"rule,omitempty" jsonschema:"optional key of a deck rule (from the set's rules) that explains this item's grammar; shown with the explanation"`
+}
+
+type RuleIn struct {
+	Key  string `json:"key" jsonschema:"short id used by tasks' rule field: a-z, 0-9 and -, at most 32 characters, e.g. aorist-stem"`
+	Text string `json:"text" jsonschema:"the general grammar point in one line (at most 400 characters), in the deck's explanation language"`
+}
+
+func toGreekRules(in []RuleIn) []greek.Rule {
+	out := make([]greek.Rule, len(in))
+	for i, r := range in {
+		out[i] = greek.Rule{Key: r.Key, Text: r.Text}
+	}
+	return out
+}
+
+func fromGreekRules(in []greek.Rule) []RuleIn {
+	out := make([]RuleIn, len(in))
+	for i, r := range in {
+		out[i] = RuleIn{Key: r.Key, Text: r.Text}
+	}
+	return out
+}
+
+func prepareRules(in []RuleIn) ([]greek.Rule, LintReport) {
+	rules, issues := greek.PrepareRules(toGreekRules(in))
+	rep := LintReport{Errors: []string{}, Warnings: []string{}}
+	for _, iss := range issues {
+		line := fmt.Sprintf("%s: %s", iss.Field, iss.Message)
+		if iss.Severity == greek.Error {
+			rep.Errors = append(rep.Errors, line)
+		} else {
+			rep.Warnings = append(rep.Warnings, line)
+		}
+	}
+	return rules, rep
 }
 
 type LintReport struct {
@@ -39,12 +75,12 @@ func fromGreekBlanks(in []greek.Blank) []BlankIn {
 	return out
 }
 
-func prepare(tasks []TaskIn, existing []greek.TaskInput) ([]greek.TaskInput, LintReport) {
+func prepare(tasks []TaskIn, existing []greek.TaskInput, rules []greek.Rule) ([]greek.TaskInput, LintReport) {
 	raw := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
-		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation}
+		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
 	}
-	out, issues := greek.PrepareAgainst(raw, existing)
+	out, issues := greek.PrepareDeck(raw, existing, rules)
 	rep := LintReport{Errors: []string{}, Warnings: []string{}}
 	for _, iss := range issues {
 		line := fmt.Sprintf("task[%d].%s: %s", iss.Task, iss.Field, iss.Message)

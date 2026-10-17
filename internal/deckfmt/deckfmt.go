@@ -98,13 +98,13 @@ func ParseDeck(src string) (Deck, []LineError) {
 		rules     []greek.Rule
 		ruleLines []int
 		begun     bool
-		items    []Item
-		errs     []LineError
-		sentence []string
-		start    int
-		open     bool
-		broken   bool
-		explain  []string
+		items     []Item
+		errs      []LineError
+		sentence  []string
+		start     int
+		open      bool
+		broken    bool
+		explain   []string
 	)
 	closeSentence := func() {
 		if sentence == nil {

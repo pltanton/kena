@@ -574,7 +574,7 @@ func TestPrepareNormalizes(t *testing.T) {
 	nfd := norm.NFD.String("Χθες η Μαρία ___ ένα γράμμα.")
 	out, rep := prepare([]TaskIn{
 		{Text: "  " + nfd + " ", Blanks: []BlankIn{{Answers: []string{norm.NFD.String("έγραψε ")}, Hint: norm.NFD.String("γράφω")}}, Explanation: norm.NFD.String("αόριστος")},
-	}, []greek.TaskInput{{Text: "Χθες η Μαρία ___ ένα γράμμα."}})
+	}, []greek.TaskInput{{Text: "Χθες η Μαρία ___ ένα γράμμα."}}, nil)
 	if len(rep.Errors) != 0 {
 		t.Fatalf("errors = %v", rep.Errors)
 	}
