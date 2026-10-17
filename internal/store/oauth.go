@@ -53,7 +53,6 @@ func (s *Store) GetClient(ctx context.Context, clientID string) (OAuthClient, er
 	return c, nil
 }
 
-// nullableID turns a zero token id into SQL NULL; ids start at 1, so 0 means "no token".
 func nullableID(id int64) any {
 	if id == 0 {
 		return nil

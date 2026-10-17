@@ -279,8 +279,6 @@ func (s *Store) DeleteSet(ctx context.Context, setID int64) error {
 	return execOne(ctx, s.pool, "deleting set", `DELETE FROM sets WHERE id = $1`, setID)
 }
 
-// lockSet takes the set's row lock and, unless version is zero, refuses a set
-// changed since version.
 func lockSet(ctx context.Context, tx pgx.Tx, setID int64, version time.Time) error {
 	var updatedAt time.Time
 	if err := tx.QueryRow(ctx, `SELECT updated_at FROM sets WHERE id = $1 FOR UPDATE`, setID).Scan(&updatedAt); err != nil {

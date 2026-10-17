@@ -110,8 +110,6 @@ func (c *cluster) stop() {
 	os.RemoveAll(c.dir)
 }
 
-// Main stops the shared cluster and drops the migrated template database
-// once the test binary finishes.
 func Main(m *testing.M) {
 	code := m.Run()
 	if sharedClus != nil {
@@ -141,7 +139,6 @@ func randomName(prefix string) string {
 	return prefix + hex.EncodeToString(b)
 }
 
-// New returns a pool connected to a freshly created, migrated database.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
 	admin := adminURL(t)
@@ -158,8 +155,6 @@ func New(t testing.TB) *pgxpool.Pool {
 	return pool
 }
 
-// NewURL returns the connection string of a freshly created, unmigrated
-// database, for tests that exercise a command's own migration step.
 func NewURL(t testing.TB) string {
 	t.Helper()
 	return createDatabase(t, adminURL(t), "template1")
