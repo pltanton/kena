@@ -30,6 +30,7 @@ func New(st *store.Store, publicURL string) *mcp.Server {
 	s.addGuide(srv)
 	s.addSetTools(srv)
 	s.addRuleTools(srv)
+	s.addPublicRuleTools(srv)
 	s.addMistakeTools(srv)
 	s.addAdminTools(srv)
 	return srv

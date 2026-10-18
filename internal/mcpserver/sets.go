@@ -20,7 +20,7 @@ const authoringRules = "Rules: call get_authoring_guide first if you have not ye
 	"answers = every accepted form, accents exact: checking is strict, a missing accent or wrong final ς marks the learner wrong. " +
 	"Monotonic Greek only, ς at word end, σ elsewhere. " +
 	"hint = lemma or tag, never the answer. " +
-	"General grammar that applies to many items (formation, agreement, cue words) goes into deck rules (short Markdown, a table for a paradigm; set_rule or create_set rules) and each task points at one with rule = key; " +
+	"General grammar that applies to many items (formation, agreement, cue words) goes into deck rules (short Markdown, a table for a paradigm; set_rule or create_set rules) and each task points at one with rule = key (or a public rule id, see list_public_rules); " +
 	"explanation = optional, one short sentence only for what is specific to this item, never a copy of a rule or the same text on several tasks. " +
 	"At most 50 tasks per create_set/add_tasks call; send larger sets in batches."
 
@@ -67,7 +67,7 @@ type UpdateTaskIn struct {
 	Text        *string    `json:"text,omitempty" jsonschema:"new sentence with one ___ per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      *[]BlankIn `json:"blanks,omitempty" jsonschema:"new blanks, replacing all old ones; one per ___, in order"`
 	Explanation *string    `json:"explanation,omitempty" jsonschema:"new explanation"`
-	Rule        *string    `json:"rule,omitempty" jsonschema:"new deck rule key; empty string removes the rule"`
+	Rule        *string    `json:"rule,omitempty" jsonschema:"new deck rule key or public rule id (category/name); empty string removes the rule"`
 }
 
 type TaskRef struct {
@@ -106,19 +106,20 @@ type TaskOut struct {
 }
 
 type SetDetail struct {
-	ID           int64     `json:"id"`
-	Slug         string    `json:"slug"`
-	Title        string    `json:"title"`
-	Topic        string    `json:"topic"`
-	Level        string    `json:"level"`
-	Instructions string    `json:"instructions"`
-	SourceRef    string    `json:"source_ref,omitempty"`
-	Owner        string    `json:"owner"`
-	TaskCount    int       `json:"task_count"`
-	Visibility   string    `json:"visibility"`
-	URL          string    `json:"url"`
-	Rules        []RuleOut `json:"rules"`
-	Tasks        []TaskOut `json:"tasks,omitempty"`
+	ID           int64           `json:"id"`
+	Slug         string          `json:"slug"`
+	Title        string          `json:"title"`
+	Topic        string          `json:"topic"`
+	Level        string          `json:"level"`
+	Instructions string          `json:"instructions"`
+	SourceRef    string          `json:"source_ref,omitempty"`
+	Owner        string          `json:"owner"`
+	TaskCount    int             `json:"task_count"`
+	Visibility   string          `json:"visibility"`
+	URL          string          `json:"url"`
+	Rules        []RuleOut       `json:"rules"`
+	PublicRules  []PublicRuleRef `json:"public_rules"`
+	Tasks        []TaskOut       `json:"tasks,omitempty"`
 }
 
 type WriteResult struct {
@@ -160,7 +161,8 @@ func (s *server) summary(st store.Set) SetSummary {
 func (s *server) detail(st store.Set, tasks []store.Task) SetDetail {
 	d := SetDetail{ID: st.ID, Slug: st.Slug, Title: st.Title, Topic: st.Topic, Level: st.Level,
 		Instructions: st.Instructions, SourceRef: st.SourceRef, Owner: st.OwnerName,
-		TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug), Rules: append([]RuleOut{}, st.Rules...)}
+		TaskCount: st.TaskCount, Visibility: string(st.Visibility), URL: s.url(st.Slug), Rules: append([]RuleOut{}, st.Rules...),
+		PublicRules: publicRefs(st)}
 	for _, t := range tasks {
 		d.Tasks = append(d.Tasks, taskOut(t))
 	}
@@ -258,7 +260,7 @@ func (s *server) rulesStillUsed(ctx context.Context, setID int64, rules []greek.
 	}
 	var used []string
 	for _, t := range tasks {
-		if t.Rule != "" && !keys[t.Rule] {
+		if t.Rule != "" && !store.IsPublicRuleKey(t.Rule) && !keys[t.Rule] {
 			used = append(used, fmt.Sprintf("rule %q is still used by task %d", t.Rule, t.ID))
 		}
 	}
@@ -287,7 +289,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "get_set",
-		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, title, body, general}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task, and rule keys with set_rule / delete_rule.",
+		Description: "Get one set by id or slug: metadata (owner, url, instructions, source_ref), the deck rules ({key, title, body, general}), public_rules (public rules its tasks use or the deck attaches: {id, title, body, attached}) and all tasks in order with their ids, text, blanks with accepted answers and hints, explanation and rule key. Use the task ids with update_task / delete_task, and rule keys with set_rule / delete_rule.",
 		Annotations: readOnly("Get set"),
 	}, handle(func(ctx context.Context, u store.User, in SetRef) (SetDetail, error) {
 		st, err := s.visibleSet(ctx, u, in.Set)
@@ -324,7 +326,11 @@ func (s *server) addSetTools(srv *mcp.Server) {
 			vis = v
 		}
 		rules, rrep := prepareRules(toGreekRules(in.Rules))
-		inputs, rep := prepare(in.Tasks, nil, rules)
+		public, err := s.st.PublicRuleKeys(ctx)
+		if err != nil {
+			return WriteResult{}, err
+		}
+		inputs, rep := prepare(in.Tasks, nil, greek.WithPublicKeys(rules, public))
 		rep.Errors = append(rrep.Errors, rep.Errors...)
 		if len(rep.Errors) > 0 {
 			return WriteResult{}, rep.failure()
@@ -372,7 +378,11 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if err != nil {
 			return WriteResult{}, err
 		}
-		inputs, rep := prepare(in.Tasks, existing, st.Rules)
+		public, err := s.st.PublicRuleKeys(ctx)
+		if err != nil {
+			return WriteResult{}, err
+		}
+		inputs, rep := prepare(in.Tasks, existing, greek.WithPublicKeys(st.Rules, public))
 		if len(rep.Errors) > 0 {
 			return WriteResult{}, rep.failure()
 		}
@@ -462,7 +472,11 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if err != nil {
 			return TaskResult{}, err
 		}
-		inputs, rep := prepare([]TaskIn{merged}, existing, st.Rules)
+		public, err := s.st.PublicRuleKeys(ctx)
+		if err != nil {
+			return TaskResult{}, err
+		}
+		inputs, rep := prepare([]TaskIn{merged}, existing, greek.WithPublicKeys(st.Rules, public))
 		if len(rep.Errors) > 0 {
 			return TaskResult{}, rep.failure()
 		}
@@ -513,7 +527,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		Name: "validate_tasks",
 		Description: "Dry run: lint tasks exactly as create_set/add_tasks would, without saving anything. " +
 			"Checks: the 50-task-per-call cap; per-task lint (text, blanks, hints, Greek spelling and accents); " +
-			"duplicate sentence text within the batch; and, when set is given, duplicates against that set's existing tasks too; " +
+			"duplicates within the batch and, when set is given, against that set's tasks; " +
 			"rule keys against the deck rules, repeated explanations, and in batches of 10+ missing explanations, subject pronouns or one hint pattern. " +
 			"Returns errors (would reject the write) and warnings, each as task[i].field: message. " +
 			"Run it on every batch, fix all errors, review warnings, then upload. " + authoringRules,
@@ -539,7 +553,11 @@ func (s *server) addSetTools(srv *mcp.Server) {
 		if in.Rules != nil {
 			rules, rrep = prepareRules(toGreekRules(in.Rules))
 		}
-		_, rep := prepare(in.Tasks, existing, rules)
+		public, err := s.st.PublicRuleKeys(ctx)
+		if err != nil {
+			return LintReport{}, err
+		}
+		_, rep := prepare(in.Tasks, existing, greek.WithPublicKeys(rules, public))
 		rep.Errors = append(rrep.Errors, rep.Errors...)
 		rep.Warnings = append(rrep.Warnings, rep.Warnings...)
 		return rep, nil

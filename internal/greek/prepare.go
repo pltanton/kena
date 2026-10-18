@@ -57,7 +57,7 @@ func PrepareDeck(tasks []TaskInput, existing []TaskInput, rules []Rule) ([]TaskI
 			issues = append(issues, TaskIssue{Task: i, Issue: iss})
 		}
 		if in.Rule != "" && !keys[in.Rule] {
-			issues = append(issues, TaskIssue{Task: i, Issue: Issue{Error, "rule", fmt.Sprintf("rule %q is not defined in the deck; add it to the deck's rules or drop it", in.Rule)}})
+			issues = append(issues, TaskIssue{Task: i, Issue: Issue{Error, "rule", fmt.Sprintf("rule %q is neither a deck rule nor a public rule (category/name); add it to the deck's rules, fix the id or drop it", in.Rule)}})
 		}
 		if in.Text != "" && seen[in.Text] {
 			issues = append(issues, TaskIssue{Task: i, Issue: Issue{Warning, "text", "duplicate of another task's text"}})

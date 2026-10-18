@@ -1,0 +1,16 @@
+{{define "title"}}{{.Rule.Category}}/{{.Rule.Name}} · {{t "public.title"}} · kena{{end}}
+{{define "main"}}<p class="crumb"><a href="/rules#cat-{{.Rule.Category}}">← {{t "public.title"}}</a></p>
+<h1>{{or .Rule.Title .Rule.Name}}</h1>
+<p class="lede meta"><code>{{.Rule.Category}}/{{.Rule.Name}}</code> · {{.Rule.OwnerName}} · {{tn "public.used_by_decks" .Use.Decks}}</p>
+{{- with .Error}}
+<div class="error" role="alert"><p>{{.}}</p></div>
+{{- end}}
+<div class="md">{{.HTML}}</div>
+<p class="meta">{{th "public.how_to_use" (print .Rule.Category "/" .Rule.Name)}}</p>
+{{- if .CanEdit}}
+<details class="rule-edit" id="edit"{{if or .Form.Saved .Form.Errors .Form.Preview .Error}} open{{end}}>
+<summary><span class="rule-edit-name">{{t "public.edit"}}</span></summary>
+{{template "public_rule_form" .Form}}
+</details>
+{{- end}}
+{{end}}

@@ -43,7 +43,7 @@ var (
 		{Text: "Εσύ ___ πολύ.", Blanks: []greek.Blank{{Answers: []string{"γράφεις"}, Hint: "γράφω"}}, Explanation: "β΄ πρόσωπο & <ενικός> «Α+Β»", Rule: "pres"},
 		{Text: "— Τι ___;\n— ___ καφέ.", Blanks: []greek.Blank{{Answers: []string{"πίνεις", "θα πιεις"}}, {Answers: []string{"Πίνω"}, Hint: "πίνω"}}},
 		{Text: "Ο ___ μου ήρθε 'χθες'.", Blanks: []greek.Blank{{Answers: []string{"φίλος"}}}, Explanation: "τελικό ς", Rule: "sig"},
-		{Text: "Αυτοί ___ αύριο.", Blanks: []greek.Blank{{Answers: []string{"θα έρθουν"}, Hint: "έρχομαι"}}},
+		{Text: "Αυτοί ___ αύριο.", Blanks: []greek.Blank{{Answers: []string{"θα έρθουν"}, Hint: "έρχομαι"}}, Rule: "ellenika/mellon"},
 		{Text: "Εμείς ___ τώρα.", Blanks: []greek.Blank{{Answers: []string{"τρώμε"}}}, Rule: "gen"},
 		{Text: "Η Άννα ___ σήμερα.", Blanks: []greek.Blank{{Answers: []string{"διαβάζει"}}}},
 	}
@@ -103,6 +103,11 @@ func TestOfflineGolden(t *testing.T) {
 	ctx := context.Background()
 	set, err := e.st.CreateSet(ctx, e.maria().ID, store.SetInput{Title: "Golden deck", Visibility: store.Public, Rules: goldenRules})
 	if err != nil {
+		t.Fatal(err)
+	}
+	e.publicRule("ellenika/mellon", "Μέλλοντας", "**θα** + υποτακτική: *θα έρθουν*.")
+	e.publicRule("ellenika/arthra", "", "Τα άρθρα: ο, η, το.")
+	if _, err := e.st.AttachPublicRule(ctx, set.ID, "ellenika/arthra"); err != nil {
 		t.Fatal(err)
 	}
 	tasks, err := e.st.AddTasks(ctx, set.ID, goldenDeck)

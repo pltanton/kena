@@ -15,7 +15,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-admin-design.md`, UI languages, theme button and CSP:
 `docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`, offline practice and sync:
 `docs/superpowers/specs/2026-10-18-offline-design.md`, partial check:
-`docs/superpowers/specs/2026-10-18-partial-check-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-18-partial-check-design.md`, public rules:
+`docs/superpowers/specs/2026-10-18-public-rules-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -45,7 +46,7 @@ nix flake check
 - `internal/i18n`: UI message catalogs (`en.go`, `ru.go`, `el.go`), plurals, `kena_lang` / Accept-Language selection, template funcs `t`, `tf`, `tn`, `th`.
 - `internal/csp`: the Content-Security-Policy every HTML page sends.
 - `internal/session`: `kena_session` cookie, login, cross-origin protection; shared by `web` and `oauth` (oauth must not import web).
-- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`, service worker registration; `play.js`: focus mode; `sync.js`: IndexedDB packs and attempt queue, `/sync`, the sync indicator, Save for offline; `offline.js`: the offline engine, a port of `greek` checking and of the focus-mode handlers and templates), `sw.js` (served at `/sw.js` with the build id and precache list), offline pack `/s/{slug}/pack.json`, `/offline/decks.json`, `POST /sync`, `/offline`, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.PrepareDeck` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
+- `internal/web`: templates, htmx, static scripts (`app.js`: flash, toast, theme and language switches, copy buttons, `data-confirm`, service worker registration; `play.js`: focus mode; `sync.js`: IndexedDB packs and attempt queue, `/sync`, the sync indicator, Save for offline; `offline.js`: the offline engine, a port of `greek` checking and of the focus-mode handlers and templates), `sw.js` (served at `/sw.js` with the build id and precache list), offline pack `/s/{slug}/pack.json`, `/offline/decks.json`, `POST /sync`, `/offline`, `kena_device` cookie, deck overview (`/s/{slug}`: which-tasks chooser, Practise and Worksheet), focus-mode practice (`/s/{slug}/play`; ‹ › and swipes, `/s/{slug}/play/card` renders a card in its current state), worksheet (`/s/{slug}/list`), login, account and mistakes pages, deck editor (`/new`, `/s/{slug}/edit`, `/s/{slug}/delete`; saves through `greek.PrepareDeck` and `store.SaveDeck`), rules page (`/s/{slug}/rules`; `store.ReplaceRules`; attach public rules), public rules (`/rules`, `/rules/{category}/{name}`), ⓘ rule sheet (`static/info.js`). Logged in, attempts go under `users.progress_id` instead of the device id.
 
 ## Rules
 
@@ -60,6 +61,7 @@ nix flake check
 - Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
 - Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, empty lines or lines starting with `>` in text, line breaks outside text and explanation, control characters), so every lint-clean task round-trips through `deckfmt`. Text may span lines (dialogues); `deckfmt` reads consecutive non-`>` lines as one task.
 - Rule bodies reach HTML only through `markdown.Render`; never `template.HTML` a body yourself.
+- Public rules (`public_rules`, id `category/name`): only admins create or delete categories; any logged-in user creates a rule; only its creator or an admin edits or deletes it, and deleting is refused while a task (`tasks.public_rule_id`) or deck (`set_public_rules`) uses it. Readers see them through `Set.AllRules()` and `Task.Rule` = `category/name`; editing one does not bump `sets.updated_at` but moves `Set.PublicStamp`, which is part of the offline version. A user who created public rules cannot be deleted until an admin transfers them.
 - Every UI string goes through `internal/i18n` and exists in all three catalogs (tests check keys used in templates and Go). Deck content, MCP texts, the guide, logs and lint/parse diagnostics stay untranslated. `th` messages are trusted HTML from the catalog; their arguments are escaped.
 - No inline `<script>` or `on…=` handlers: scripts live in `static/*.js` and read localised strings from `data-*` attributes (CSP `script-src 'self'`). The authorize page's `form-action` names the validated redirect origin, because browsers apply `form-action` to the redirect after Allow/Cancel.
 - Keep MCP tool names stable; agents and the guide reference them.

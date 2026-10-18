@@ -42,7 +42,7 @@ func ruleFor(set store.Set, key string) *ruleView {
 	if key == "" {
 		return nil
 	}
-	for _, r := range set.Rules {
+	for _, r := range set.AllRules() {
 		if r.Key == key {
 			return newRuleView(r)
 		}
@@ -51,12 +51,12 @@ func ruleFor(set store.Set, key string) *ruleView {
 }
 
 func hasGeneral(set store.Set) bool {
-	return slices.ContainsFunc(set.Rules, func(r greek.Rule) bool { return r.General })
+	return slices.ContainsFunc(set.AllRules(), func(r greek.Rule) bool { return r.General })
 }
 
 func ruleViews(set store.Set, general bool) []*ruleView {
 	var out []*ruleView
-	for _, r := range set.Rules {
+	for _, r := range set.AllRules() {
 		if r.General == general {
 			out = append(out, newRuleView(r))
 		}
@@ -98,6 +98,7 @@ type rulesPage struct {
 	Rules   []ruleForm
 	New     ruleForm
 	Errors  []string
+	Public  deckPublic
 }
 
 func rulesView(set store.Set, tasks []store.Task, version string) rulesPage {
@@ -129,6 +130,10 @@ func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request, u store.User
 		return
 	}
 	v := rulesView(set, tasks, versionOf(set))
+	if v.Public, err = h.deckPublic(r, set); err != nil {
+		h.fail(w, r, err)
+		return
+	}
 	if saved := r.URL.Query().Get("saved"); saved != "" {
 		for i := range v.Rules {
 			v.Rules[i].Saved = v.Rules[i].Key == saved
@@ -217,6 +222,11 @@ func (h *handler) saveRules(w http.ResponseWriter, r *http.Request, u store.User
 	render := func(status int, form ruleForm, pageErrs []string) {
 		v := rulesView(set, tasks, version)
 		v.Errors = pageErrs
+		var err error
+		if v.Public, err = h.deckPublic(r, set); err != nil {
+			h.fail(w, r, err)
+			return
+		}
 		form.Slug, form.Version = set.Slug, version
 		if idx >= 0 {
 			form.Uses, form.Label = v.Rules[idx].Uses, v.Rules[idx].Label

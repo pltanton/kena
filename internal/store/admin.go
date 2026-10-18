@@ -13,17 +13,19 @@ type UserSummary struct {
 	Decks      int
 	Sessions   int
 	Tokens     int
+	Rules      int
 	LastActive *time.Time
 }
 
 func (s *Store) ListUserSummaries(ctx context.Context) ([]UserSummary, error) {
 	return queryAll(ctx, s.pool, "listing users", func(us *UserSummary) []any {
-		return append(us.User.dest(), &us.Decks, &us.Sessions, &us.Tokens, &us.LastActive)
+		return append(us.User.dest(), &us.Decks, &us.Sessions, &us.Tokens, &us.Rules, &us.LastActive)
 	}, `
 		SELECT `+userColumns+`,
 			(SELECT count(*) FROM sets WHERE owner_id = u.id),
 			(SELECT count(*) FROM sessions WHERE user_id = u.id AND expires_at > now()),
 			(SELECT count(*) FROM tokens WHERE user_id = u.id AND revoked_at IS NULL),
+			(SELECT count(*) FROM public_rules WHERE owner_id = u.id),
 			GREATEST(
 				(SELECT max(created_at) FROM sessions WHERE user_id = u.id),
 				(SELECT max(created_at) FROM attempts WHERE device_id = u.progress_id),
@@ -109,6 +111,13 @@ func (s *Store) DeleteUser(ctx context.Context, actorID, userID int64) error {
 		}
 		if was && admins <= 1 {
 			return ErrLastAdmin
+		}
+		var owns bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM public_rules WHERE owner_id = $1)`, userID).Scan(&owns); err != nil {
+			return fmt.Errorf("checking public rules: %w", err)
+		}
+		if owns {
+			return ErrOwnsPublicRules
 		}
 		if _, err := exec(ctx, tx, "deleting progress", `DELETE FROM attempts WHERE device_id = (SELECT progress_id FROM users WHERE id = $1)`, userID); err != nil {
 			return err

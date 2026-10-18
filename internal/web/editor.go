@@ -72,7 +72,7 @@ func byLine(ms []lineMsg) []string {
 	return out
 }
 
-func checkSource(src string, existing []greek.Rule) (rules []greek.Rule, inputs []greek.TaskInput, errs, warnings []string) {
+func checkSource(src string, existing []greek.Rule, public []string) (rules []greek.Rule, inputs []greek.TaskInput, errs, warnings []string) {
 	d, perrs := deckfmt.ParseDeck(src)
 	items := d.Items
 	var es, ws []lineMsg
@@ -123,7 +123,7 @@ func checkSource(src string, existing []greek.Rule) (rules []greek.Rule, inputs 
 			add(line, iss.Severity, iss.Message)
 		}
 	}
-	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, prepared)
+	inputs, issues := greek.PrepareDeck(deckfmt.Tasks(items), nil, greek.WithPublicKeys(prepared, public))
 	for _, iss := range issues {
 		add(items[iss.Task].Line, iss.Severity, describeField(iss.Field)+iss.Message)
 	}
@@ -176,12 +176,20 @@ func linesList(lines []int) *lossy {
 	return &lossy{N: len(lines), Lines: strings.Join(parts, ", ")}
 }
 
+func publicKeys(set store.Set) []string {
+	keys := make([]string, len(set.Public))
+	for i, r := range set.Public {
+		keys[i] = r.Key
+	}
+	return keys
+}
+
 func deckSource(tasks []store.Task) string {
 	return deckfmt.Format(taskInputs(tasks))
 }
 
 func deckWarnings(set store.Set, tasks []store.Task) []string {
-	_, _, _, warnings := checkSource(deckSource(tasks), set.Rules)
+	_, _, _, warnings := checkSource(deckSource(tasks), set.Rules, publicKeys(set))
 	return warnings
 }
 
@@ -225,8 +233,8 @@ func (f deckForm) view(v editView) editView {
 	return v
 }
 
-func (f deckForm) check(r *http.Request, existing []greek.Rule) ([]greek.Rule, []greek.TaskInput, []string) {
-	rules, inputs, errs, _ := checkSource(f.source, existing)
+func (f deckForm) check(r *http.Request, existing []greek.Rule, public []string) ([]greek.Rule, []greek.TaskInput, []string) {
+	rules, inputs, errs, _ := checkSource(f.source, existing, public)
 	if f.title == "" {
 		errs = append([]string{tr(r, "edit.title_required")}, errs...)
 	}
@@ -256,7 +264,7 @@ func (h *handler) editPage(w http.ResponseWriter, r *http.Request, u store.User)
 		Title: set.Title, Topic: set.Topic, Level: set.Level, Instructions: set.Instructions, SourceRef: set.SourceRef,
 		Source: deckSource(tasks), Version: versionOf(set), RuleCount: len(set.Rules),
 	}
-	if lines := lossyLines(set.Rules, taskInputs(tasks)); len(lines) > 0 {
+	if lines := lossyLines(set.AllRules(), taskInputs(tasks)); len(lines) > 0 {
 		v.Lossy = linesList(lines)
 	}
 	v.Visibility = visibilityChoices(set.Visibility)
@@ -283,7 +291,12 @@ func (h *handler) saveDeck(w http.ResponseWriter, r *http.Request, u store.User)
 		v := f.view(editView{Action: deckPath(set.Slug) + "/edit", Slug: set.Slug, Errors: errs, RuleCount: len(set.Rules)})
 		h.page(w, r, status, "edit", v)
 	}
-	rules, inputs, errs := f.check(r, set.Rules)
+	public, err := h.st.PublicRuleKeys(r.Context())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	rules, inputs, errs := f.check(r, set.Rules, public)
 	if len(errs) > 0 {
 		rerender(http.StatusUnprocessableEntity, errs)
 		return
@@ -315,7 +328,12 @@ func (h *handler) createDeck(w http.ResponseWriter, r *http.Request, u store.Use
 		h.fail(w, r, err)
 		return
 	}
-	rules, inputs, errs := f.check(r, nil)
+	public, err := h.st.PublicRuleKeys(r.Context())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	rules, inputs, errs := f.check(r, nil, public)
 	if len(errs) > 0 {
 		h.page(w, r, http.StatusUnprocessableEntity, "edit", f.view(editView{New: true, Action: "/new", Errors: errs}))
 		return

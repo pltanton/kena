@@ -21,7 +21,7 @@ it.
 Migration `012_public_rules.sql`:
 
 ```sql
-rule_categories(id, name text UNIQUE, created_by → users, created_at)
+rule_categories(id, name text UNIQUE, created_by → users ON DELETE SET NULL, created_at)
 public_rules(id, category_id → rule_categories ON DELETE RESTRICT,
              name, title, body, owner_id → users ON DELETE RESTRICT,
              created_at, updated_at, UNIQUE (category_id, name))
@@ -59,6 +59,8 @@ reassigned.
 - Loading a set fills `Set.Public []greek.Rule`: the attached rules in
   `position` order with `General = true`, then the rules its tasks point at
   that are not attached, with `General = false`. Keys are `category/name`.
+  SQL functions `public_rule_key`, `set_public_rules_json` and
+  `set_public_stamp` (migration 012) keep the queries short.
 - `Task.Rule` reads `category/name` for a task with `public_rule_id`.
 - `Set.AllRules()` = `Rules` followed by `Public`; every reader (`ruleFor`,
   `ruleViews`, offline pack, worksheet, overview) uses it.
@@ -73,8 +75,9 @@ reassigned.
 
 ## Lint
 
-`greek.PrepareDeck(tasks, existing, rules, public)` takes the set of existing
-public ids; a task's `rule` passes when it is a deck key or a public id.
+`greek.PrepareDeck` keeps its signature: callers append the existing public ids
+as key-only rules (`greek.WithPublicKeys`); a task's `rule` passes when it is a
+deck key or a public id.
 `deckfmt` already reads `@` followed by any text, so `@ellenika/posos` parses
 and round-trips; the fuzzer seeds include one.
 
@@ -84,8 +87,8 @@ All POSTs behind `session.CrossOrigin`; every string in all three catalogs.
 
 - `/rules`: one `<details>` per category; each rule shows its id, title,
   preview and creator. Logged in: a "New rule" form (category select, name,
-  title, body; Preview / Save). Admins: a "New category" form. Linked from the
-  header.
+  title, body; Preview / Save). Admins: a "New category" form and Delete on an
+  empty category. Linked from the header for everyone.
 - `/rules/{category}/{name}`: the rendered rule and "used by N decks". Creator
   and admins: an edit form (Preview / Save / Delete). Saves carry `updated_at`;
   a stale save gives 409. Unknown ids give 404.
@@ -109,6 +112,7 @@ New tools (existing names unchanged):
 - `delete_public_rule{id}`: refused while used.
 - `attach_public_rule{set, id}`, `detach_public_rule{set, id}`: deck owner
   (admins: any deck, like `set_rule`).
+- `admin_transfer_public_rules{from, to}`: admins.
 
 Existing tools: task `rule` accepts `category/name` in `create_set`,
 `update_set`, `add_tasks`, `update_task`, `validate_tasks`; an unknown id is an

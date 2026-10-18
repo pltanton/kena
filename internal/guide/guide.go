@@ -91,7 +91,7 @@ Critical rules:
 5. Monotonic Greek only; ς at word end.
 6. hint = lemma or tag, never the answer.
 7. validate_tasks first; max 50 tasks per create_set/add_tasks call.
-8. Explanation item-specific; shared grammar → deck rules (Markdown, tables; general=deck-wide).
+8. Explanation item-specific; shared grammar → deck rules or public rules (list_public_rules).
 More rules:
 - 6-14 words, A2-B1 vocabulary unless the book is higher; everyday scenes.
 - Vary person, number, gender, lexical class, polarity, questions, frames and blank position.

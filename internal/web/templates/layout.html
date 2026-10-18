@@ -15,8 +15,10 @@
 <a href="/"{{if eq .Page "index"}} aria-current="page"{{end}}>{{t "nav.my_decks"}}</a>
 <a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>{{t "nav.discover"}}</a>
 <a href="/mistakes"{{if eq .Page "mistakes"}} aria-current="page"{{end}}>{{t "nav.mistakes"}}</a>
+<a href="/rules"{{if or (eq .Page "public_rules") (eq .Page "public_rule")}} aria-current="page"{{end}}>{{t "nav.rules"}}</a>
 {{- else}}
 <a href="/browse"{{if eq .Page "browse"}} aria-current="page"{{end}}>{{t "nav.discover"}}</a>
+<a href="/rules"{{if or (eq .Page "public_rules") (eq .Page "public_rule")}} aria-current="page"{{end}}>{{t "nav.rules"}}</a>
 <a href="/connect"{{if eq .Page "connect"}} aria-current="page"{{end}}>{{t "nav.connect"}}</a>
 <a href="{{.LoginURL}}"{{if eq .Page "login"}} aria-current="page"{{end}}>{{t "nav.login"}}</a>
 {{- end}}

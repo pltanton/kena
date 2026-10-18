@@ -612,3 +612,28 @@ func TestSyncIdentity(t *testing.T) {
 	_, page := e.get("/s/" + e.set.Slug + "/play")
 	wantAll(t, "focus page", page, `data-identity="`+user+`"`)
 }
+
+func TestPackCarriesPublicRules(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	e.publicRule("ellenika/posos", "Πόσος", "Ο **πόσος** συμφωνεί.")
+	if _, err := e.st.UpdateTask(ctx, e.tasks[0].ID, store.TaskPatch{Rule: ptr("ellenika/posos")}); err != nil {
+		t.Fatal(err)
+	}
+	_, p, _ := e.pack(e.set.Slug)
+	if len(p.Rules) != 1 || p.Rules[0].Key != "ellenika/posos" || p.Rules[0].General || !strings.Contains(p.Rules[0].HTML, "<strong>πόσος</strong>") {
+		t.Fatalf("rules %+v", p.Rules)
+	}
+	if p.Tasks[0].Rule != "ellenika/posos" {
+		t.Fatalf("task rule %q", p.Tasks[0].Rule)
+	}
+	admin, _ := e.st.UserByName(ctx, "root")
+	if _, _, err := e.st.SavePublicRule(ctx, admin, "ellenika/posos", time.Time{}, store.PublicRuleInput{Body: "Νέο."}); err != nil {
+		t.Fatal(err)
+	}
+	resp, p2, _ := e.pack(e.set.Slug, "If-None-Match", `"`+p.Version+`"`)
+	wantStatus(t, resp, http.StatusOK)
+	if p2.Version == p.Version || !strings.Contains(p2.Rules[0].HTML, "Νέο.") {
+		t.Fatalf("version %q -> %q, rules %+v", p.Version, p2.Version, p2.Rules)
+	}
+}

@@ -37,6 +37,38 @@
 <summary><span class="rule-edit-name">{{t "rules.add"}}</span></summary>
 {{template "rule_form" .New}}
 </details>
+<section class="deck-rules public-attach" id="public" aria-labelledby="public-h">
+<h2 id="public-h" class="eyebrow">{{t "public.title"}}</h2>
+<p class="meta">{{th "public.deck_lede"}}</p>
+{{- with .Public.Error}}
+<div class="error" role="alert"><p>{{.}}</p></div>
+{{- end}}
+{{- if .Public.Attached}}
+<ul class="rows">
+{{- range .Public.Attached}}
+<li><span><a href="/rules/{{.Key}}"><strong>{{.Label}}</strong></a><span class="meta"><code>{{.Key}}</code></span></span>
+<form method="post" action="/s/{{$.Set.Slug}}/rules/public"><input type="hidden" name="id" value="{{.Key}}"><button type="submit" name="op" value="detach" class="secondary small">{{t "public.detach"}}</button></form></li>
+{{- end}}
+</ul>
+{{- end}}
+{{- if and .Public.Groups (not .Public.Full)}}
+<form class="inline-form" method="post" action="/s/{{.Set.Slug}}/rules/public">
+<label class="visually-hidden" for="attach-id">{{t "public.attach"}}</label>
+<select id="attach-id" name="id">
+{{- range .Public.Groups}}
+<optgroup label="{{.Name}}">
+{{- range .Options}}
+<option value="{{.Key}}">{{.Label}}</option>
+{{- end}}
+</optgroup>
+{{- end}}
+</select>
+<button type="submit" name="op" value="attach" class="secondary">{{t "public.attach"}}</button>
+</form>
+{{- else if not .Public.Attached}}
+<p class="meta">{{th "public.none_yet"}}</p>
+{{- end}}
+</section>
 {{end}}
 
 {{define "rule_form"}}{{$f := .}}<form class="rule-form" method="post" action="/s/{{.Slug}}/rules#rule-{{or $f.Orig "new"}}">

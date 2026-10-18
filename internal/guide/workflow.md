@@ -78,8 +78,9 @@ Before each batch, write its 20 grid rows: item number, lemma, slot
 
 ## 3b. Define the deck rules
 
-Before writing items, write the deck's rules from the grammar point (`format`,
-Deck rules; `item-rules`, rule 11):
+Before writing items, call `list_public_rules`: a public rule that already
+covers a point is reused, not rewritten (`item-rules`, rule 12). Then write the
+deck's rules from the grammar point (`format`, Deck rules; `item-rules`, rule 11):
 
 - one or two `general` rules with the theory of the whole deck: the paradigm
   as a Markdown table (forms by gender, number and case, or by person and

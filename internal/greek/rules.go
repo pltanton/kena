@@ -3,6 +3,7 @@ package greek
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -91,4 +92,12 @@ func PrepareRules(rules []Rule) ([]Rule, []Issue) {
 		}
 	}
 	return out, issues
+}
+
+func WithPublicKeys(rules []Rule, keys []string) []Rule {
+	out := slices.Clip(rules)
+	for _, k := range keys {
+		out = append(out, Rule{Key: k})
+	}
+	return out
 }

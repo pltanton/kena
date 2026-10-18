@@ -16,7 +16,7 @@ type TaskIn struct {
 	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
 	Explanation string    `json:"explanation,omitempty" jsonschema:"optional; one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case. General grammar shared by many items goes into a deck rule instead"`
-	Rule        string    `json:"rule,omitempty" jsonschema:"optional key of a deck rule (from the set's rules) that explains this item's grammar; shown with the explanation"`
+	Rule        string    `json:"rule,omitempty" jsonschema:"optional key of a deck rule (from the set's rules) or id of a public rule (category/name, from list_public_rules) that explains this item's grammar; shown with the explanation"`
 }
 
 type RuleIn struct {

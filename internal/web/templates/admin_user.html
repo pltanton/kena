@@ -15,6 +15,10 @@
 <form method="post" action="/admin/users/{{.Row.User.Username}}/admin"><input type="hidden" name="is_admin" value="{{if .Row.User.IsAdmin}}0{{else}}1{{end}}"><button type="submit" class="secondary small">{{if .Row.User.IsAdmin}}{{t "admin.remove_admin"}}{{else}}{{t "admin.make_admin"}}{{end}}</button></form></li>
 {{- end}}
 <li><span><strong>{{t "admin.sessions"}}</strong><span class="meta">{{t "admin.sessions_hint"}}</span></span><a class="button secondary small" href="/admin/users/{{.Row.User.Username}}/logout">{{t "admin.logout_all"}}</a></li>
+{{- if .Row.Rules}}
+<li><span><strong>{{t "public.title"}}</strong><span class="meta">{{tn "admin.public_rules" .Row.Rules}}</span></span>
+<form class="inline-form" method="post" action="/admin/users/{{.Row.User.Username}}/rules"><label class="visually-hidden" for="transfer-to">{{t "admin.transfer_to"}}</label><input id="transfer-to" name="to" required placeholder="{{t "admin.transfer_to"}}" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="submit" class="secondary small">{{t "admin.transfer"}}</button></form></li>
+{{- end}}
 {{- if not .Self}}
 <li><span><strong>{{t "account.title"}}</strong><span class="meta">{{t "admin.account_hint"}}</span></span><a class="button secondary small danger-link" href="/admin/users/{{.Row.User.Username}}/delete">{{t "admin.delete_user"}}</a></li>
 {{- end}}

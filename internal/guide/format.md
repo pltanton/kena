@@ -95,6 +95,17 @@ its sentence; the rules themselves are edited on the deck's Rules page:
 @aorist-stem
 ```
 
+## Public rules
+
+Rules shared by every deck, with the id `category/name`: `list_public_rules`,
+`get_public_rule`, `set_public_rule{id, title?, body}` (same title and body
+limits as a deck rule), `delete_public_rule` (refused while a task or deck uses
+it). Admins create categories with `create_rule_category`. A task uses one with
+`rule: "ellenika/posos"` (in the editor: `@ellenika/posos`);
+`attach_public_rule{set, id}` shows one on every card of a deck (at most 10 per
+deck), `detach_public_rule` removes it. `get_set` lists the deck's
+`public_rules`.
+
 Checking: the learner's input and each answer are NFC-normalised, trimmed, inner
 spaces collapsed and lowercased, then compared exactly. Case and spacing do not
 matter; accents, dieresis and final ς do.
@@ -196,7 +207,7 @@ task index):
 - number of `___` differs from the number of blanks;
 - empty text, or a blank with no answers;
 - an empty line inside the text, or a text line starting with `>`, `@` or `=`;
-- a `rule` that is not a key of the deck's rules; a malformed rule (key,
+- a `rule` that is neither a key of the deck's rules nor a public rule id; a malformed rule (key,
   title over 80 characters or with a line break, empty body or over 4000
   characters, more than 30 rules);
 - Latin letters or digits mixed into a Greek word (lookalikes such as Latin o);

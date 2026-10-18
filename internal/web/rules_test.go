@@ -61,7 +61,7 @@ func TestEditorRules(t *testing.T) {
 
 	resp, body = maria.post("/s/"+e.set.Slug+"/edit", e.editForm(set, "Εσύ {γράφεις}.\n@nope\n"), e.srv.URL)
 	wantStatus(t, resp, http.StatusUnprocessableEntity)
-	wantAll(t, "unknown rule", body, "line 1", "not defined")
+	wantAll(t, "unknown rule", body, "line 1", "neither a deck rule")
 	resp, body = maria.post("/s/"+e.set.Slug+"/edit", e.editForm(set, "= Bad Key: x\n\nΕσύ {γράφεις}.\n"), e.srv.URL)
 	wantStatus(t, resp, http.StatusUnprocessableEntity)
 	wantAll(t, "bad key", body, "line 1", "key")
@@ -183,7 +183,7 @@ func TestOverviewRules(t *testing.T) {
 	if strings.Index(sec, "Τύποι") > strings.Index(sec, "Συμφωνία") {
 		t.Error("general rules should come first")
 	}
-	wantNone(t, "visitor", body, `/rules"`)
+	wantNone(t, "visitor", body, `/s/`+e.set.Slug+`/rules"`)
 	_, body = e.as("maria", false).get("/s/" + e.set.Slug)
 	wantAll(t, "owner", body, `href="/s/`+e.set.Slug+`/rules"`)
 }

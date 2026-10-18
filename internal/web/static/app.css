@@ -1138,7 +1138,8 @@ button.danger:hover {
   gap: 8px;
 }
 
-.inline-form input {
+.inline-form input,
+.inline-form select {
   flex: 1;
   min-width: 0;
 }

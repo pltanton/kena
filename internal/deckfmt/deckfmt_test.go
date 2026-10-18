@@ -246,6 +246,7 @@ func FuzzRoundTrip(f *testing.F) {
 		}
 		roundTrips(t, nil, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
 		roundTrips(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
+		roundTrips(t, greek.WithPublicKeys(nil, []string{"ellenika/posos"}), greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "ellenika/posos"})
 	})
 }
 

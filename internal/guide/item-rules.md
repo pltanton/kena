@@ -215,3 +215,19 @@ Good — a general rule `posos-forms`, title `Πόσος: γένος, αριθμ
 an item rule `masc-pl-acc`, title `Αρσενικό πληθυντικού, αιτιατική: πόσους`:
 `Το ουσιαστικό είναι αντικείμενο: **πόσους** φίλους; — πολλούς, λίγους, αρκετούς.`
 and on one item only, as its explanation: `φίλος is masculine: πολλούς φίλους, not πολλές.`
+
+## 12. Public rules: grammar shared by every deck
+
+Public rules live outside any deck, grouped by category, with the id
+`category/name` (`ellenika/posos`). Any deck can use them.
+
+- Before writing a deck rule, call `list_public_rules`. If a public rule
+  already covers the point, use it: an item names it with
+  `rule: "ellenika/posos"`, and `attach_public_rule` shows it on every card of
+  the deck, like a `general` deck rule.
+- Write a public rule (`set_public_rule`) only for grammar that holds beyond
+  this deck: a paradigm, an agreement rule, a stem pattern. What belongs to
+  this deck's selection or wording stays a deck rule.
+- Only admins create categories; anyone can add a rule to one. Only the rule's
+  creator or an admin can change it, and the change shows in every deck that
+  uses it, so keep it general.

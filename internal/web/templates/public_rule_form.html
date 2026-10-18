@@ -1,0 +1,40 @@
+{{define "public_rule_form"}}{{$f := .}}<form class="rule-form" method="post" action="{{.Action}}">
+{{- if $f.Key}}
+<input type="hidden" name="version" value="{{.Version}}">
+{{- end}}
+{{- if $f.Saved}}
+<p class="notice" role="status">{{t "common.saved"}}</p>
+{{- end}}
+{{- with $f.Errors}}
+<div class="error" role="alert"><p><strong>{{t "rules.not_saved"}}</strong></p><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+{{- end}}
+{{- with $f.Warnings}}
+<div class="warning" role="status"><ul class="issues">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+{{- end}}
+{{- if not $f.Key}}
+<div class="rule-head">
+<div><label for="pr-category">{{t "public.field_category"}}</label>
+<select id="pr-category" name="category">
+{{- range $f.Categories}}
+<option value="{{.}}"{{if eq . $f.Category}} selected{{end}}>{{.}}</option>
+{{- end}}
+</select></div>
+<div><label for="pr-name">{{t "public.field_name"}}</label>
+<input id="pr-name" name="name" value="{{$f.Name}}" required maxlength="32" pattern="[a-z0-9\-]{1,32}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="posos"></div>
+</div>
+{{- end}}
+<label for="pr-title">{{t "rules.field_title"}}</label>
+<input id="pr-title" name="title" value="{{$f.Title}}" maxlength="80" lang="el" placeholder="Πόσος: γένος, αριθμός, πτώση">
+<label for="pr-body">{{t "rule.label"}}</label>
+<textarea id="pr-body" name="body" class="rule-body" lang="el" rows="7" maxlength="4000" required spellcheck="false">{{$f.Body}}</textarea>
+{{- with $f.Preview}}
+<div class="rule-preview"><p class="info-label">{{t "rules.preview"}}</p><div class="md">{{.}}</div></div>
+{{- end}}
+<div class="form-actions">
+<button type="submit" name="op" value="save">{{if $f.Key}}{{t "common.save"}}{{else}}{{t "rules.add_rule"}}{{end}}</button>
+<button type="submit" name="op" value="preview" class="secondary">{{t "rules.preview"}}</button>
+{{- if $f.Key}}
+<button type="submit" name="op" value="delete" class="quiet danger-link" formnovalidate data-confirm="{{tf "rules.confirm_delete" $f.Key}}">{{t "common.delete"}}</button>
+{{- end}}
+</div>
+</form>{{end}}

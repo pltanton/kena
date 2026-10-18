@@ -45,12 +45,12 @@ type handler struct {
 	tmpl      map[i18n.Lang]templates
 }
 
-var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules", "offline"}
+var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules", "offline", "public_rules", "public_rule"}
 
 func parseTemplates(l i18n.Lang) templates {
 	ts := templates{pages: map[string]*template.Template{}}
 	ts.base = template.Must(template.New("").Funcs(i18n.Funcs(l)).ParseFS(templateFS,
-		"templates/layout.html", "templates/card.html", "templates/list_item.html", "templates/done.html", "templates/deck_row.html"))
+		"templates/layout.html", "templates/card.html", "templates/list_item.html", "templates/done.html", "templates/deck_row.html", "templates/public_rule_form.html"))
 	for _, page := range pageNames {
 		ts.pages[page] = template.Must(template.Must(ts.base.Clone()).ParseFS(templateFS, "templates/"+page+".html"))
 	}
@@ -88,6 +88,13 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /s/{slug}/edit", h.requireUser(h.saveDeck))
 	mux.HandleFunc("GET /s/{slug}/rules", h.requireUser(h.rulesPage))
 	mux.HandleFunc("POST /s/{slug}/rules", h.requireUser(h.saveRules))
+	mux.HandleFunc("POST /s/{slug}/rules/public", h.requireUser(h.deckPublicRule))
+	mux.HandleFunc("GET /rules", h.publicRules)
+	mux.HandleFunc("POST /rules", h.requireUser(h.createPublicRule))
+	mux.HandleFunc("POST /rules/categories", h.requireUser(h.createCategory))
+	mux.HandleFunc("POST /rules/categories/{category}/delete", h.requireUser(h.deleteCategory))
+	mux.HandleFunc("GET /rules/{category}/{name}", h.publicRule)
+	mux.HandleFunc("POST /rules/{category}/{name}", h.requireUser(h.savePublicRule))
 	mux.HandleFunc("GET /s/{slug}/delete", h.requireUser(h.deletePage))
 	mux.HandleFunc("POST /s/{slug}/delete", h.requireUser(h.deleteDeck))
 	mux.HandleFunc("GET /new", h.requireUser(h.newPage))
@@ -109,6 +116,7 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /admin/users/{name}/admin", h.requireAdmin(h.adminSetAdmin))
 	mux.HandleFunc("POST /admin/users/{name}/logout", h.requireAdmin(h.adminLogout))
 	mux.HandleFunc("POST /admin/users/{name}/delete", h.requireAdmin(h.adminDelete))
+	mux.HandleFunc("POST /admin/users/{name}/rules", h.requireAdmin(h.adminTransferRules))
 	for _, action := range []string{"passphrase", "logout", "delete"} {
 		mux.HandleFunc("GET /admin/users/{name}/"+action, h.requireAdmin(h.adminConfirm))
 	}

@@ -152,9 +152,10 @@ func (h *handler) adminUser(w http.ResponseWriter, r *http.Request, me store.Use
 func userPath(name string) string { return "/admin/users/" + url.PathEscape(name) }
 
 var guardMessages = map[error]string{
-	store.ErrOwnAdmin:   "admin.guard_own_admin",
-	store.ErrLastAdmin:  "admin.guard_last_admin",
-	store.ErrSelfDelete: "admin.guard_self_delete",
+	store.ErrOwnAdmin:        "admin.guard_own_admin",
+	store.ErrLastAdmin:       "admin.guard_last_admin",
+	store.ErrSelfDelete:      "admin.guard_self_delete",
+	store.ErrOwnsPublicRules: "admin.guard_owns_rules",
 }
 
 func (h *handler) guardError(w http.ResponseWriter, r *http.Request, me store.User, err error) {
@@ -246,4 +247,22 @@ func (h *handler) adminDelete(w http.ResponseWriter, r *http.Request, me store.U
 		return
 	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (h *handler) adminTransferRules(w http.ResponseWriter, r *http.Request, me store.User) {
+	row, ok := h.adminTarget(w, r)
+	if !ok || !h.parseForm(w, r) {
+		return
+	}
+	to := strings.ToLower(strings.TrimSpace(r.PostForm.Get("to")))
+	_, err := h.st.TransferPublicRules(r.Context(), me, row.User.ID, to)
+	if errors.Is(err, store.ErrNotFound) {
+		h.renderAdminUser(w, r, http.StatusUnprocessableEntity, me, adminUserView{Error: tr(r, "admin.no_such_user", to)})
+		return
+	}
+	if err != nil {
+		h.guardError(w, r, me, err)
+		return
+	}
+	http.Redirect(w, r, userPath(row.User.Username), http.StatusSeeOther)
 }

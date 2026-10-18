@@ -95,7 +95,7 @@ func identity(r *http.Request) string {
 }
 
 func offlineVersion(set store.Set, st store.AttemptStamp, l i18n.Lang) string {
-	return fmt.Sprintf("%x.%d.%d.%s", set.UpdatedAt.UnixMicro(), st.Count, st.MaxID, l)
+	return fmt.Sprintf("%x.%x.%d.%d.%s", set.UpdatedAt.UnixMicro(), set.PublicStamp.UnixMicro(), st.Count, st.MaxID, l)
 }
 
 func xorBase64(key, plain []byte) string {
@@ -148,7 +148,7 @@ func (h *handler) pack(w http.ResponseWriter, r *http.Request) {
 		Key: base64.StdEncoding.EncodeToString(key), Rules: []packRule{}, Tasks: []packTask{},
 		State: map[string]packState{}, Msgs: map[string]string{}, Plurals: map[string]i18n.Plural{},
 	}
-	for _, rule := range d.set.Rules {
+	for _, rule := range d.set.AllRules() {
 		v := newRuleView(rule)
 		p.Rules = append(p.Rules, packRule{Key: v.Key, Title: v.Title, Label: v.Label, Preview: v.Preview, General: v.General, HTML: v.HTML})
 	}

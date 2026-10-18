@@ -68,7 +68,10 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   linked from the deck and the editor): a title, a short Markdown body (lists,
   tables for paradigms) and a "deck-wide" switch. A task's rule and the
   deck-wide rules open from the ⓘ on its card, show after a wrong answer and
-  are listed on the deck page. Saving
+  are listed on the deck page. **Public rules** (`/rules`) are shared by
+  every deck: admins create categories, any logged-in user adds a rule to
+  one, and only its author or an admin edits it. A task uses one with
+  `@category/name`; the deck's Rules page attaches one to every card. Saving
   runs the same checks as the MCP tools: any error is listed as `line N: …`
   and nothing is saved; warnings show after the save. Unchanged tasks keep
   everyone's progress even when you insert or reorder tasks. If the deck

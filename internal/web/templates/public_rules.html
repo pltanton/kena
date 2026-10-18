@@ -1,0 +1,47 @@
+{{define "title"}}{{t "public.title"}} · kena{{end}}
+{{define "main"}}<h1>{{t "public.title"}}</h1>
+<p class="lede">{{th "public.lede"}}</p>
+{{- with .CategoryError}}
+<div class="error" role="alert"><p>{{.}}</p></div>
+{{- end}}
+{{- if not .Categories}}
+<p class="meta">{{t "public.no_categories"}}</p>
+{{- end}}
+{{- range .Categories}}
+<section class="deck-rules public-cat" id="cat-{{.Name}}" aria-labelledby="cat-{{.Name}}-h">
+<h2 id="cat-{{.Name}}-h" class="eyebrow">{{.Name}}</h2>
+{{- if .Rules}}
+<ul class="rows">
+{{- range .Rules}}
+<li><span><a href="/rules/{{.Key}}"><strong>{{.Label}}</strong></a><span class="meta"><code>{{.Key}}</code>{{with .Preview}} · {{.}}{{end}} · {{.Creator}}</span></span></li>
+{{- end}}
+</ul>
+{{- else}}
+<p class="meta">{{t "public.empty_category"}}</p>
+{{- if $.IsAdmin}}
+<form method="post" action="/rules/categories/{{.Name}}/delete"><button type="submit" class="quiet danger-link small" data-confirm="{{tf "public.confirm_delete_category" .Name}}">{{t "public.delete_category"}}</button></form>
+{{- end}}
+{{- end}}
+</section>
+{{- end}}
+{{- if .LoggedIn}}
+{{- if .New.Categories}}
+<details class="rule-edit rule-new" id="rule-new"{{if or .New.Errors .New.Preview}} open{{end}}>
+<summary><span class="rule-edit-name">{{t "public.new_rule"}}</span></summary>
+{{template "public_rule_form" .New}}
+</details>
+{{- end}}
+{{- if .IsAdmin}}
+<details class="rule-edit rule-new" id="category-new"{{if .CategoryName}} open{{end}}>
+<summary><span class="rule-edit-name">{{t "public.new_category"}}</span><span class="meta">{{t "public.admin_only"}}</span></summary>
+<form class="rule-form" method="post" action="/rules/categories">
+<label for="category-name">{{t "public.field_category"}}</label>
+<input id="category-name" name="name" value="{{.CategoryName}}" required maxlength="32" pattern="[a-z0-9\-]{1,32}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ellenika">
+<div class="form-actions"><button type="submit">{{t "admin.create"}}</button></div>
+</form>
+</details>
+{{- end}}
+{{- else}}
+<p class="meta">{{th "public.login_hint" $.LoginURL}}</p>
+{{- end}}
+{{end}}

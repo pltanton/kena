@@ -75,8 +75,10 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 			ORDER BY a.task_id, a.created_at DESC, a.id DESC
 		)
 		SELECT s.id, s.slug, s.title, s.topic, s.level,
-			t.id, t.set_id, t.position, t.text, t.blanks, t.explanation, COALESCE(t.rule, ''),
-			COALESCE((SELECT r FROM jsonb_array_elements(s.rules) r WHERE r->>'key' = t.rule LIMIT 1), '{}'::jsonb),
+			t.id, t.set_id, t.position, t.text, t.blanks, t.explanation, COALESCE(t.rule, public_rule_key(t.public_rule_id), ''),
+			COALESCE((SELECT r FROM jsonb_array_elements(s.rules) r WHERE r->>'key' = t.rule LIMIT 1),
+				(SELECT jsonb_build_object('key', public_rule_key(p.id), 'title', p.title, 'body', p.body) FROM public_rules p WHERE p.id = t.public_rule_id),
+				'{}'::jsonb),
 			w.attempts, w.wrong, last.correct
 		FROM w
 		JOIN last ON last.task_id = w.task_id

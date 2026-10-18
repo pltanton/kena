@@ -214,8 +214,9 @@ func TestToolsAndInstructions(t *testing.T) {
 	}
 	want := []string{
 		"add_tasks", "admin_create_user", "admin_delete_user", "admin_issue_token", "admin_list_users", "admin_logout_user", "admin_reset_password", "admin_revoke_token", "admin_set_admin",
-		"create_set", "delete_rule", "delete_set", "delete_task", "get_authoring_guide", "get_mistakes_report", "get_set", "list_sets",
-		"set_rule", "update_set", "update_task", "validate_tasks",
+		"admin_transfer_public_rules", "attach_public_rule", "create_rule_category", "create_set", "delete_public_rule", "delete_rule", "delete_set", "delete_task",
+		"detach_public_rule", "get_authoring_guide", "get_mistakes_report", "get_public_rule", "get_set", "list_public_rules", "list_sets",
+		"set_public_rule", "set_rule", "update_set", "update_task", "validate_tasks",
 	}
 	slices.Sort(names)
 	if !slices.Equal(names, want) {

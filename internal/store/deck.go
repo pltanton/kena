@@ -84,14 +84,18 @@ func (s *Store) SaveDeck(ctx context.Context, setID int64, version time.Time, p 
 			if err != nil {
 				return err
 			}
+			rule, public, err := resolveRule(ctx, tx, in.Rule)
+			if err != nil {
+				return err
+			}
 			if j >= 0 {
 				_, err = exec(ctx, tx, "updating task", `
-					UPDATE tasks SET position = $2, text = $3, blanks = $4, explanation = $5, rule = NULLIF($6, ''), updated_at = now() WHERE id = $1
-				`, existing[j].ID, pos, in.Text, blanks, in.Explanation, in.Rule)
+					UPDATE tasks SET position = $2, text = $3, blanks = $4, explanation = $5, rule = $6, public_rule_id = $7, updated_at = now() WHERE id = $1
+				`, existing[j].ID, pos, in.Text, blanks, in.Explanation, rule, public)
 			} else {
 				_, err = exec(ctx, tx, "inserting task", `
-					INSERT INTO tasks (set_id, position, text, blanks, explanation, rule) VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
-				`, setID, pos, in.Text, blanks, in.Explanation, in.Rule)
+					INSERT INTO tasks (set_id, position, text, blanks, explanation, rule, public_rule_id) VALUES ($1, $2, $3, $4, $5, $6, $7)
+				`, setID, pos, in.Text, blanks, in.Explanation, rule, public)
 				ch.Added++
 			}
 			if err != nil {

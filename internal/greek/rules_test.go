@@ -75,6 +75,13 @@ func TestPrepareDeckChecksTaskRules(t *testing.T) {
 	if _, issues := PrepareDeck(tasks[:1], nil, nil); len(issues) == 0 {
 		t.Fatal("no rules, yet a rule reference is accepted a rule reference")
 	}
+	public := []TaskInput{{Text: "Πόσους ___;", Blanks: []Blank{{Answers: []string{"φίλους"}}}, Rule: "ellenika/posos"}}
+	if _, issues := PrepareDeck(public, nil, WithPublicKeys(rules, []string{"ellenika/posos"})); len(issues) != 0 {
+		t.Fatalf("public rule id rejected: %+v", issues)
+	}
+	if _, issues := PrepareDeck(public, nil, rules); len(issues) == 0 || !strings.Contains(issues[0].Message, "public rule") {
+		t.Fatalf("unknown public id: %+v", issues)
+	}
 }
 
 func TestRuleCountsAsExplained(t *testing.T) {

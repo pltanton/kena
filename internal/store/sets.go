@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,8 +29,14 @@ type Set struct {
 	TaskCount    int
 	Visibility   Visibility
 	Rules        []greek.Rule
+	Public       []greek.Rule
+	PublicStamp  time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+func (s Set) AllRules() []greek.Rule {
+	return append(slices.Clip(s.Rules), s.Public...)
 }
 
 type Task struct {
@@ -137,7 +144,8 @@ func Slugify(s string) string {
 
 const setColumns = `
 	s.id, s.owner_id, u.username, s.slug, s.title, s.topic, s.level, s.instructions, s.source_ref,
-	COALESCE(t.task_count, 0), s.visibility, s.rules, s.created_at, s.updated_at
+	COALESCE(t.task_count, 0), s.visibility, s.rules, set_public_rules_json(s.id), set_public_stamp(s.id),
+	s.created_at, s.updated_at
 `
 
 const setFromJoin = `
@@ -148,10 +156,10 @@ const setFromJoin = `
 
 func (st *Set) dest() []any {
 	return []any{&st.ID, &st.OwnerID, &st.OwnerName, &st.Slug, &st.Title, &st.Topic, &st.Level,
-		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.Rules, &st.CreatedAt, &st.UpdatedAt}
+		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.Rules, &st.Public, &st.PublicStamp, &st.CreatedAt, &st.UpdatedAt}
 }
 
-const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, '')`
+const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, public_rule_key(public_rule_id), '')`
 
 func (t *Task) dest() []any {
 	return []any{&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule}
@@ -305,11 +313,15 @@ func (s *Store) AddTasks(ctx context.Context, setID int64, inputs []greek.TaskIn
 			if err != nil {
 				return err
 			}
+			rule, public, err := resolveRule(ctx, tx, in.Rule)
+			if err != nil {
+				return err
+			}
 			var t Task
 			if err := tx.QueryRow(ctx, `
-				INSERT INTO tasks (set_id, position, text, blanks, explanation, rule)
-				VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
-				RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanks, in.Explanation, in.Rule,
+				INSERT INTO tasks (set_id, position, text, blanks, explanation, rule, public_rule_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanks, in.Explanation, rule, public,
 			).Scan(t.dest()...); err != nil {
 				return fmt.Errorf("inserting task: %w", err)
 			}
@@ -349,16 +361,25 @@ func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task
 			return Task{}, err
 		}
 	}
+	var rule *string
+	var public *int64
+	if p.Rule != nil {
+		var err error
+		if rule, public, err = resolveRule(ctx, s.pool, *p.Rule); err != nil {
+			return Task{}, err
+		}
+	}
 	var t Task
 	if err := s.pool.QueryRow(ctx, `
 		UPDATE tasks SET
 			text = COALESCE($2, text),
 			blanks = COALESCE($3, blanks),
 			explanation = COALESCE($4, explanation),
-			rule = CASE WHEN $5::text IS NULL THEN rule ELSE NULLIF($5, '') END,
+			rule = CASE WHEN $5 THEN $6 ELSE rule END,
+			public_rule_id = CASE WHEN $5 THEN $7 ELSE public_rule_id END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+taskColumns, taskID, p.Text, blanks, p.Explanation, p.Rule,
+		RETURNING `+taskColumns, taskID, p.Text, blanks, p.Explanation, p.Rule != nil, rule, public,
 	).Scan(t.dest()...); err != nil {
 		return Task{}, noRows(err, "updating task")
 	}
