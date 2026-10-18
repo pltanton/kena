@@ -129,6 +129,11 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("POST /account/tokens", h.requireUser(h.createToken))
 	mux.HandleFunc("POST /account/tokens/{id}/revoke", h.requireUser(h.revokeToken))
 	mux.HandleFunc("POST /account/apps/disconnect", h.requireUser(h.disconnectApp))
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Header().Set("Content-Type", "image/x-icon")
+		http.ServeFileFS(w, r, static, "favicon.ico")
+	})
 	mux.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		switch {

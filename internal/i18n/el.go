@@ -73,6 +73,7 @@ var el = catalog{
 		"connect.add_cursor":          "Προσθήκη στο Cursor",
 		"connect.add_vscode":          "Προσθήκη στο VS Code",
 		"connect.cc_oauth":            "Συνδέεται με OAuth την πρώτη φορά.",
+		"connect.chatgpt_icon":        `Προαιρετικά: ως εικονίδιο της εφαρμογής ανεβάστε <a href="/static/brand/icon-128.png" download="kena.png">το εικονίδιο του kena</a> (128×128).`,
 		"connect.chatgpt_plan":        "Χρειάζεται τη λειτουργία προγραμματιστή σε Plus/Pro ή πρόγραμμα Business/Enterprise.",
 		"connect.chatgpt_step1":       "Settings → Plugins (ή Apps & Connectors) → + → Add custom MCP server.",
 		"connect.chatgpt_step2":       "Επικολλήστε το URL και επιλέξτε OAuth.",

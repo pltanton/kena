@@ -73,6 +73,7 @@ var en = catalog{
 		"connect.add_cursor":          "Add to Cursor",
 		"connect.add_vscode":          "Add to VS Code",
 		"connect.cc_oauth":            "Logs in with OAuth on first use.",
+		"connect.chatgpt_icon":        `Optional: as the app’s icon, upload <a href="/static/brand/icon-128.png" download="kena.png">the kena icon</a> (128×128).`,
 		"connect.chatgpt_plan":        "Needs developer mode on Plus/Pro, or a Business/Enterprise plan.",
 		"connect.chatgpt_step1":       "Settings → Plugins (or Apps & Connectors) → + → Add custom MCP server.",
 		"connect.chatgpt_step2":       "Paste the URL and choose OAuth.",

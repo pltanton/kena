@@ -201,6 +201,10 @@ func TestToolsAndInstructions(t *testing.T) {
 	if cs.InitializeResult().Instructions == "" {
 		t.Fatal("empty instructions")
 	}
+	info := cs.InitializeResult().ServerInfo
+	if len(info.Icons) == 0 || info.Icons[0].Source != publicURL+"/static/brand/icon-128.png" || info.WebsiteURL != publicURL {
+		t.Fatalf("serverInfo = %+v", info)
+	}
 	res, err := cs.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)

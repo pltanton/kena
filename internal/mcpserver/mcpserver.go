@@ -24,7 +24,13 @@ type server struct {
 }
 
 func New(st *store.Store, publicURL string) *mcp.Server {
-	srv := mcp.NewServer(&mcp.Implementation{Name: "kena", Version: "0.1.0"},
+	brand := publicURL + "/static/brand/"
+	srv := mcp.NewServer(&mcp.Implementation{Name: "kena", Title: "kena", Version: "0.1.0", WebsiteURL: publicURL,
+		Icons: []mcp.Icon{
+			{Source: brand + "icon-128.png", MIMEType: "image/png", Sizes: []string{"128x128"}},
+			{Source: brand + "icon-512.png", MIMEType: "image/png", Sizes: []string{"512x512"}},
+			{Source: brand + "icon.svg", MIMEType: "image/svg+xml", Sizes: []string{"any"}},
+		}},
 		&mcp.ServerOptions{Instructions: guide.Instructions})
 	s := &server{st: st, publicURL: publicURL}
 	s.addGuide(srv)
