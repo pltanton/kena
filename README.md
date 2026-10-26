@@ -141,7 +141,8 @@ Then, to let an agent write sets for her:
   not already) and press Allow.
 - **ChatGPT:** Settings → Apps → developer mode → create app with the same URL,
   authentication OAuth, and optionally upload `/static/brand/icon-128.png` as
-  its icon (ChatGPT does not read the server's icon). Log in / Allow on the
+  its icon and paste the description from the Connect page (ChatGPT does not
+  read either from the server). Log in / Allow on the
   kena page.
 - **Claude Code:** Account → New token, then
   `claude mcp add --transport http kena https://kena.example.org/mcp --header "Authorization: Bearer kena_…"`

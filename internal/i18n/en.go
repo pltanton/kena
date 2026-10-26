@@ -73,6 +73,8 @@ var en = catalog{
 		"connect.add_cursor":          "Add to Cursor",
 		"connect.add_vscode":          "Add to VS Code",
 		"connect.cc_oauth":            "Logs in with OAuth on first use.",
+		"connect.chatgpt_desc":        "Greek grammar exercises: creates and edits kena gap-fill decks with rules, and reviews my mistakes.",
+		"connect.chatgpt_desc_step":   "Optional: as the description, paste:",
 		"connect.chatgpt_icon":        `Optional: as the app’s icon, upload <a href="/static/brand/icon-128.png" download="kena.png">the kena icon</a> (128×128).`,
 		"connect.chatgpt_plan":        "Needs developer mode on Plus/Pro, or a Business/Enterprise plan.",
 		"connect.chatgpt_step1":       "Settings → Plugins (or Apps & Connectors) → + → Add custom MCP server.",

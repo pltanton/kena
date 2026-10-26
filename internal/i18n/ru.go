@@ -73,6 +73,8 @@ var ru = catalog{
 		"connect.add_cursor":          "Добавить в Cursor",
 		"connect.add_vscode":          "Добавить в VS Code",
 		"connect.cc_oauth":            "При первом запуске входит через OAuth.",
+		"connect.chatgpt_desc":        "Упражнения по греческой грамматике: создаёт и правит наборы kena с пропусками и правилами, разбирает мои ошибки.",
+		"connect.chatgpt_desc_step":   "По желанию: в описание вставьте:",
 		"connect.chatgpt_icon":        `По желанию: как значок приложения загрузите <a href="/static/brand/icon-128.png" download="kena.png">значок kena</a> (128×128).`,
 		"connect.chatgpt_plan":        "Нужен режим разработчика на Plus/Pro или тариф Business/Enterprise.",
 		"connect.chatgpt_step1":       "Settings → Plugins (или Apps & Connectors) → + → Add custom MCP server.",
