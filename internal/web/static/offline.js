@@ -409,9 +409,10 @@
       if (s.options) {
         var picked = empty ? "" : trimSpace(res.given);
         s.options = markOptions(t.blanks[s.index - 1].options, picked, (struck && struck[s.index - 1]) || [], !res.correct);
-        if (!empty && res.correct) {
+        if (!empty) {
           s.value = picked;
-          s.locked = true;
+          s.locked = res.correct;
+          s.wrong = !res.correct;
         }
         return;
       }
@@ -560,13 +561,15 @@
           return '<span class="fix"><s class="given bad">' + esc(g.given || "—") + '</s> → <span class="expected ok">' + esc(g.expected) + "</span></span>";
         }
         if (g.options) {
-          var c = '<span class="gap choices" role="radiogroup" aria-label="' + esc(tf("task.blank", g.index)) + '">';
+          var c = '<span class="gap"><select name="c' + g.index + '" lang="el" aria-label="' + esc(tf("task.blank", g.index)) + '"';
+          if (g.locked) c += ' disabled class="locked"';
+          else if (g.wrong) c += ' class="wrong" aria-invalid="true"';
+          if (task.autofocus && g.index === 1) c += " autofocus";
+          c += '><option value=""></option>';
           g.options.forEach(function (o) {
-            c += '<label class="choice' + (o.struck ? " struck" : "") + '"><input type="radio" name="c' + g.index + '" value="' + esc(o.value) + '" lang="el"';
-            if (o.picked) c += " checked";
-            if (o.struck || g.locked) c += " disabled";
-            c += "><span>" + esc(o.value) + "</span></label>";
+            c += '<option value="' + esc(o.value) + '"' + (o.picked ? " selected" : "") + (o.struck ? " disabled" : "") + ">" + esc(o.value) + "</option>";
           });
+          c += "</select>";
           if (g.locked) c += '<input type="hidden" name="c' + g.index + '" value="' + esc(g.value) + '">';
           g.options.forEach(function (o) {
             if (o.struck) c += '<input type="hidden" name="x' + g.index + '" value="' + esc(o.value) + '">';

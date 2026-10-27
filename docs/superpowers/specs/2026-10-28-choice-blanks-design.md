@@ -40,15 +40,18 @@ round-trip; the fuzzer seeds include choices.
 
 ## Page
 
-- A choice blank renders `<span class="choices" role="radiogroup">` with one
-  `<label class="choice"><input type="radio" name="cN" value="…">…</label>` per
-  option (`N` = blank index, 1-based).
+- A choice blank renders a `<select name="cN">` (`N` = blank index, 1-based)
+  styled as a typed gap: underline, answer font, a chevron; an empty first
+  option, then the options. Phones open their native picker from the bottom.
+  (A first version used inline pill buttons; they broke the sentence's line and
+  did not read as a gap.)
 - The check handler builds the answers per blank: `cN` for choice blanks, the
   next `a` for typed ones; the count must still match.
 - Nothing picked on a choice blank = empty: a partial check, nothing recorded.
-- Wrong pick: the picked option is struck and disabled, the others stay
-  selectable. A correct pick in a task that is not yet correct is locked: the
-  radios are disabled and a hidden `cN` carries the value.
+- Wrong pick: the select is marked wrong and the picked option is disabled;
+  disabled options carry over between tries as hidden `xN`. A correct pick in
+  a task that is not yet correct is locked: the select is disabled and a
+  hidden `cN` carries the value.
 - After a correct answer or Give up the sentence renders as for typed blanks.
 - A task whose only blank is a choice blank submits on pick (`app.js`, for
   cards and the worksheet); without JavaScript the Check button works.

@@ -213,8 +213,8 @@ func retryTaskView(t store.Task, results []greek.BlankResult, struck map[int][]s
 				picked = strings.TrimSpace(res.Given)
 			}
 			s.Options = markOptions(choiceOptions(t.ID, s.Index-1, t.Blanks[s.Index-1]), picked, struck[s.Index-1], !res.Correct)
-			if !empty && res.Correct {
-				s.Value, s.Locked = picked, true
+			if !empty {
+				s.Value, s.Locked, s.Wrong = picked, res.Correct, !res.Correct
 			}
 			continue
 		}

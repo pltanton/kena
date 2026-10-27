@@ -102,11 +102,12 @@ test("a partial check queues no attempt and leaves the state alone", () => {
   const right = eng.check(two, new URLSearchParams("mode=cards&a=πίνεις&streak=2"));
   assert.equal(right.attempt, null);
   assert.match(right.html, /name="streak" value="2"/);
-  assert.doesNotMatch(right.html, /name="tries"|aria-invalid|struck/);
+  assert.doesNotMatch(right.html, /name="tries"|aria-invalid|" disabled>/);
   const wrong = eng.check(two, new URLSearchParams("mode=cards&a=&c2=Έπινα&streak=2"));
   assert.equal(wrong.attempt, null);
   assert.match(wrong.html, /name="tries" value="1"/);
-  assert.match(wrong.html, /class="choice struck"><input type="radio" name="c2" value="Έπινα" lang="el" disabled>/);
+  assert.match(wrong.html, /<select name="c2" lang="el" aria-label="[^"]+" class="wrong" aria-invalid="true">/);
+  assert.match(wrong.html, /<option value="Έπινα" disabled>Έπινα<\/option>/);
   assert.match(wrong.html, /<input type="hidden" name="x2" value="Έπινα">/);
   assert.doesNotMatch(wrong.html, /name="streak"|πίνεις/);
   assert.deepEqual(state, {});

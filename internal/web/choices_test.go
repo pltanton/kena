@@ -26,8 +26,10 @@ func (e *env) choiceTasks() []store.Task {
 }
 
 func radios(body string, name string) []string {
+	sel := body[strings.Index(body, `<select name="`+name+`"`):]
+	sel = sel[:strings.Index(sel, "</select>")]
 	var out []string
-	for _, part := range strings.Split(body, `name="`+name+`" value="`)[1:] {
+	for _, part := range strings.Split(sel, `<option value="`)[2:] {
 		out = append(out, part[:strings.Index(part, `"`)])
 	}
 	return out
@@ -50,17 +52,17 @@ func TestChoiceBlankFlow(t *testing.T) {
 	if !slices.Equal(radios(body, "c1"), radios(again, "c1")) {
 		t.Fatal("option order changes between visits")
 	}
-	wantAll(t, "choice blank", body, `role="radiogroup"`, `type="radio" name="c1"`, `<span class="hint">(πάω)</span>`)
+	wantAll(t, "choice blank", body, `<select name="c1" lang="el" aria-label="Blank 1"`, `<option value=""></option>`, `<span class="hint">(πάω)</span>`)
 	wantNone(t, "choice blank", body, `name="a"`)
 
 	resp, body := e.check(pick.ID, url.Values{"c1": {"πηγαίνω"}, "mode": {"cards"}}, true)
 	wantStatus(t, resp, http.StatusOK)
-	wantAll(t, "wrong pick", body, `class="choice struck"><input type="radio" name="c1" value="πηγαίνω" lang="el" disabled>`,
+	wantAll(t, "wrong pick", body, `class="wrong" aria-invalid="true"`, `<option value="πηγαίνω" disabled>πηγαίνω</option>`,
 		`<input type="hidden" name="x1" value="πηγαίνω">`, `name="tries" value="1"`)
 	wantNone(t, "wrong pick", body, `class="filled`, "→")
 
 	_, body = e.check(pick.ID, url.Values{"c1": {"θα πάω"}, "x1": {"πηγαίνω"}, "mode": {"cards"}, "tries": {"1"}}, true)
-	if strings.Count(body, `class="choice struck"`) != 2 {
+	if strings.Count(body, `" disabled>`) != 2 {
 		t.Fatalf("struck options do not carry over:\n%s", body)
 	}
 
@@ -78,11 +80,11 @@ func TestChoiceBlankInMixedTask(t *testing.T) {
 	mixed := e.choiceTasks()[1]
 
 	_, body := e.check(mixed.ID, url.Values{"a": {"γραφεις"}, "c2": {"διαβάζω"}, "mode": {"cards"}}, true)
-	wantAll(t, "lock right pick", body, `name="c2" value="διαβάζω" lang="el" checked disabled>`, `<input type="hidden" name="c2" value="διαβάζω">`,
-		`name="c2" value="διάβαζα" lang="el" disabled>`, `aria-invalid="true"`)
+	wantAll(t, "lock right pick", body, `<select name="c2" lang="el" aria-label="Blank 2" disabled class="locked">`, `<option value="διαβάζω" selected>`,
+		`<input type="hidden" name="c2" value="διαβάζω">`, `aria-invalid="true"`)
 
 	_, body = e.check(mixed.ID, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
-	wantNone(t, "partial", body, `name="tries"`, "struck")
+	wantNone(t, "partial", body, `name="tries"`, `" disabled>`)
 
 	_, body = e.check(mixed.ID, url.Values{"a": {"γράφεις"}, "c2": {"διαβάζω"}, "mode": {"cards"}}, true)
 	wantAll(t, "both right", body, `<span class="filled ok">γράφεις</span>`, `<span class="filled ok">διαβάζω</span>`)
