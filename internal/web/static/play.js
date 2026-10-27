@@ -24,7 +24,7 @@
     return card.querySelector('input[name="a"]:not([readonly])') || keeper;
   }
   function holdFocus(e) {
-    if (e.target.closest("input:not([readonly]), textarea")) return;
+    if (e.target.closest("input:not([readonly]), textarea, select:not([disabled])")) return;
     e.preventDefault();
   }
   var info = document.getElementById("info-sheet");
@@ -186,7 +186,7 @@
   var touch = null;
   main.addEventListener("touchstart", function (e) {
     touch = null;
-    if (e.touches.length !== 1 || sheetOpen() || e.target.closest("input, textarea")) return;
+    if (e.touches.length !== 1 || sheetOpen() || e.target.closest("input, textarea, select")) return;
     var t = e.touches[0];
     if (t.clientX < 20 || t.clientX > window.innerWidth - 20) return;
     touch = {x: t.clientX, y: t.clientY, at: e.timeStamp};

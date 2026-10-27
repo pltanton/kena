@@ -1156,7 +1156,7 @@ button.danger:hover {
 .sentence select {
   display: inline-block;
   width: auto;
-  min-width: 7ch;
+  min-width: 9ch;
   max-width: 100%;
   min-height: 0;
   padding: 0 20px 0 6px;
@@ -1167,6 +1167,7 @@ button.danger:hover {
   color: var(--text);
   text-align: center;
   vertical-align: baseline;
+  -webkit-appearance: none;
   appearance: none;
   border: 0;
   border-bottom: 2px solid var(--gold-line);
