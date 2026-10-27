@@ -62,7 +62,8 @@ guide (`get_authoring_guide`) so the tasks are unambiguous and level-appropriate
   Θα {πάω / θα πάω} αύριο στη θάλασσα.
   ```
 
-  `{a / b}` accepts both answers, `| hint` is shown next to the blank. A task
+  `{a / b}` accepts both answers, `| hint` is shown next to the blank,
+  `{a ~ x ~ y}` turns the blank into a pick among `a`, `x` and `y`. A task
   may span several lines (one dialogue turn per line). `@key` under a task
   points it at a deck rule. Rules live on the deck's **Rules** page (owner,
   linked from the deck and the editor): a title, a short Markdown body (lists,

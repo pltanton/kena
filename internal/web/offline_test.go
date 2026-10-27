@@ -35,11 +35,12 @@ type packJSON struct {
 		HTML    string `json:"html"`
 	} `json:"rules"`
 	Tasks []struct {
-		ID    int64    `json:"id"`
-		Text  string   `json:"text"`
-		Rule  string   `json:"rule"`
-		Hints []string `json:"hints"`
-		X     string   `json:"x"`
+		ID      int64      `json:"id"`
+		Text    string     `json:"text"`
+		Rule    string     `json:"rule"`
+		Hints   []string   `json:"hints"`
+		Options [][]string `json:"options"`
+		X       string     `json:"x"`
 	} `json:"tasks"`
 	State map[string]struct {
 		Answers []string `json:"answers"`

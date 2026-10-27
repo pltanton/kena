@@ -16,7 +16,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-17-i18n-theme-csp-design.md`, offline practice and sync:
 `docs/superpowers/specs/2026-10-18-offline-design.md`, partial check:
 `docs/superpowers/specs/2026-10-18-partial-check-design.md`, public rules:
-`docs/superpowers/specs/2026-10-18-public-rules-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-18-public-rules-design.md`, choice blanks:
+`docs/superpowers/specs/2026-10-28-choice-blanks-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
@@ -60,6 +61,7 @@ nix flake check
 - `/admin` answers 404 to everyone but logged-in admins. The store enforces the user guards (no changing your own admin flag, no deleting yourself, never zero admins) for web and MCP alike.
 - Editor, visibility and delete endpoints are owner-only (404 otherwise, admins included) and behind `session.CrossOrigin`. Editor saves are all-or-nothing: any parse or lint error writes nothing, and a save over a deck changed since the editor opened (`sets.updated_at`, bumped by every task change) is refused with 409.
 - Lint rejects whatever the editor's text format cannot hold (`{`, `}`, `|`, `/` in answers, empty lines or lines starting with `>` in text, line breaks outside text and explanation, control characters), so every lint-clean task round-trips through `deckfmt`. Text may span lines (dialogues); `deckfmt` reads consecutive non-`>` lines as one task.
+- Choice blanks (`Blank.Choices`, wrong options): the shown order comes only from `choiceOptions` on the server (page and offline pack alike); the form sends `cN` for a choice blank and `a` for typed ones, struck wrong picks travel back as `xN`; checking stays text-based through `greek.Check`.
 - Rule bodies reach HTML only through `markdown.Render`; never `template.HTML` a body yourself.
 - Public rules (`public_rules`, id `category/name`): only admins create or delete categories; any logged-in user creates a rule; only its creator or an admin edits or deletes it, and deleting is refused while a task (`tasks.public_rule_id`) or deck (`set_public_rules`) uses it. Readers see them through `Set.AllRules()` and `Task.Rule` = `category/name`; editing one does not bump `sets.updated_at` but moves `Set.PublicStamp`, which is part of the offline version. A user who created public rules cannot be deleted until an admin transfers them.
 - Every UI string goes through `internal/i18n` and exists in all three catalogs (tests check keys used in templates and Go). Deck content, MCP texts, the guide, logs and lint/parse diagnostics stay untranslated. `th` messages are trusted HTML from the catalog; their arguments are escaped.

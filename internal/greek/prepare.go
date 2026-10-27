@@ -18,6 +18,9 @@ func normalizeTask(t TaskInput) TaskInput {
 			answers[j] = strings.TrimSpace(NFC(a))
 		}
 		blanks[i] = Blank{Answers: answers, Hint: strings.TrimSpace(NFC(b.Hint))}
+		for _, c := range b.Choices {
+			blanks[i].Choices = append(blanks[i].Choices, strings.TrimSpace(NFC(c)))
+		}
 	}
 	return TaskInput{
 		Text:        normalizeLines(t.Text),

@@ -226,6 +226,7 @@ var tricky = []greek.TaskInput{
 	{Text: "  Α ___ ___ ", Blanks: []greek.Blank{blank(" δ ", " β "), blank("", "γ")}},
 	{Text: "___", Blanks: []greek.Blank{blank("", "β")}},
 	{Text: "Α ___.", Blanks: []greek.Blank{blank("", "β")}, Explanation: "a > b"},
+	{Text: "Χθες ___ στο σινεμά.", Blanks: []greek.Blank{{Answers: []string{"πήγα"}, Hint: "πάω", Choices: []string{"πηγαίνω", "θα πάω"}}}},
 }
 
 func TestLintCleanTasksRoundTrip(t *testing.T) {
@@ -236,13 +237,16 @@ func TestLintCleanTasksRoundTrip(t *testing.T) {
 
 func FuzzRoundTrip(f *testing.F) {
 	for _, task := range tricky {
-		f.Add(task.Text, task.Blanks[0].Answers[0], task.Blanks[0].Hint, task.Explanation)
+		f.Add(task.Text, task.Blanks[0].Answers[0], task.Blanks[0].Hint, task.Explanation, strings.Join(task.Blanks[0].Choices, "\x00"))
 	}
-	f.Fuzz(func(t *testing.T, text, answer, hint, explanation string) {
+	f.Fuzz(func(t *testing.T, text, answer, hint, explanation, choices string) {
 		n := strings.Count(text, greek.Marker)
 		blanks := make([]greek.Blank, n)
 		for i := range blanks {
 			blanks[i] = blank(hint, answer)
+			if choices != "" {
+				blanks[i].Choices = strings.Split(choices, "\x00")
+			}
 		}
 		roundTrips(t, nil, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
 		roundTrips(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
@@ -257,4 +261,18 @@ func TestMultilineTaskRoundTrips(t *testing.T) {
 		t.Fatalf("Format = %q, want %q", got, want)
 	}
 	roundTrips(t, nil, task)
+}
+
+func TestParseChoices(t *testing.T) {
+	items, errs := Parse("Χθες {πήγα / πήγαμε ~ πηγαίνω ~ θα πάω | πάω} στο σινεμά.\n")
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	b := items[0].Task.Blanks[0]
+	if !reflect.DeepEqual(b, greek.Blank{Answers: []string{"πήγα", "πήγαμε"}, Hint: "πάω", Choices: []string{"πηγαίνω", "θα πάω"}}) {
+		t.Fatalf("blank = %+q", b)
+	}
+	if _, errs := Parse("Α {β ~ ~ γ}.\n"); len(errs) == 0 {
+		t.Fatal("empty choice accepted")
+	}
 }

@@ -157,6 +157,7 @@ type segment struct {
 	Value    string
 	Locked   bool
 	Wrong    bool
+	Options  []choiceOption
 }
 
 type taskView struct {
@@ -178,6 +179,9 @@ func newTaskView(t store.Task, results []greek.BlankResult) taskView {
 		s := segment{Blank: true, Index: i + 1}
 		if i < len(t.Blanks) {
 			s.Hint = t.Blanks[i].Hint
+			if results == nil {
+				s.Options = markOptions(choiceOptions(t.ID, i, t.Blanks[i]), "", nil, false)
+			}
 		}
 		if i < len(results) {
 			s.Checked = true
@@ -194,7 +198,7 @@ func blankEmpty(s string) bool { return greek.NormalizeAnswer(s) == "" }
 
 func someEmpty(answers []string) bool { return slices.ContainsFunc(answers, blankEmpty) }
 
-func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
+func retryTaskView(t store.Task, results []greek.BlankResult, struck map[int][]string) taskView {
 	v := newTaskView(t, nil)
 	for i := range v.Segments {
 		s := &v.Segments[i]
@@ -202,7 +206,19 @@ func retryTaskView(t store.Task, results []greek.BlankResult) taskView {
 			continue
 		}
 		res := results[s.Index-1]
-		if blankEmpty(res.Given) {
+		empty := blankEmpty(res.Given)
+		if s.Options != nil {
+			picked := ""
+			if !empty {
+				picked = strings.TrimSpace(res.Given)
+			}
+			s.Options = markOptions(choiceOptions(t.ID, s.Index-1, t.Blanks[s.Index-1]), picked, struck[s.Index-1], !res.Correct)
+			if !empty && res.Correct {
+				s.Value, s.Locked = picked, true
+			}
+			continue
+		}
+		if empty {
 			continue
 		}
 		s.Value = strings.TrimSpace(res.Given)
@@ -223,7 +239,7 @@ var nudgeRank = map[greek.ErrorKind]int{greek.KindAccent: 1, greek.KindFinalSigm
 func nudge(t store.Task, results []greek.BlankResult) string {
 	worst := greek.ErrorKind("")
 	for i, res := range results {
-		if res.Correct || i >= len(t.Blanks) || blankEmpty(res.Given) {
+		if res.Correct || i >= len(t.Blanks) || blankEmpty(res.Given) || len(t.Blanks[i].Choices) > 0 {
 			continue
 		}
 		k := greek.Classify(res.Given, t.Blanks[i].Answers)
@@ -321,13 +337,17 @@ type cardView struct {
 }
 
 func newCardView(set store.Set, t store.Task, p params, results []greek.BlankResult, reveal, correct bool) *cardView {
+	return newCardViewStruck(set, t, p, results, reveal, correct, nil)
+}
+
+func newCardViewStruck(set store.Set, t store.Task, p params, results []greek.BlankResult, reveal, correct bool, struck map[int][]string) *cardView {
 	v := &cardView{Info: infoFor(set, t), Params: p}
 	switch {
 	case results == nil:
 		v.Task = newTaskView(t, nil)
 	case !reveal:
-		v.Task, v.Retry, v.Nudge = retryTaskView(t, results), true, nudge(t, results)
-		v.SoFar = !slices.ContainsFunc(v.Task.Segments, func(s segment) bool { return s.Wrong })
+		v.Task, v.Retry, v.Nudge = retryTaskView(t, results, struck), true, nudge(t, results)
+		v.SoFar = !slices.ContainsFunc(results, func(r greek.BlankResult) bool { return !r.Correct && !blankEmpty(r.Given) })
 	default:
 		v.Task, v.Checked, v.Correct = newTaskView(t, results), true, correct
 		v.Notes = notes{Explanation: t.Explanation, Rule: ruleFor(set, t.Rule)}
@@ -808,11 +828,12 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	answers := r.PostForm["a"]
-	if len(answers) != len(task.Blanks) {
-		h.fail(w, r, fmt.Errorf("got %d answers for %d blanks: %w", len(answers), len(task.Blanks), store.ErrInvalid))
+	answers, err := formAnswers(task, r.PostForm)
+	if err != nil {
+		h.fail(w, r, err)
 		return
 	}
+	struck := struckOf(task, r.PostForm)
 
 	cid := r.PostForm.Get("cid")
 	if cid != "" && !uuidRe.MatchString(cid) {
@@ -822,7 +843,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 
 	results, correct := greek.Check(task.Blanks, answers)
 	if r.PostForm.Get("giveup") != "1" && someEmpty(answers) {
-		h.partial(w, r, set, task, p, results)
+		h.partial(w, r, set, task, p, results, struck)
 		return
 	}
 	giveUp := !correct && r.PostForm.Get("giveup") == "1"
@@ -852,7 +873,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	} else {
 		p.Tries++
 	}
-	v := newCardView(set, task, p, results, reveal, correct)
+	v := newCardViewStruck(set, task, p, results, reveal, correct, struck)
 	if p.Mode == "list" {
 		h.fragment(w, r, "list_item", v)
 		return
@@ -862,7 +883,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 	h.fragment(w, r, "card", v)
 }
 
-func (h *handler) partial(w http.ResponseWriter, r *http.Request, set store.Set, task store.Task, p params, results []greek.BlankResult) {
+func (h *handler) partial(w http.ResponseWriter, r *http.Request, set store.Set, task store.Task, p params, results []greek.BlankResult, struck map[int][]string) {
 	for _, res := range results {
 		if !res.Correct && !blankEmpty(res.Given) {
 			p.Streak = 0
@@ -870,7 +891,7 @@ func (h *handler) partial(w http.ResponseWriter, r *http.Request, set store.Set,
 			break
 		}
 	}
-	v := newCardView(set, task, p, results, false, false)
+	v := newCardViewStruck(set, task, p, results, false, false, struck)
 	if r.Header.Get("HX-Request") != "" {
 		if p.Mode == "list" {
 			h.fragment(w, r, "list_item", v)

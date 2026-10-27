@@ -17,7 +17,7 @@ type DeckChanges struct {
 func sameTask(t Task, in greek.TaskInput) bool {
 	return t.Text == in.Text && t.Explanation == in.Explanation && t.Rule == in.Rule &&
 		slices.EqualFunc(t.Blanks, in.Blanks, func(a, b greek.Blank) bool {
-			return a.Hint == b.Hint && slices.Equal(a.Answers, b.Answers)
+			return a.Hint == b.Hint && slices.Equal(a.Answers, b.Answers) && slices.Equal(a.Choices, b.Choices)
 		})
 }
 

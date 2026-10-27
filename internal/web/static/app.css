@@ -1153,6 +1153,79 @@ button.danger:hover {
   white-space: nowrap;
 }
 
+.gap.choices {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 2px;
+  white-space: normal;
+  vertical-align: middle;
+}
+
+.choice {
+  position: relative;
+  display: inline-flex;
+}
+
+.sentence .choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice span {
+  display: inline-block;
+  padding: 3px 12px;
+  font-family: var(--answer-font);
+  font-size: 0.85em;
+  line-height: 1.6;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.choice:hover span {
+  border-color: var(--primary);
+}
+
+.choice input:focus-visible + span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.choice input:checked + span {
+  color: var(--on-primary);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.choice input:disabled:checked + span {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: var(--ok);
+  cursor: default;
+}
+
+.choice input:disabled:not(:checked) + span {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.choice.struck span {
+  opacity: 1;
+  color: var(--bad);
+  text-decoration: line-through;
+  background: var(--bad-bg);
+  border-color: transparent;
+  cursor: default;
+}
+
 .facts {
   list-style: none;
   padding: 0;

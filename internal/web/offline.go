@@ -52,11 +52,12 @@ type packRule struct {
 }
 
 type packTask struct {
-	ID    int64    `json:"id"`
-	Text  string   `json:"text"`
-	Rule  string   `json:"rule,omitempty"`
-	Hints []string `json:"hints"`
-	X     string   `json:"x"`
+	ID      int64      `json:"id"`
+	Text    string     `json:"text"`
+	Rule    string     `json:"rule,omitempty"`
+	Hints   []string   `json:"hints"`
+	Options [][]string `json:"options,omitempty"`
+	X       string     `json:"x"`
 }
 
 type packSecret struct {
@@ -157,6 +158,12 @@ func (h *handler) pack(w http.ResponseWriter, r *http.Request) {
 		pt := packTask{ID: t.ID, Text: t.Text, Rule: t.Rule, Hints: make([]string, len(t.Blanks))}
 		for i, b := range t.Blanks {
 			s.Answers[i], pt.Hints[i] = b.Answers, b.Hint
+			if opts := choiceOptions(t.ID, i, b); opts != nil {
+				if pt.Options == nil {
+					pt.Options = make([][]string, len(t.Blanks))
+				}
+				pt.Options[i] = opts
+			}
 		}
 		plain, err := json.Marshal(s)
 		if err != nil {

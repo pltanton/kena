@@ -159,7 +159,7 @@ func lossyLines(rules []greek.Rule, inputs []greek.TaskInput) []int {
 func sameInput(a, b greek.TaskInput) bool {
 	return a.Text == b.Text && a.Explanation == b.Explanation && a.Rule == b.Rule &&
 		slices.EqualFunc(a.Blanks, b.Blanks, func(x, y greek.Blank) bool {
-			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers)
+			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers) && slices.Equal(x.Choices, y.Choices)
 		})
 }
 

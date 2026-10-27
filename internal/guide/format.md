@@ -31,6 +31,9 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
   what goes into the blank: no punctuation, no neighbouring words.
 - `hint` (optional): shown to the learner next to the blank. Lemma or feature
   tag, never the answer. No brackets: the UI adds them.
+- `choices` (optional): 1–5 wrong options. The blank then shows buttons with
+  `answers[0]` and these, in a fixed shuffled order, instead of a text field;
+  other `answers` still count. See `item-rules`, rule 12.
 - `rule` (optional): the key of a deck rule this item practises (see Deck
   rules below). Shown with the explanation.
 - `explanation` (optional): one short sentence (≤ ~120 characters) shown after
@@ -94,6 +97,9 @@ its sentence; the rules themselves are edited on the deck's Rules page:
 Χθες η Μαρία {έγραψε | γράφω} δύο γράμματα.
 @aorist-stem
 ```
+
+A choice blank lists its wrong options after `~`, before the hint:
+`Χθες {πήγα ~ πηγαίνω ~ θα πάω | πάω} στο σινεμά.`
 
 ## Public rules
 
@@ -207,6 +213,9 @@ task index):
 - number of `___` differs from the number of blanks;
 - empty text, or a blank with no answers;
 - an empty line inside the text, or a text line starting with `>`, `@` or `=`;
+- more than 5 `choices`, an empty one, or one that equals an accepted answer
+  or another choice (compared as the check compares); `~` in an answer, hint
+  or choice;
 - a `rule` that is neither a key of the deck's rules nor a public rule id; a malformed rule (key,
   title over 80 characters or with a line break, empty body or over 4000
   characters, more than 30 rules);

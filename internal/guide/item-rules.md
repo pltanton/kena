@@ -1,6 +1,6 @@
 ---
 name: item-rules
-description: Rules for a single gap-fill item (one target per blank, context forces the form, hints in mixed-tense decks, natural pro-drop sentences, varied frames, no giveaways, item-specific explanations) with good and bad Greek examples.
+description: Rules for a single gap-fill item (one target per blank, context forces the form, hints in mixed-tense decks, natural pro-drop sentences, varied frames, no giveaways, item-specific explanations, choice blanks) with good and bad Greek examples.
 ---
 
 # Item rules
@@ -216,7 +216,29 @@ an item rule `masc-pl-acc`, title `Αρσενικό πληθυντικού, αι
 `Το ουσιαστικό είναι αντικείμενο: **πόσους** φίλους; — πολλούς, λίγους, αρκετούς.`
 and on one item only, as its explanation: `φίλος is masculine: πολλούς φίλους, not πολλές.`
 
-## 12. Public rules: grammar shared by every deck
+## 12. Choice blanks: pick one form
+
+A blank can offer options instead of a text field: `choices` lists 1–5 wrong
+options, and the learner picks among them and `answers[0]`. Typing stays the
+default; use choices for forms that are easy to confuse (aorist and
+imperfect, the article's cases), for the first decks of a level, or to vary a
+long deck — not for a whole deck.
+
+- Distractors are the same lemma and part of speech, plausible, and clearly
+  wrong in this context: `πήγα` against `πηγαίνω`, `θα πάω`.
+- No typos, no forms that do not exist, and no accent-only differences unless
+  accents are the deck's point.
+- None of them may fit the context: a distractor that is also right is a bug.
+- The hint still names the lemma or the tag when the options alone don't
+  decide.
+
+Bad: `Χθες ___ στο σινεμά.` answers `πήγα`, choices `πήγε`, `πήγαμε` — the
+person is the only difference and the sentence has no subject: all three fit.
+
+Good: `Χθες ___ στο σινεμά.` hint `πάω`, answers `πήγα`, choices `πηγαίνω`,
+`θα πάω` — χθες forces the past.
+
+## 13. Public rules: grammar shared by every deck
 
 Public rules live outside any deck, grouped by category, with the id
 `category/name` (`ellenika/posos`). Any deck can use them.

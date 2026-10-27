@@ -53,7 +53,7 @@ func LintTask(t TaskInput) []Issue {
 
 	for i, b := range t.Blanks {
 		blankField := fmt.Sprintf("blanks[%d]", i)
-		issues = append(issues, charIssues(blankField+".hint", b.Hint, "{}|", false)...)
+		issues = append(issues, charIssues(blankField+".hint", b.Hint, "{}|~", false)...)
 		if len(b.Answers) == 0 {
 			issues = append(issues, Issue{Error, blankField, "blank has no accepted answers"})
 			continue
@@ -67,10 +67,11 @@ func LintTask(t TaskInput) []Issue {
 			if strings.Contains(a, Marker) {
 				issues = append(issues, Issue{Error, answerField, fmt.Sprintf("answer %q must not contain %s", a, Marker)})
 			}
-			issues = append(issues, charIssues(answerField, a, "/{}|", false)...)
+			issues = append(issues, charIssues(answerField, a, "/{}|~", false)...)
 			issues = append(issues, scriptIssues(answerField, a)...)
 			issues = append(issues, accentWarnings(answerField, a)...)
 		}
+		issues = append(issues, choiceIssues(blankField, b)...)
 	}
 
 	return issues
@@ -209,6 +210,37 @@ func charIssues(field, s, forbidden string, newlineOK bool) []Issue {
 			continue
 		}
 		seen[r] = true
+	}
+	return issues
+}
+
+const MaxChoices = 5
+
+func choiceIssues(blankField string, b Blank) []Issue {
+	var issues []Issue
+	if n := len(b.Choices); n > MaxChoices {
+		issues = append(issues, Issue{Error, blankField + ".choices", fmt.Sprintf("a blank takes at most %d wrong options, got %d", MaxChoices, n)})
+	}
+	seen := map[string]bool{}
+	for _, a := range b.Answers {
+		seen[NormalizeAnswer(a)] = true
+	}
+	for j, c := range b.Choices {
+		field := fmt.Sprintf("%s.choices[%d]", blankField, j)
+		if strings.TrimSpace(c) == "" {
+			issues = append(issues, Issue{Error, field, "choice is empty"})
+			continue
+		}
+		key := NormalizeAnswer(c)
+		if seen[key] {
+			issues = append(issues, Issue{Error, field, fmt.Sprintf("choice %q is an accepted answer or repeats another choice; wrong options must all differ from the answers and from each other", c)})
+		}
+		seen[key] = true
+		if strings.Contains(c, Marker) {
+			issues = append(issues, Issue{Error, field, fmt.Sprintf("choice %q must not contain %s", c, Marker)})
+		}
+		issues = append(issues, charIssues(field, c, "/{}|~", false)...)
+		issues = append(issues, scriptIssues(field, c)...)
 	}
 	return issues
 }

@@ -54,6 +54,9 @@ func Format(tasks []greek.TaskInput) string {
 			}
 			bl := t.Blanks[k]
 			b.WriteString("{" + strings.Join(bl.Answers, " / "))
+			for _, c := range bl.Choices {
+				b.WriteString(" ~ " + c)
+			}
 			if bl.Hint != "" {
 				b.WriteString(" | " + bl.Hint)
 			}
@@ -235,10 +238,20 @@ func parseBlank(inner string) (greek.Blank, string) {
 	if strings.Contains(hint, "|") {
 		return greek.Blank{}, "more than one | in a blank"
 	}
+	answers, choices, hasChoices := strings.Cut(answers, "~")
 	if strings.TrimSpace(answers) == "" {
 		return greek.Blank{}, "blank has no answer"
 	}
 	var bl greek.Blank
+	if hasChoices {
+		for _, c := range strings.Split(choices, "~") {
+			c = strings.TrimSpace(c)
+			if c == "" {
+				return greek.Blank{}, "empty choice in {" + inner + "}"
+			}
+			bl.Choices = append(bl.Choices, c)
+		}
+	}
 	for _, a := range strings.Split(answers, "/") {
 		a = strings.TrimSpace(a)
 		if a == "" {

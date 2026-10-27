@@ -10,6 +10,7 @@ import (
 type BlankIn struct {
 	Answers []string `json:"answers" jsonschema:"every accepted form for this blank, exact spelling and accents, lowercase, only the words that go into the blank"`
 	Hint    string   `json:"hint,omitempty" jsonschema:"shown next to the blank: lemma or feature tag (e.g. γράφω or γράφω, αόρ.), never the answer, no brackets"`
+	Choices []string `json:"choices,omitempty" jsonschema:"optional, 1 to 5 wrong options: the learner picks among answers[0] and these instead of typing. Plausible forms of the same lemma, clearly wrong in this context; omit for a typed blank"`
 }
 
 type TaskIn struct {

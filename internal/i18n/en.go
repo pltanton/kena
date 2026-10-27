@@ -132,6 +132,7 @@ var en = catalog{
 		"edit.format":                     "Format",
 		"edit.format_blank":               "<code>{answer}</code>: a blank; <code>{a / b}</code>: two accepted answers.",
 		"edit.format_braces":              "Braces and <code>|</code> can't be used as plain text in a sentence.",
+		"edit.format_choices":             "<code>{answer ~ wrong ~ wrong}</code>: the learner picks one of these instead of typing (1–5 wrong options after <code>~</code>).",
 		"edit.format_example_explanation": "Explanation, shown after a wrong answer.",
 		"edit.format_explanation":         "Lines starting with <code>&gt;</code>: the explanation, only for what is specific to this task.",
 		"edit.format_hint":                "<code>| hint</code> after the answers: shown next to the blank.",

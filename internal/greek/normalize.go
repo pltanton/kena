@@ -9,6 +9,7 @@ import (
 type Blank struct {
 	Answers []string `json:"answers"`
 	Hint    string   `json:"hint,omitempty"`
+	Choices []string `json:"choices,omitempty"`
 }
 
 const Marker = "___"

@@ -152,7 +152,7 @@
           text: t.text,
           rule: t.rule || "",
           explanation: s.e,
-          blanks: s.a.map(function (answers, i) { return {answers: answers || [], hint: t.hints[i] || ""}; }),
+          blanks: s.a.map(function (answers, i) { return {answers: answers || [], hint: t.hints[i] || "", options: (t.options && t.options[i]) || null}; }),
         };
       }),
     };
@@ -371,7 +371,8 @@
     parts.forEach(function (part, i) {
       if (part !== "") v.segments.push({text: part});
       if (i === parts.length - 1) return;
-      var s = {blank: true, index: i + 1, hint: i < t.blanks.length ? t.blanks[i].hint : ""};
+      var s = {blank: true, index: i + 1, hint: i < t.blanks.length ? t.blanks[i].hint : "", options: null};
+      if (!results && i < t.blanks.length) s.options = markOptions(t.blanks[i].options, "", [], false);
       if (results && i < results.length) {
         s.checked = true;
         s.correct = results[i].correct;
@@ -387,12 +388,34 @@
     return normalize(s) === "";
   }
 
-  function retryTaskView(t, results) {
+  function markOptions(opts, picked, struck, wrong) {
+    if (!opts) return null;
+    return opts.map(function (o) {
+      var c = {value: o, picked: false, struck: struck.indexOf(o) >= 0};
+      if (o === picked) {
+        if (wrong) c.struck = true;
+        else c.picked = true;
+      }
+      return c;
+    });
+  }
+
+  function retryTaskView(t, results, struck) {
     var v = newTaskView(t, null);
     v.segments.forEach(function (s) {
       if (!s.blank || s.index - 1 >= results.length) return;
       var res = results[s.index - 1];
-      if (blankEmpty(res.given)) return;
+      var empty = blankEmpty(res.given);
+      if (s.options) {
+        var picked = empty ? "" : trimSpace(res.given);
+        s.options = markOptions(t.blanks[s.index - 1].options, picked, (struck && struck[s.index - 1]) || [], !res.correct);
+        if (!empty && res.correct) {
+          s.value = picked;
+          s.locked = true;
+        }
+        return;
+      }
+      if (empty) return;
       s.value = trimSpace(res.given);
       s.locked = res.correct;
       s.wrong = !res.correct;
@@ -406,7 +429,7 @@
   function nudge(t, results) {
     var worst = "";
     for (var i = 0; i < results.length; i++) {
-      if (results[i].correct || i >= t.blanks.length || blankEmpty(results[i].given)) continue;
+      if (results[i].correct || i >= t.blanks.length || blankEmpty(results[i].given) || t.blanks[i].options) continue;
       var k = classify(results[i].given, t.blanks[i].answers);
       if (!nudges[k]) return "";
       if (nudgeRank[k] > (nudgeRank[worst] || 0)) worst = k;
@@ -437,15 +460,15 @@
     return nv;
   }
 
-  function newCardView(deck, t, p, results, reveal, correct) {
+  function newCardView(deck, t, p, results, reveal, correct, struck) {
     var v = {info: infoFor(deck, t), params: copy(p), inPage: false, retry: false, soFar: false, nudge: "", checked: false, correct: false, streak: 0, notes: {explanation: "", rule: null}, nextURL: "", bar: {index: 0, total: 0, nav: null}};
     if (!results) {
       v.task = newTaskView(t, null);
     } else if (!reveal) {
-      v.task = retryTaskView(t, results);
+      v.task = retryTaskView(t, results, struck);
       v.retry = true;
       v.nudge = nudge(t, results);
-      v.soFar = !v.task.segments.some(function (s) { return s.wrong; });
+      v.soFar = !results.some(function (r) { return !r.correct && !blankEmpty(r.given); });
     } else {
       v.task = newTaskView(t, results);
       v.checked = true;
@@ -535,6 +558,21 @@
         if (g.checked) {
           if (g.correct) return '<span class="filled ok">' + esc(g.given) + "</span>";
           return '<span class="fix"><s class="given bad">' + esc(g.given || "—") + '</s> → <span class="expected ok">' + esc(g.expected) + "</span></span>";
+        }
+        if (g.options) {
+          var c = '<span class="gap choices" role="radiogroup" aria-label="' + esc(tf("task.blank", g.index)) + '">';
+          g.options.forEach(function (o) {
+            c += '<label class="choice' + (o.struck ? " struck" : "") + '"><input type="radio" name="c' + g.index + '" value="' + esc(o.value) + '" lang="el"';
+            if (o.picked) c += " checked";
+            if (o.struck || g.locked) c += " disabled";
+            c += "><span>" + esc(o.value) + "</span></label>";
+          });
+          if (g.locked) c += '<input type="hidden" name="c' + g.index + '" value="' + esc(g.value) + '">';
+          g.options.forEach(function (o) {
+            if (o.struck) c += '<input type="hidden" name="x' + g.index + '" value="' + esc(o.value) + '">';
+          });
+          if (g.hint) c += ' <span class="hint">(' + esc(g.hint) + ")</span>";
+          return c + "</span>";
         }
         var h = '<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="' + esc(tf("task.blank", g.index)) + '"';
         if (g.hint) h += ' placeholder="' + esc(g.hint) + '"';
@@ -706,15 +744,24 @@
       if (!task) throw notFound("task " + id);
       var p = parseParams(getter(form), "cards");
       if (p.mode !== "cards") throw invalid("mode", p.mode);
-      var answers = form.getAll("a").map(String);
-      if (answers.length !== task.blanks.length) throw invalid("answers", answers.length);
+      var typed = form.getAll("a").map(String);
+      var k = 0;
+      var struck = {};
+      var answers = task.blanks.map(function (b, i) {
+        if (b.options) {
+          struck[i] = form.getAll("x" + (i + 1)).map(String);
+          return String(form.get("c" + (i + 1)) || "");
+        }
+        return k < typed.length ? typed[k++] : null;
+      });
+      if (k !== typed.length || answers.indexOf(null) >= 0) throw invalid("answers", typed.length);
       var res = check(answersOf(task), answers);
       if (form.get("giveup") !== "1" && answers.some(blankEmpty)) {
         if (res.results.some(function (r) { return !r.correct && !blankEmpty(r.given); })) {
           p.streak = 0;
           p.tries++;
         }
-        var pv = newCardView(deck, task, p, res.results, false, false);
+        var pv = newCardView(deck, task, p, res.results, false, false, struck);
         pv.bar = {index: p.i, total: p.n, nav: newNav(deck.slug, id, 0, p)};
         return {html: render.card(pv), attempt: null};
       }
@@ -725,7 +772,7 @@
       var reveal = res.all || giveUp;
       if (reveal) p.tries = 0;
       else p.tries++;
-      var v = newCardView(deck, task, p, res.results, reveal, res.all);
+      var v = newCardView(deck, task, p, res.results, reveal, res.all, struck);
       v.streak = p.streak;
       v.bar = {index: p.i, total: p.n, nav: newNav(deck.slug, id, 0, p)};
       return {html: render.card(v), attempt: {task: id, answers: answers, correct: res.all, gaveUp: giveUp}};

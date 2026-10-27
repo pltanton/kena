@@ -109,10 +109,13 @@
   function blank(input) {
     return !/\S/.test(input.value);
   }
+  function picked(box) {
+    return box.querySelector('.choices input[type="radio"]:checked:not([disabled])');
+  }
   document.addEventListener("submit", function (e) {
     var inputs = blanks(e.target);
-    if (!inputs.length) return;
-    if (!(e.submitter && e.submitter.name === "giveup") && inputs.every(function (i) { return i.readOnly || blank(i); })) {
+    if (!inputs.length && !e.target.querySelector(".choices")) return;
+    if (!(e.submitter && e.submitter.name === "giveup") && inputs.every(function (i) { return i.readOnly || blank(i); }) && !picked(e.target)) {
       e.preventDefault();
       e.stopImmediatePropagation();
       return;
@@ -130,8 +133,14 @@
       var el = inputs[(from + k) % inputs.length];
       if (!el.readOnly && blank(el)) target = el;
     }
-    return target || box.querySelector('input[name="a"]:not([readonly])');
+    return target || box.querySelector('input[name="a"]:not([readonly])') || box.querySelector('.choices input[type="radio"]:not([disabled])');
   };
+  document.addEventListener("change", function (e) {
+    var r = e.target;
+    if (r.type !== "radio" || !r.closest(".choices") || !r.form) return;
+    if (blanks(r.form).length || r.form.querySelectorAll(".choices").length !== 1) return;
+    r.form.requestSubmit();
+  });
   document.body.addEventListener("htmx:afterSettle", function () {
     if (!checkedItem) return;
     var item = document.getElementById(checkedItem);
