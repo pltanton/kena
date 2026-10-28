@@ -28,7 +28,7 @@ Read the exercise and fill this table. It is the only thing you keep from the bo
 | paradigm slots   | which forms appear: persons, numbers, cases, genders, polarity          | all 6 persons; affirmative, negative, questions                           |
 | lexical classes  | sub-patterns the target splits into                                     | γράφω → έγραψα; διαβάζω → διάβασα; irregular πηγαίνω → πήγα, τρώω → έφαγα |
 | word pool        | lemmas the book uses plus same-level lemmas of the same classes (25–40) | γράφω, δουλεύω, ανοίγω, αγοράζω, ετοιμάζω, βλέπω, παίρνω, λέω, έρχομαι    |
-| hint format      | what goes next to the blank (lemma or tag), one format for the set      | lemma: `γράφω`                                                            |
+| hint format      | what goes inside the blank (lemma or tag), one format for the set       | lemma: `γράφω`                                                            |
 | tense choice     | does the learner pick the tense? then each item needs a cue or a tag    | no: the instruction line fixes the aorist                                 |
 | explanation lang | English (default up to B1) or Greek, the same for the whole set         | English                                                                   |
 | instruction line | one Greek sentence telling the learner what to do                       | Συμπληρώστε με τον αόριστο του ρήματος.                                   |

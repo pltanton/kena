@@ -52,7 +52,7 @@ func TestChoiceBlankFlow(t *testing.T) {
 	if !slices.Equal(radios(body, "c1"), radios(again, "c1")) {
 		t.Fatal("option order changes between visits")
 	}
-	wantAll(t, "choice blank", body, `<select name="c1" lang="el" aria-label="Blank 1"`, `<option value=""></option>`, `<span class="hint">(πάω)</span>`)
+	wantAll(t, "choice blank", body, `<select name="c1" lang="el" aria-label="Blank 1"`, `<option value="">πάω</option>`)
 	wantNone(t, "choice blank", body, `name="a"`)
 
 	resp, body := e.check(pick.ID, url.Values{"c1": {"πηγαίνω"}, "mode": {"cards"}}, true)

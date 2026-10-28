@@ -29,8 +29,9 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
 - `blanks`: one entry per `___`, in the order they appear.
 - `answers`: every accepted form, exact spelling and accents, lowercase. Only
   what goes into the blank: no punctuation, no neighbouring words.
-- `hint` (optional): shown to the learner next to the blank. Lemma or feature
-  tag, never the answer. No brackets: the UI adds them.
+- `hint` (optional): shown to the learner inside the empty blank. Lemma or
+  feature tag, never the answer. No brackets; keep it short, the blank widens
+  to fit it.
 - `choices` (optional): 1–5 wrong options. The blank then shows buttons with
   `answers[0]` and these, in a fixed shuffled order, instead of a text field;
   other `answers` still count. See `item-rules`, rule 12.

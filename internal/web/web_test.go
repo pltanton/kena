@@ -230,8 +230,8 @@ func TestSetCardsShowsFirstTaskWithoutAnswer(t *testing.T) {
 	if !strings.Contains(body, `id="card"`) || !strings.Contains(body, "autofocus") {
 		t.Fatalf("card container or autofocus missing:\n%s", body)
 	}
-	if !strings.Contains(body, "(γράφω)") {
-		t.Fatal("hint missing")
+	if !strings.Contains(body, `placeholder="γράφω"`) || strings.Contains(body, "(γράφω)") {
+		t.Fatal("hint is not the placeholder alone")
 	}
 }
 

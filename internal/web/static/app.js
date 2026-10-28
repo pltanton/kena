@@ -168,6 +168,20 @@
     if (el) el.focus({preventScroll: true});
   });
 
+  if (!(window.CSS && CSS.supports("field-sizing", "content"))) {
+    var grow = function (el) {
+      el.style.width = Math.max(9, Math.max(el.value.length, el.placeholder.length) + 2) + "ch";
+    };
+    var growAll = function (box) {
+      box.querySelectorAll('.sentence input[name="a"]').forEach(grow);
+    };
+    document.addEventListener("input", function (e) {
+      if (e.target.matches('.sentence input[name="a"]')) grow(e.target);
+    });
+    document.body.addEventListener("htmx:afterSettle", function (e) { growAll(e.target); });
+    growAll(document);
+  }
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js", {scope: "/"}).catch(function () {});
   }
