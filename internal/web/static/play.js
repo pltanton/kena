@@ -20,8 +20,20 @@
   window.addEventListener("scroll", function () {
     if (window.scrollY !== 0) window.scrollTo(0, 0);
   });
+  // The keyboard is kept only while it is already up: a card answered by picking never opens it.
+  var typing = false;
+  document.addEventListener("focusin", function (e) {
+    typing = e.target === keeper || !!(e.target.closest && e.target.closest('input[name="a"]:not([readonly]), textarea'));
+  });
+  function hold() {
+    if (typing) keeper.focus({preventScroll: true});
+  }
   function target() {
-    return card.querySelector('input[name="a"]:not([readonly])') || keeper;
+    return card.querySelector('input[name="a"]:not([readonly])') || (typing ? keeper : null);
+  }
+  function refocus() {
+    var el = target();
+    if (el) el.focus({preventScroll: true});
   }
   function holdFocus(e) {
     if (e.target.closest("input:not([readonly]), textarea, select:not([disabled])")) return;
@@ -32,9 +44,9 @@
     el.addEventListener("pointerdown", holdFocus);
     el.addEventListener("mousedown", holdFocus);
   });
-  document.addEventListener("info:close", function () { target().focus({preventScroll: true}); });
+  document.addEventListener("info:close", refocus);
   document.body.addEventListener("htmx:beforeRequest", function (e) {
-    if (card.contains(e.detail.elt)) keeper.focus({preventScroll: true});
+    if (card.contains(e.detail.elt)) hold();
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && menu.open) {
@@ -49,7 +61,7 @@
     next.click();
   });
   menu.addEventListener("toggle", function () {
-    if (!menu.open) target().focus({preventScroll: true});
+    if (!menu.open) refocus();
   });
   menu.querySelector("[data-close]").addEventListener("click", function () { menu.open = false; });
   document.addEventListener("click", function (e) {
@@ -112,7 +124,7 @@
     if (busy) return;
     busy = true;
     pending = {dir: dir, at: at, front: front};
-    keeper.focus({preventScroll: true});
+    hold();
     htmx.ajax("GET", url, {target: card, swap: "innerHTML show:none"}).catch(function () {
       busy = false;
       pending = null;
@@ -146,7 +158,8 @@
   }
   document.body.addEventListener("htmx:afterSettle", function (e) {
     if (e.detail.target !== card) return;
-    var el = window.kenaBlank(card) || (card.querySelector("button[data-next]") && keeper) || card.querySelector(".done a");
+    var next = card.querySelector("button[data-next]");
+    var el = window.kenaBlank(card) || (next && (typing ? keeper : next)) || card.querySelector(".done a");
     if (el) el.focus({preventScroll: true});
     main.scrollTop = 0;
     var p = pending;
