@@ -170,7 +170,7 @@
 
   if (!(window.CSS && CSS.supports("field-sizing", "content"))) {
     var grow = function (el) {
-      el.style.width = Math.max(9, Math.max(el.value.length, el.placeholder.length) + 2) + "ch";
+      el.style.width = Math.max(9, el.value.length + 2) + "ch";
     };
     var growAll = function (box) {
       box.querySelectorAll('.sentence input[name="a"]').forEach(grow);

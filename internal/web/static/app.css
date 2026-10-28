@@ -713,11 +713,6 @@ button.danger:hover {
   border-bottom-color: var(--gold);
 }
 
-.sentence input::placeholder {
-  color: var(--muted);
-  opacity: 0.75;
-}
-
 .sentence input,
 .filled,
 .fix .given,
@@ -1190,6 +1185,24 @@ button.danger:hover {
   white-space: nowrap;
 }
 
+.sentence .gap {
+  display: inline-block;
+  position: relative;
+  line-height: 1.3;
+}
+
+.sentence .hint {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 1px;
+  font-size: 0.6em;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .sentence select {
   display: inline-block;
   width: auto;
@@ -1245,19 +1258,9 @@ button.danger:hover {
   width: 100%;
 }
 
-.login-pass {
-  margin-top: 1.25rem;
-}
-
-.login-pass > summary {
-  min-height: 44px;
-  padding: 10px 0;
+.login-or {
+  margin: 1.25rem 0 0.5rem;
   color: var(--muted);
-  cursor: pointer;
-}
-
-.login-pass[open] > summary {
-  margin-bottom: 0.5rem;
 }
 
 .picker {

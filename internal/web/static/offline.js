@@ -626,7 +626,7 @@
           if (g.locked) c += ' disabled class="locked"';
           else if (g.wrong) c += ' class="wrong" aria-invalid="true"';
           if (task.autofocus && g.index === 1) c += " autofocus";
-          c += '><option value="">' + esc(g.hint) + "</option>";
+          c += '><option value=""></option>';
           g.options.forEach(function (o) {
             c += '<option value="' + esc(o.value) + '"' + (o.picked ? " selected" : "") + (o.struck ? " disabled" : "") + ">" + esc(o.value) + "</option>";
           });
@@ -635,15 +635,16 @@
           g.options.forEach(function (o) {
             if (o.struck) c += '<input type="hidden" name="x' + g.index + '" value="' + esc(o.value) + '">';
           });
+          if (g.hint) c += '<span class="hint">' + esc(g.hint) + "</span>";
           return c + "</span>";
         }
         var h = '<span class="gap"><input name="a" lang="el" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="' + esc(tf("task.blank", g.index)) + '"';
-        if (g.hint) h += ' placeholder="' + esc(g.hint) + '"';
         if (g.value) h += ' value="' + esc(g.value) + '"';
         if (g.locked) h += ' readonly tabindex="-1" class="locked"';
         else if (g.wrong) h += ' class="wrong" aria-invalid="true"';
         if (task.autofocus && g.index === 1) h += " autofocus";
         h += ">";
+        if (g.hint) h += '<span class="hint">' + esc(g.hint) + "</span>";
         return h + "</span>";
       }).join("");
     }
