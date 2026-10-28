@@ -44,8 +44,8 @@ redirect URI is `KENA_PUBLIC_URL/login/sso/callback`.
 
 ## Pages
 
-- `/login`: "Log in with <name>" button first, the passphrase form in a
-  `<details>` below (open when SSO is off, or after a failed passphrase try).
+- `/login`: "Log in with <name>" button first, the passphrase form right below
+  it, always open.
 - OAuth authorize page (agents connecting): the same button with `next` =
   the authorize request, so after SSO the page shows Allow.
 

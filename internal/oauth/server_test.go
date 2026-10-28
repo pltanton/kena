@@ -618,7 +618,7 @@ func TestAuthorizeOffersSSO(t *testing.T) {
 	e.srv.SSOName = "Home ID"
 	_, body = e.get(t, "/oauth/authorize", authParams(clientID, redirect, "v"))
 	i := strings.Index(body, `href="/login/sso?next=`)
-	if i < 0 || !strings.Contains(body, "Log in with Home ID") || !strings.Contains(body, `<details class="login-pass">`) {
+	if i < 0 || !strings.Contains(body, "Log in with Home ID") || !strings.Contains(body, `<p class="login-or">Log in with a passphrase</p>`) {
 		t.Fatalf("no SSO button:\n%s", body)
 	}
 	href := html.UnescapeString(body[i+len(`href="`) : i+strings.Index(body[i:], `">`)])

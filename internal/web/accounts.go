@@ -34,13 +34,10 @@ type loginView struct {
 	Error    string
 	SSO      string
 	SSOURL   string
-	PassOpen bool
 }
 
 func (h *handler) loginView(next, username, msg string) loginView {
-	v := loginView{Username: username, Next: next, Error: msg, SSO: h.ssoName(), SSOURL: ssoURL(next)}
-	v.PassOpen = v.SSO == "" || username != ""
-	return v
+	return loginView{Username: username, Next: next, Error: msg, SSO: h.ssoName(), SSOURL: ssoURL(next)}
 }
 
 func (h *handler) loginPage(w http.ResponseWriter, r *http.Request) {

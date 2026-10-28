@@ -41,8 +41,7 @@
 <p class="ask-allow">{{t "oauth.ask_login"}}</p>
 {{- if .SSOName}}
 <p><a class="button sso" href="{{.SSOURL}}">{{tf "login.sso" .SSOName}}</a></p>
-<details class="login-pass"{{if .Username}} open{{end}}>
-<summary>{{t "login.with_passphrase"}}</summary>
+<p class="login-or">{{t "login.with_passphrase"}}</p>
 {{- end}}
 <form class="card stack" method="post" action="/oauth/authorize">
 {{range .Params}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
@@ -53,9 +52,6 @@
 <div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="{{t "pass.show_label"}}" hidden>{{t "pass.show"}}</button></div>
 <button type="submit">{{t "login.submit"}}</button>
 </form>
-{{- if .SSOName}}
-</details>
-{{- end}}
 {{end}}
 {{end}}
 </main>

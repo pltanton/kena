@@ -109,7 +109,7 @@ func TestSSOOffByDefault(t *testing.T) {
 	resp, _ := e.get("/login/sso")
 	wantStatus(t, resp, http.StatusNotFound)
 	_, body := e.get("/login")
-	wantNone(t, "login without sso", body, "/login/sso", "login-pass")
+	wantNone(t, "login without sso", body, "/login/sso", "login-or")
 }
 
 func TestSSOLogin(t *testing.T) {
@@ -119,7 +119,7 @@ func TestSSOLogin(t *testing.T) {
 	e.maria()
 
 	_, body := e.get("/login?next=/browse")
-	wantAll(t, "login page", body, `href="/login/sso?next=%2Fbrowse"`, "Log in with Home ID", `<details class="login-pass">`)
+	wantAll(t, "login page", body, `href="/login/sso?next=%2Fbrowse"`, "Log in with Home ID", `<p class="login-or">Log in with a passphrase</p>`)
 
 	resp, _ := e.ssoLogin(p, "/browse", "sub-maria", "maria@id.example", "")
 	wantStatus(t, resp, http.StatusSeeOther)
