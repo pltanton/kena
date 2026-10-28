@@ -1734,6 +1734,7 @@ button.quiet:hover {
 }
 
 .theme-switch,
+.sound-switch,
 .lang-switch {
   margin: 0 -8px;
   display: flex;
@@ -1745,6 +1746,7 @@ button.quiet:hover {
 }
 
 .theme-switch button,
+.sound-switch button,
 .lang-switch button {
   min-height: 44px;
   min-width: 0;
@@ -1757,12 +1759,14 @@ button.quiet:hover {
 }
 
 .theme-switch button:hover,
+.sound-switch button:hover,
 .lang-switch button:hover {
   color: var(--text);
   background: transparent;
 }
 
 .theme-switch button[aria-pressed="true"],
+.sound-switch button[aria-pressed="true"],
 .lang-switch button[aria-pressed="true"] {
   color: var(--text);
   text-decoration: underline 2px var(--gold);
@@ -1940,6 +1944,7 @@ body.focus {
 }
 
 .sheet .theme-switch,
+.sheet .sound-switch,
 .sheet .lang-switch {
   font-size: 0.875rem;
 }

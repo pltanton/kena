@@ -6,7 +6,7 @@
 <title>{{block "title" .Data}}kena{{end}}</title>
 {{template "head_links" .}}
 </head>
-<body{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}}>
+<body{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}} data-sound="{{.Prefs.Sound}}">
 <header class="site"><a href="/" class="brand"><img src="/static/brand/icon.svg" alt="" width="28" height="28"><span class="wordmark" lang="el">κενά</span></a>
 <div class="site-right">
 {{template "sync_ind" "site-sync"}}
@@ -121,6 +121,7 @@
 <script src="/static/reveal.js" defer></script>
 <script src="/static/info.js" defer></script>
 <script src="/static/picker.js" defer></script>
+<script src="/static/sound.js" defer></script>
 <script src="/static/sync.js" defer></script>{{end}}
 
 {{define "body_strings"}} data-msg-server="{{t "flash.server"}}" data-msg-network="{{t "flash.network"}}" data-msg-copied="{{t "common.copied"}}" data-msg-show="{{t "pass.show"}}" data-msg-hide="{{t "pass.hide"}}" data-msg-synced="{{t "sync.synced"}}" data-msg-pending="{{t "sync.pending"}}" data-msg-offline="{{t "sync.offline"}}" data-msg-offline-hint="{{t "sync.offline_hint"}}" data-msg-syncing="{{t "sync.syncing"}}" data-msg-sync-failed="{{t "sync.failed"}}" data-msg-offline-ready="{{t "offline.ready"}}"{{end}}
@@ -132,6 +133,8 @@
 {{define "theme_button"}}<form class="theme-cycle" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}"><button type="submit" name="theme" value="{{.NextTheme}}" class="icon-btn theme-btn" data-mode="{{.Theme}}" data-label-auto="{{t "theme.label_auto"}}" data-label-light="{{t "theme.label_light"}}" data-label-dark="{{t "theme.label_dark"}}" aria-label="{{if eq .Theme "light"}}{{t "theme.label_light"}}{{else if eq .Theme "dark"}}{{t "theme.label_dark"}}{{else}}{{t "theme.label_auto"}}{{end}}" title="{{if eq .Theme "light"}}{{t "theme.label_light"}}{{else if eq .Theme "dark"}}{{t "theme.label_dark"}}{{else}}{{t "theme.label_auto"}}{{end}}">{{template "theme_icons"}}</button></form>{{end}}
 
 {{define "theme_switch"}}<form class="theme-switch" method="post" action="/theme"><input type="hidden" name="next" value="{{.Next}}">{{range .Themes}}<button type="submit" name="theme" value="{{.Value}}" aria-pressed="{{.Current}}">{{t .Label}}</button>{{end}}</form>{{end}}
+
+{{define "sound_switch"}}<form class="sound-switch" method="post" action="/sound"><input type="hidden" name="next" value="{{.Next}}">{{range .Sounds}}<button type="submit" name="sound" value="{{.Value}}" aria-pressed="{{.Current}}">{{t .Label}}</button>{{end}}</form>{{end}}
 
 {{define "lang_switch"}}<form class="lang-switch" method="post" action="/lang"><input type="hidden" name="next" value="{{.Next}}">{{range .Langs}}<button type="submit" name="lang" value="{{.Code}}" lang="{{.Code}}" aria-pressed="{{.Current}}">{{.Name}}</button>{{end}}</form>{{end}}
 

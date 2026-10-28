@@ -22,6 +22,19 @@ func themeOf(r *http.Request) string {
 	return "auto"
 }
 
+const soundCookie = "kena_sound"
+
+var sounds = []string{"chime", "coin", "pop", "off"}
+
+func validSound(s string) bool { return slices.Contains(sounds, s) }
+
+func soundOf(r *http.Request) string {
+	if c, err := r.Cookie(soundCookie); err == nil && validSound(c.Value) {
+		return c.Value
+	}
+	return "chime"
+}
+
 type themeOption struct {
 	Value   string
 	Label   string
@@ -42,6 +55,8 @@ type prefs struct {
 	Lang      string
 	LangName  string
 	Langs     []langOption
+	Sound     string
+	Sounds    []themeOption
 }
 
 func newPrefs(r *http.Request, next string) prefs {
@@ -49,6 +64,10 @@ func newPrefs(r *http.Request, next string) prefs {
 	p := prefs{Next: next, Theme: current, NextTheme: themes[(slices.Index(themes, current)+1)%len(themes)], Lang: string(lang), LangName: i18n.Name(lang)}
 	for _, t := range themes {
 		p.Themes = append(p.Themes, themeOption{Value: t, Label: themeLabels[t], Current: t == current})
+	}
+	p.Sound = soundOf(r)
+	for _, s := range sounds {
+		p.Sounds = append(p.Sounds, themeOption{Value: s, Label: "sound." + s, Current: s == p.Sound})
 	}
 	for _, l := range i18n.Langs {
 		p.Langs = append(p.Langs, langOption{Code: string(l), Name: i18n.Name(l), Current: l == lang})

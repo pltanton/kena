@@ -114,6 +114,7 @@ func Handler(st *store.Store, publicURL string, opts ...Option) http.Handler {
 	mux.HandleFunc("GET "+ssoCallback, h.ssoCallback)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /theme", h.setPref(themeCookie, "theme", validTheme))
+	mux.HandleFunc("POST /sound", h.setPref(soundCookie, "sound", validSound))
 	mux.HandleFunc("POST /lang", h.setPref(i18n.CookieName, "lang", func(s string) bool { _, ok := i18n.Parse(s); return ok }))
 	mux.HandleFunc("GET /admin", h.requireAdmin(h.adminList))
 	mux.HandleFunc("POST /admin/users", h.requireAdmin(h.adminCreate))

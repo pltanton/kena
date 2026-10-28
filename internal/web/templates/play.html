@@ -9,7 +9,7 @@
 <script src="/static/play.js" defer></script>
 <script src="/static/offline.js" defer></script>
 </head>
-<body class="focus"{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}}>
+<body class="focus"{{if .User}} data-auth{{end}} data-identity="{{.Identity}}"{{template "body_strings"}} data-sound="{{.Prefs.Sound}}">
 {{with .Data}}<div class="focus-app" id="focus-app" data-slug="{{.Set.Slug}}">
 <header class="focus-bar">
 <a class="focus-close" href="{{.DeckURL}}" aria-label="{{t "play.back_to_deck"}}" title="{{t "play.back_to_deck"}}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
@@ -22,6 +22,7 @@
 <div class="sheet-row"><span class="sheet-label">{{t "play.row_practise"}}</span><span class="seg">{{range .Filters}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{t .Label}}</a>{{end}}</span></div>
 <div class="sheet-row"><span class="sheet-label">{{t "play.row_order"}}</span><span class="seg">{{range .Order}}<a href="{{.URL}}"{{if .Current}} aria-current="true"{{end}}>{{t .Label}}</a>{{end}}</span></div>
 <div class="sheet-row"><span class="sheet-label">{{t "play.row_theme"}}</span>{{template "theme_switch" $.Prefs}}</div>
+<div class="sheet-row"><span class="sheet-label">{{t "play.row_sound"}}</span>{{template "sound_switch" $.Prefs}}</div>
 <div class="sheet-row"><span class="sheet-label">{{t "play.row_lang"}}</span>{{template "lang_switch" $.Prefs}}</div>
 <div class="sheet-links">{{with .FirstURL}}<a href="{{.}}">{{t "play.first_unsolved"}}</a>{{end}}<a href="{{.ListURL}}">{{t "play.to_worksheet"}}</a>{{with .ResetURL}}<a href="{{.}}">{{t "reset.title"}}</a>{{end}}<a href="{{.DeckURL}}">{{t "play.back_to_deck"}}</a></div>
 <button type="button" class="secondary sheet-close" data-close>{{t "common.close"}}</button>

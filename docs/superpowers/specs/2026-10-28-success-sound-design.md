@@ -17,12 +17,13 @@ Date: 2026-10-28. Status: accepted. Extends `2026-10-17-i18n-theme-csp-design.md
   missing cookie means `chime`.
 - `POST /sound` (field `sound`, `next`) goes through `setPref` like `/theme` and
   `/lang`, behind `session.CrossOrigin`; htmx requests get 204.
-- `prefs` gains `Sound` and `Sounds []soundOption` (value, label key, current).
+- `prefs` gains `Sound` and `Sounds []themeOption` (value, label key, current).
 - Template `sound_switch`: a form of buttons with `aria-pressed`, the same shape
   as `theme_switch`. It appears in the focus-mode ⋯ menu (a row next to the
   theme row) and on `/account` under its own heading.
-- `<html data-sound="…">` in `layout.html` and `play.html`; the script reads the
-  current value from there and updates it when the switch is used.
+- `<body data-sound="…">` in `layout.html` and `play.html` (body, so the
+  `<html>` tag stays as tests expect it); the script reads the current value
+  from there and updates it when the switch is used.
 - Picking a sound in the switch plays it once as a preview (that click is the
   user gesture that unlocks audio). Picking `off` is silent.
 - Labels in all three catalogs: `sound.chime`, `sound.coin`, `sound.pop`,
@@ -56,7 +57,8 @@ plays and nothing is reported.
 Detection works on the DOM, so offline practice (`offline.js` answers the same
 htmx requests with the same markup) needs no change and the offline golden file
 stays as it is. The script must be listed among the precached static files like
-the others.
+the others (every file under `static/` already is). `sound.js` loads on every
+page with the other scripts, so the switch on `/account` previews too.
 
 ## 5. Known limits
 
