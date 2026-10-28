@@ -27,7 +27,7 @@
   var offlinePage = document.documentElement.dataset.offline;
   var OFFLINE_FOR = 30 * 1000;
   var PAGES = "kena-pages";
-  var REFRESH_EVERY = 5 * 60 * 1000;
+  var REFRESH_EVERY = 60 * 1000;
   var offlineUntil = offlinePage ? Date.now() + OFFLINE_FOR : 0;
   var dbp = null;
 
@@ -471,10 +471,15 @@
   setInterval(function () {
     if (document.visibilityState !== "visible") return;
     pending().then(function (list) {
-      if (list.length && navigator.onLine) syncNow();
-      else paint();
+      if (list.length && navigator.onLine) return syncNow().then(function () { return refresh(false); });
+      paint();
+      return offlinePage ? null : refresh(false);
     }).catch(function () {});
   }, 30000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible" || offlinePage) return;
+    syncNow().then(function () { return refresh(false); });
+  });
 
   paintAll();
   if (!offlinePage) {

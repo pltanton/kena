@@ -108,8 +108,10 @@ gaveUp, at, synced}`.
 Downloading a pack also caches `/s/{slug}` and `/s/{slug}/play` in
 `kena-pages`; dropping it deletes them.
 
-- Logged in (`<body data-auth>`), online: on page load at most every 5
-  minutes, and at once on the overview of an own/starred deck that is not on
+- Logged in (`<body data-auth>`), online: on page load, when the app comes
+  back to the foreground and every 30 s while it is visible, at most once a
+  minute (an agent's edit must reach a pack before the network goes, even in
+  a long htmx session that never reloads the page), and at once on the overview of an own/starred deck that is not on
   the device yet, `sync.js` reads `/offline/decks.json` with the saved slugs,
   fetches new or changed packs, drops auto packs that left the list.
   Anonymous: only saved decks are checked.
