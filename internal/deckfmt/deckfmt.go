@@ -42,6 +42,19 @@ func Format(tasks []greek.TaskInput) string {
 		if i > 0 {
 			b.WriteString("\n")
 		}
+		if t.Kind == greek.ChoiceTask {
+			b.WriteString(t.Text + "\n")
+			for _, bl := range t.Blanks {
+				for _, a := range bl.Answers {
+					b.WriteString("[x] " + a + "\n")
+				}
+				for _, c := range bl.Choices {
+					b.WriteString("[ ] " + c + "\n")
+				}
+			}
+			writeNotes(&b, t)
+			continue
+		}
 		parts := strings.Split(t.Text, greek.Marker)
 		for k, part := range parts {
 			b.WriteString(part)
@@ -63,16 +76,37 @@ func Format(tasks []greek.TaskInput) string {
 			b.WriteString("}")
 		}
 		b.WriteString("\n")
-		if t.Rule != "" {
-			b.WriteString("@" + t.Rule + "\n")
-		}
-		if t.Explanation != "" {
-			for _, line := range strings.Split(t.Explanation, "\n") {
-				b.WriteString("> " + line + "\n")
-			}
-		}
+		writeNotes(&b, t)
 	}
 	return b.String()
+}
+
+func writeNotes(b *strings.Builder, t greek.TaskInput) {
+	if t.Rule != "" {
+		b.WriteString("@" + t.Rule + "\n")
+	}
+	if t.Explanation != "" {
+		for _, line := range strings.Split(t.Explanation, "\n") {
+			b.WriteString("> " + line + "\n")
+		}
+	}
+}
+
+func isOption(line string) bool {
+	_, _, ok := option(line)
+	return ok
+}
+
+func option(line string) (value string, right, ok bool) {
+	for _, p := range []struct {
+		prefix string
+		right  bool
+	}{{"[x]", true}, {"[X]", true}, {"[ ]", false}} {
+		if rest, found := strings.CutPrefix(line, p.prefix); found {
+			return strings.TrimSpace(rest), p.right, true
+		}
+	}
+	return "", false, false
 }
 
 func Parse(src string) ([]Item, []LineError) {
@@ -91,6 +125,9 @@ func ParseDeck(src string) (Deck, []LineError) {
 		items     []Item
 		errs      []LineError
 		sentence  []string
+		options   []string
+		rights    []bool
+		optLines  []int
 		start     int
 		open      bool
 		broken    bool
@@ -112,11 +149,31 @@ func ParseDeck(src string) (Deck, []LineError) {
 			lines = append(lines, part.Text)
 			task.Blanks = append(task.Blanks, part.Blanks...)
 		}
-		if !bad && len(task.Blanks) == 0 {
-			errs = append(errs, LineError{start, "no blank; write the answer in {braces}"})
+		switch {
+		case bad:
+		case options != nil && len(task.Blanks) > 0:
+			errs = append(errs, LineError{start, "a question with [x] / [ ] options has no {blanks}"})
+			bad = true
+		case options != nil:
+			task.Kind = greek.ChoiceTask
+			var bl greek.Blank
+			for k, o := range options {
+				switch {
+				case o == "":
+					errs = append(errs, LineError{optLines[k], "empty option"})
+					bad = true
+				case rights[k]:
+					bl.Answers = append(bl.Answers, o)
+				default:
+					bl.Choices = append(bl.Choices, o)
+				}
+			}
+			task.Blanks = []greek.Blank{bl}
+		case len(task.Blanks) == 0:
+			errs = append(errs, LineError{start, "no blank; write the answer in {braces}, or list [x] / [ ] options under a question"})
 			bad = true
 		}
-		sentence = nil
+		sentence, options, rights, optLines = nil, nil, nil, nil
 		if bad {
 			broken = true
 			return
@@ -169,6 +226,15 @@ func ParseDeck(src string) (Deck, []LineError) {
 			default:
 				last.Rule = key
 			}
+		case isOption(trimmed):
+			value, right, _ := option(trimmed)
+			if sentence == nil {
+				if !broken {
+					errs = append(errs, LineError{n, "option without a question above it"})
+				}
+				continue
+			}
+			options, rights, optLines = append(options, value), append(rights, right), append(optLines, n)
 		case strings.HasPrefix(trimmed, ">"):
 			closeSentence()
 			if broken {
@@ -182,6 +248,10 @@ func ParseDeck(src string) (Deck, []LineError) {
 				explain = append(explain, s)
 			}
 		default:
+			if options != nil {
+				errs = append(errs, LineError{n, "the question goes above its [x] / [ ] options"})
+				continue
+			}
 			if sentence == nil {
 				flush()
 				start = n

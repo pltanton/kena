@@ -162,8 +162,8 @@ func TestParseErrors(t *testing.T) {
 		{"empty alternative", "Α {β / }.", []string{"line 1: empty answer in {β / }"}},
 		{"two bars", "Α {β | γ | δ}.", []string{"line 1: more than one | in a blank"}},
 		{"bar outside blank", "Α | {β}.", []string{"line 1: | outside a blank"}},
-		{"no blank", "Α β γ.", []string{"line 1: no blank; write the answer in {braces}"}},
-		{"no blank in a multi-line task", "Α β.\nΓ δ.\n\nΕ {ζ}.", []string{"line 1: no blank; write the answer in {braces}"}},
+		{"no blank", "Α β γ.", []string{"line 1: no blank; write the answer in {braces}, or list [x] / [ ] options under a question"}},
+		{"no blank in a multi-line task", "Α β.\nΓ δ.\n\nΕ {ζ}.", []string{"line 1: no blank; write the answer in {braces}, or list [x] / [ ] options under a question"}},
 		{"error on a later line of a task", "Α {β}.\nΓ {δ.\n> why", []string{"line 2: unclosed {"}},
 		{"explanation first", "> why\nΑ {β}.", []string{"line 1: explanation without a sentence above it"}},
 		{"explanation after blank line", "Α {β}.\n\n> why", []string{"line 3: explanation without a sentence above it"}},
@@ -250,6 +250,9 @@ func FuzzRoundTrip(f *testing.F) {
 		}
 		roundTrips(t, nil, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation})
 		roundTrips(t, []greek.Rule{{Key: "r", Body: "x"}}, greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "r"})
+		if choices != "" {
+			roundTrips(t, nil, greek.TaskInput{Kind: greek.ChoiceTask, Text: text, Blanks: []greek.Blank{{Answers: []string{answer}, Choices: strings.Split(choices, "\x00")}}, Explanation: explanation})
+		}
 		roundTrips(t, greek.WithPublicKeys(nil, []string{"ellenika/posos"}), greek.TaskInput{Text: text, Blanks: blanks, Explanation: explanation, Rule: "ellenika/posos"})
 	})
 }
@@ -274,5 +277,26 @@ func TestParseChoices(t *testing.T) {
 	}
 	if _, errs := Parse("Α {β ~ ~ γ}.\n"); len(errs) == 0 {
 		t.Fatal("empty choice accepted")
+	}
+}
+
+func TestParseQuestion(t *testing.T) {
+	src := "Ποιος χρόνος είναι το «έγραψα»;\n[x] Αόριστος\n[ ] Ενεστώτας\n[ ] Παρατατικός\n@tenses\n> Ολοκληρωμένη πράξη.\n"
+	items, errs := Parse(src)
+	if len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	want := greek.TaskInput{Kind: greek.ChoiceTask, Text: "Ποιος χρόνος είναι το «έγραψα»;", Rule: "tenses", Explanation: "Ολοκληρωμένη πράξη.",
+		Blanks: []greek.Blank{{Answers: []string{"Αόριστος"}, Choices: []string{"Ενεστώτας", "Παρατατικός"}}}}
+	if !reflect.DeepEqual(items[0].Task, want) {
+		t.Fatalf("task = %+q", items[0].Task)
+	}
+	if got := Format([]greek.TaskInput{want}); got != src {
+		t.Fatalf("Format = %q", got)
+	}
+	for _, bad := range []string{"[x] Αόριστος\n", "Ερώτηση;\n[x] α\nκείμενο\n", "Πού {πάω}\n[x] α\n[ ] β\n", "Ερώτηση;\n[x]\n[ ] β\n"} {
+		if _, errs := Parse(bad); len(errs) == 0 {
+			t.Errorf("%q parsed without errors", bad)
+		}
 	}
 }

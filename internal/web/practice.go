@@ -164,9 +164,13 @@ type taskView struct {
 	ID        int64
 	Autofocus bool
 	Segments  []segment
+	Question  *questionView
 }
 
 func newTaskView(t store.Task, results []greek.BlankResult) taskView {
+	if t.Kind == greek.ChoiceTask {
+		return taskView{ID: t.ID, Question: newQuestionView(t, results, nil, false)}
+	}
 	parts := strings.Split(t.Text, greek.Marker)
 	v := taskView{ID: t.ID}
 	for i, part := range parts {
@@ -199,6 +203,9 @@ func blankEmpty(s string) bool { return greek.NormalizeAnswer(s) == "" }
 func someEmpty(answers []string) bool { return slices.ContainsFunc(answers, blankEmpty) }
 
 func retryTaskView(t store.Task, results []greek.BlankResult, struck map[int][]string) taskView {
+	if t.Kind == greek.ChoiceTask {
+		return taskView{ID: t.ID, Question: newQuestionView(t, results, struck, true)}
+	}
 	v := newTaskView(t, nil)
 	for i := range v.Segments {
 		s := &v.Segments[i]

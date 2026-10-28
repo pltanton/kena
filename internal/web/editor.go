@@ -133,7 +133,7 @@ func checkSource(src string, existing []greek.Rule, public []string) (rules []gr
 func taskInputs(tasks []store.Task) []greek.TaskInput {
 	out := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
-		out[i] = greek.TaskInput{Text: t.Text, Blanks: t.Blanks, Explanation: t.Explanation, Rule: t.Rule}
+		out[i] = greek.TaskInput{Kind: t.Kind, Text: t.Text, Blanks: t.Blanks, Explanation: t.Explanation, Rule: t.Rule}
 	}
 	return out
 }
@@ -157,7 +157,7 @@ func lossyLines(rules []greek.Rule, inputs []greek.TaskInput) []int {
 }
 
 func sameInput(a, b greek.TaskInput) bool {
-	return a.Text == b.Text && a.Explanation == b.Explanation && a.Rule == b.Rule &&
+	return a.Kind == b.Kind && a.Text == b.Text && a.Explanation == b.Explanation && a.Rule == b.Rule &&
 		slices.EqualFunc(a.Blanks, b.Blanks, func(x, y greek.Blank) bool {
 			return x.Hint == y.Hint && slices.Equal(x.Answers, y.Answers) && slices.Equal(x.Choices, y.Choices)
 		})

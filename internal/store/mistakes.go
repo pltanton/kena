@@ -56,7 +56,7 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 	rows, err := queryAll(ctx, s.pool, "getting mistakes", func(r *row) []any {
 		t := &r.tm.Task
 		return []any{&r.ref.ID, &r.ref.Slug, &r.ref.Title, &r.ref.Topic, &r.ref.Level,
-			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &r.tm.Rule,
+			&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &t.Kind, &r.tm.Rule,
 			&r.tm.AttemptCount, &r.tm.WrongCount, &r.tm.LastCorrect}
 	}, `
 		WITH w AS (
@@ -75,7 +75,7 @@ func (s *Store) MistakesReport(ctx context.Context, viewerID int64, progressID s
 			ORDER BY a.task_id, a.created_at DESC, a.id DESC
 		)
 		SELECT s.id, s.slug, s.title, s.topic, s.level,
-			t.id, t.set_id, t.position, t.text, t.blanks, t.explanation, COALESCE(t.rule, public_rule_key(t.public_rule_id), ''),
+			t.id, t.set_id, t.position, t.text, t.blanks, t.explanation, COALESCE(t.rule, public_rule_key(t.public_rule_id), ''), CASE t.kind WHEN 'gap' THEN '' ELSE t.kind END,
 			COALESCE((SELECT r FROM jsonb_array_elements(s.rules) r WHERE r->>'key' = t.rule LIMIT 1),
 				(SELECT jsonb_build_object('key', public_rule_key(p.id), 'title', p.title, 'body', p.body) FROM public_rules p WHERE p.id = t.public_rule_id),
 				'{}'::jsonb),

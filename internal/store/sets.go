@@ -41,6 +41,7 @@ func (s Set) AllRules() []greek.Rule {
 
 type Task struct {
 	ID          int64
+	Kind        string
 	SetID       int64
 	Position    int
 	Text        string
@@ -96,6 +97,7 @@ type TaskPatch struct {
 	Blanks      *[]greek.Blank
 	Explanation *string
 	Rule        *string
+	Kind        *string
 }
 
 var greekTranslit = map[rune]string{
@@ -159,10 +161,12 @@ func (st *Set) dest() []any {
 		&st.Instructions, &st.SourceRef, &st.TaskCount, &st.Visibility, &st.Rules, &st.Public, &st.PublicStamp, &st.CreatedAt, &st.UpdatedAt}
 }
 
-const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, public_rule_key(public_rule_id), '')`
+const kindSQL = `COALESCE(NULLIF($8, ''), 'gap')`
+
+const taskColumns = `id, set_id, position, text, blanks, explanation, COALESCE(rule, public_rule_key(public_rule_id), ''), CASE kind WHEN 'gap' THEN '' ELSE kind END`
 
 func (t *Task) dest() []any {
-	return []any{&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule}
+	return []any{&t.ID, &t.SetID, &t.Position, &t.Text, &t.Blanks, &t.Explanation, &t.Rule, &t.Kind}
 }
 
 func (s *Store) setWhere(ctx context.Context, cond string, arg any) (Set, error) {
@@ -319,9 +323,9 @@ func (s *Store) AddTasks(ctx context.Context, setID int64, inputs []greek.TaskIn
 			}
 			var t Task
 			if err := tx.QueryRow(ctx, `
-				INSERT INTO tasks (set_id, position, text, blanks, explanation, rule, public_rule_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7)
-				RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanks, in.Explanation, rule, public,
+				INSERT INTO tasks (set_id, position, text, blanks, explanation, rule, public_rule_id, kind)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, `+kindSQL+`)
+				RETURNING `+taskColumns, setID, maxPos+i+1, in.Text, blanks, in.Explanation, rule, public, in.Kind,
 			).Scan(t.dest()...); err != nil {
 				return fmt.Errorf("inserting task: %w", err)
 			}
@@ -377,9 +381,10 @@ func (s *Store) UpdateTask(ctx context.Context, taskID int64, p TaskPatch) (Task
 			explanation = COALESCE($4, explanation),
 			rule = CASE WHEN $5 THEN $6 ELSE rule END,
 			public_rule_id = CASE WHEN $5 THEN $7 ELSE public_rule_id END,
+			kind = CASE WHEN $8::text IS NULL THEN kind ELSE COALESCE(NULLIF($8, ''), 'gap') END,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+taskColumns, taskID, p.Text, blanks, p.Explanation, p.Rule != nil, rule, public,
+		RETURNING `+taskColumns, taskID, p.Text, blanks, p.Explanation, p.Rule != nil, rule, public, p.Kind,
 	).Scan(t.dest()...); err != nil {
 		return Task{}, noRows(err, "updating task")
 	}

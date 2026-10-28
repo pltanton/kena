@@ -22,7 +22,12 @@ func normalizeTask(t TaskInput) TaskInput {
 			blanks[i].Choices = append(blanks[i].Choices, strings.TrimSpace(NFC(c)))
 		}
 	}
+	kind := strings.TrimSpace(t.Kind)
+	if kind == "gap" {
+		kind = ""
+	}
 	return TaskInput{
+		Kind:        kind,
 		Text:        normalizeLines(t.Text),
 		Blanks:      blanks,
 		Explanation: normalizeLines(t.Explanation),

@@ -238,7 +238,25 @@ person is the only difference and the sentence has no subject: all three fit.
 Good: `Χθες ___ στο σινεμά.` hint `πάω`, answers `πήγα`, choices `πηγαίνω`,
 `θα πάω` — χθες forces the past.
 
-## 13. Public rules: grammar shared by every deck
+## 13. Question cards
+
+A task with `kind: "choice"` is a question card instead of a sentence: `text`
+is the question (no `___`), and its one blank holds the right option in
+`answers` and 1–5 wrong ones in `choices`; no hint. The learner picks from a
+list under the question. Use it for what a gap can't ask: naming a tense or a
+case, picking the right translation, which form fits a described situation.
+A deck can mix question cards and gap tasks.
+
+- The question names exactly what to choose; the options are short and
+  parallel (all tense names, all forms of one verb).
+- Exactly one option is right in the question's terms.
+- Keep gap tasks the backbone of a deck: a question checks recognition, a gap
+  checks production.
+
+Good: `Ποιος χρόνος είναι το «έγραψα»;` answers `Αόριστος`, choices
+`Ενεστώτας`, `Παρατατικός`.
+
+## 14. Public rules: grammar shared by every deck
 
 Public rules live outside any deck, grouped by category, with the id
 `category/name` (`ellenika/posos`). Any deck can use them.

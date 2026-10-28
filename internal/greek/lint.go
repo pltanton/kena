@@ -21,7 +21,10 @@ type Issue struct {
 	Message  string
 }
 
+const ChoiceTask = "choice"
+
 type TaskInput struct {
+	Kind        string
 	Text        string
 	Blanks      []Blank
 	Explanation string
@@ -31,12 +34,17 @@ type TaskInput struct {
 func LintTask(t TaskInput) []Issue {
 	var issues []Issue
 
-	if strings.TrimSpace(t.Text) == "" {
+	switch {
+	case t.Kind != "" && t.Kind != ChoiceTask:
+		issues = append(issues, Issue{Error, "kind", fmt.Sprintf("kind %q: use gap (default) or %s", t.Kind, ChoiceTask)})
+	case strings.TrimSpace(t.Text) == "":
 		issues = append(issues, Issue{Error, "text", "text is empty"})
-	} else if len(t.Blanks) == 0 && !strings.Contains(t.Text, Marker) {
+	case t.Kind == ChoiceTask:
+		issues = append(issues, questionIssues(t)...)
+	case len(t.Blanks) == 0 && !strings.Contains(t.Text, Marker):
 		issues = append(issues, Issue{Error, "text", fmt.Sprintf("task has no blanks; mark each with %s", Marker)})
 	}
-	if n := strings.Count(t.Text, Marker); n != len(t.Blanks) {
+	if n := strings.Count(t.Text, Marker); t.Kind != ChoiceTask && n != len(t.Blanks) {
 		issues = append(issues, Issue{Error, "text",
 			fmt.Sprintf("found %d %q placeholders but %d blanks", n, Marker, len(t.Blanks))})
 	}
@@ -84,13 +92,13 @@ func textLineIssues(text string) []Issue {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		empty = empty || (line == "" && len(lines) > 1)
-		quoted = quoted || strings.HasPrefix(line, ">") || strings.HasPrefix(line, "@") || strings.HasPrefix(line, "=")
+		quoted = quoted || strings.HasPrefix(line, ">") || strings.HasPrefix(line, "@") || strings.HasPrefix(line, "=") || strings.HasPrefix(line, "[")
 	}
 	if empty {
 		issues = append(issues, Issue{Error, "text", "empty line inside the text; the editor reads an empty line as the end of a task"})
 	}
 	if quoted {
-		issues = append(issues, Issue{Error, "text", "a text line must not start with >, @ or =; the editor reads such lines as explanations and rules"})
+		issues = append(issues, Issue{Error, "text", "a text line must not start with >, @, = or [; the editor reads such lines as explanations, rules and options"})
 	}
 	return issues
 }
@@ -241,6 +249,24 @@ func choiceIssues(blankField string, b Blank) []Issue {
 		}
 		issues = append(issues, charIssues(field, c, "/{}|~", false)...)
 		issues = append(issues, scriptIssues(field, c)...)
+	}
+	return issues
+}
+
+func questionIssues(t TaskInput) []Issue {
+	var issues []Issue
+	if strings.Contains(t.Text, Marker) {
+		issues = append(issues, Issue{Error, "text", fmt.Sprintf("a %s task is a question without %s; its options go in blanks[0]", ChoiceTask, Marker)})
+	}
+	if len(t.Blanks) != 1 {
+		return append(issues, Issue{Error, "blanks", fmt.Sprintf("a %s task has exactly one blank holding its options, got %d", ChoiceTask, len(t.Blanks))})
+	}
+	b := t.Blanks[0]
+	if len(b.Choices) == 0 {
+		issues = append(issues, Issue{Error, "blanks[0].choices", "a question needs 1 to 5 wrong options in choices"})
+	}
+	if b.Hint != "" {
+		issues = append(issues, Issue{Error, "blanks[0].hint", "a question shows no hint; put what the learner needs into the question"})
 	}
 	return issues
 }

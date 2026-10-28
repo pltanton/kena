@@ -34,7 +34,7 @@ const (
 var (
 	packMsgs = []string{
 		"play.correct", "play.next", "play.check", "play.give_up", "play.not_quite", "play.right_so_far", "play.why", "play.back_to_deck",
-		"play.prev", "play.skip", "play.skip_long", "play.card_of", "rule.label", "rule.show", "task.blank",
+		"play.prev", "play.skip", "play.skip_long", "play.card_of", "rule.label", "rule.show", "task.blank", "task.options",
 		"nudge.accent", "nudge.final_sigma", "nudge.near_miss", "done.all_solved", "done.empty", "done.done",
 		"done.again", "done.mistakes_only", "done.review_mistakes", "progress.solved", "filter.all", "filter.unsolved",
 		"filter.mistakes", "order.in_order", "order.shuffled", "play.first_unsolved", "play.to_worksheet", "reset.title",
@@ -53,6 +53,7 @@ type packRule struct {
 
 type packTask struct {
 	ID      int64      `json:"id"`
+	Kind    string     `json:"kind,omitempty"`
 	Text    string     `json:"text"`
 	Rule    string     `json:"rule,omitempty"`
 	Hints   []string   `json:"hints"`
@@ -155,7 +156,7 @@ func (h *handler) pack(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, t := range d.tasks {
 		s := packSecret{Answers: make([][]string, len(t.Blanks)), Explanation: t.Explanation}
-		pt := packTask{ID: t.ID, Text: t.Text, Rule: t.Rule, Hints: make([]string, len(t.Blanks))}
+		pt := packTask{ID: t.ID, Kind: t.Kind, Text: t.Text, Rule: t.Rule, Hints: make([]string, len(t.Blanks))}
 		for i, b := range t.Blanks {
 			s.Answers[i], pt.Hints[i] = b.Answers, b.Hint
 			if opts := choiceOptions(t.ID, i, b); opts != nil {

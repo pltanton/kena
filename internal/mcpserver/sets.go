@@ -68,6 +68,7 @@ type UpdateTaskIn struct {
 	Blanks      *[]BlankIn `json:"blanks,omitempty" jsonschema:"new blanks, replacing all old ones; one per ___, in order"`
 	Explanation *string    `json:"explanation,omitempty" jsonschema:"new explanation"`
 	Rule        *string    `json:"rule,omitempty" jsonschema:"new deck rule key or public rule id (category/name); empty string removes the rule"`
+	Kind        *string    `json:"kind,omitempty" jsonschema:"gap or choice; changing it usually needs new text and blanks too"`
 }
 
 type TaskRef struct {
@@ -98,6 +99,7 @@ type SetList struct {
 
 type TaskOut struct {
 	ID          int64     `json:"id"`
+	Kind        string    `json:"kind,omitempty"`
 	Position    int       `json:"position"`
 	Text        string    `json:"text"`
 	Blanks      []BlankIn `json:"blanks"`
@@ -174,7 +176,7 @@ func (s *server) written(st store.Set, added, total int, warnings []string) Writ
 }
 
 func taskOut(t store.Task) TaskOut {
-	return TaskOut{ID: t.ID, Position: t.Position, Text: t.Text, Blanks: fromGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
+	return TaskOut{ID: t.ID, Kind: t.Kind, Position: t.Position, Text: t.Text, Blanks: fromGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
 }
 
 func (s *server) viewable(ctx context.Context, u store.User, ref string) (store.Set, bool, error) {
@@ -448,14 +450,17 @@ func (s *server) addSetTools(srv *mcp.Server) {
 			"The merged task is linted as task[0]: errors reject the change. " + authoringRules,
 		Annotations: destructive("Update task", true),
 	}, handle(func(ctx context.Context, u store.User, in UpdateTaskIn) (TaskResult, error) {
-		if in.Text == nil && in.Blanks == nil && in.Explanation == nil && in.Rule == nil {
-			return TaskResult{}, fail("nothing to update; pass at least one of text, blanks, explanation, rule")
+		if in.Text == nil && in.Blanks == nil && in.Explanation == nil && in.Rule == nil && in.Kind == nil {
+			return TaskResult{}, fail("nothing to update; pass at least one of text, blanks, explanation, rule, kind")
 		}
 		t, st, err := s.editableTask(ctx, u, in.TaskID)
 		if err != nil {
 			return TaskResult{}, err
 		}
-		merged := TaskIn{Text: t.Text, Blanks: fromGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
+		merged := TaskIn{Kind: t.Kind, Text: t.Text, Blanks: fromGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
+		if in.Kind != nil {
+			merged.Kind = *in.Kind
+		}
 		if in.Rule != nil {
 			merged.Rule = *in.Rule
 		}
@@ -481,7 +486,7 @@ func (s *server) addSetTools(srv *mcp.Server) {
 			return TaskResult{}, rep.failure()
 		}
 		norm := inputs[0]
-		updated, err := s.st.UpdateTask(ctx, t.ID, store.TaskPatch{Text: &norm.Text, Blanks: &norm.Blanks, Explanation: &norm.Explanation, Rule: &norm.Rule})
+		updated, err := s.st.UpdateTask(ctx, t.ID, store.TaskPatch{Kind: &norm.Kind, Text: &norm.Text, Blanks: &norm.Blanks, Explanation: &norm.Explanation, Rule: &norm.Rule})
 		if err != nil {
 			return TaskResult{}, err
 		}

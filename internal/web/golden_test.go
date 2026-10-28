@@ -46,6 +46,7 @@ var (
 		{Text: "Αυτοί ___ αύριο.", Blanks: []greek.Blank{{Answers: []string{"θα έρθουν"}, Hint: "έρχομαι"}}, Rule: "ellenika/mellon"},
 		{Text: "Εμείς ___ τώρα.", Blanks: []greek.Blank{{Answers: []string{"τρώμε"}}}, Rule: "gen"},
 		{Text: "Η Άννα ___ σήμερα.", Blanks: []greek.Blank{{Answers: []string{"διαβάζει"}, Choices: []string{"διάβαζε", "θα διαβάσει & <ξανά>"}}}},
+		{Kind: greek.ChoiceTask, Text: "Ποιος χρόνος είναι το «έγραψα»;", Blanks: []greek.Blank{{Answers: []string{"Αόριστος"}, Choices: []string{"Ενεστώτας", "Παρατατικός & <x>"}}}, Explanation: "Ολοκληρωμένη πράξη.", Rule: "pres"},
 	}
 	goldenRules = []greek.Rule{
 		{Key: "pres", Title: "Ενεστώτας", Body: "Κλίση:\n\n| | ενικός |\n|---|---|\n| β΄ | γράφεις |"},
@@ -188,6 +189,13 @@ func TestOfflineGolden(t *testing.T) {
 		get("/next?after=" + id(6) + "&n=6"),
 		get("/next?after=" + id(6)),
 		get("/play/card?id=" + id(3) + "&filter=mistakes"),
+		play("?at=" + id(7)),
+		check(7, url.Values{"c1": {"Παρατατικός & <x>"}, "i": {"7"}, "n": {"7"}}),
+		check(7, url.Values{"c1": {"Ενεστώτας"}, "x1": {"Παρατατικός & <x>"}, "i": {"7"}, "n": {"7"}, "tries": {"1"}}),
+		get("/play/card?id=" + id(7) + "&n=7"),
+		check(7, url.Values{"c1": {"Αόριστος"}, "x1": {"Παρατατικός & <x>", "Ενεστώτας"}, "i": {"7"}, "n": {"7"}, "tries": {"2"}}),
+		get("/play/card?id=" + id(7) + "&n=7"),
+		check(7, url.Values{"c1": {"Ενεστώτας"}, "i": {"7"}, "n": {"7"}, "giveup": {"1"}}),
 	}
 	got := golden{Pack: json.RawMessage(packBody)}
 	for _, s := range steps {

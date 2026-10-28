@@ -7,7 +7,7 @@
 <ul class="items">
 {{- range .Tasks}}
 <li class="item mistake">
-<p class="sentence" lang="el">{{template "sentence" .Task}}</p>
+{{template "task_body" .Task}}
 <p class="meta">{{range .Kinds}}<span class="kind">{{t .}}</span> {{end}}{{tn "count.wrong" .WrongCount}}{{if .Fixed}} · <span class="ok">{{t "mistakes.fixed"}} ✓</span>{{end}}</p>
 {{template "why" .Notes}}
 </li>

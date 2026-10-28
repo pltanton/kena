@@ -14,6 +14,7 @@ type BlankIn struct {
 }
 
 type TaskIn struct {
+	Kind        string    `json:"kind,omitempty" jsonschema:"gap (default): a sentence with ___ blanks; choice: a question card, text = the question without ___, one blank with answers (the right option) and choices (1-5 wrong options) and no hint"`
 	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
 	Explanation string    `json:"explanation,omitempty" jsonschema:"optional; one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case. General grammar shared by many items goes into a deck rule instead"`
@@ -84,7 +85,7 @@ func fromGreekBlanks(in []greek.Blank) []BlankIn {
 func prepare(tasks []TaskIn, existing []greek.TaskInput, rules []greek.Rule) ([]greek.TaskInput, LintReport) {
 	raw := make([]greek.TaskInput, len(tasks))
 	for i, t := range tasks {
-		raw[i] = greek.TaskInput{Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
+		raw[i] = greek.TaskInput{Kind: t.Kind, Text: t.Text, Blanks: toGreekBlanks(t.Blanks), Explanation: t.Explanation, Rule: t.Rule}
 	}
 	out, issues := greek.PrepareDeck(raw, existing, rules)
 	flat := make([]greek.Issue, len(issues))

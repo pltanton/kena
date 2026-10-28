@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/pltanton/kena/internal/greek"
 	"github.com/pltanton/kena/internal/store"
@@ -15,6 +16,40 @@ type choiceOption struct {
 	Value  string
 	Picked bool
 	Struck bool
+	Right  bool
+}
+
+type questionView struct {
+	Text    string
+	Checked bool
+	Options []choiceOption
+}
+
+func newQuestionView(t store.Task, results []greek.BlankResult, struck map[int][]string, retry bool) *questionView {
+	q := &questionView{Text: t.Text}
+	if len(t.Blanks) == 0 {
+		return q
+	}
+	b := t.Blanks[0]
+	opts := choiceOptions(t.ID, 0, b)
+	given := ""
+	if len(results) > 0 && !blankEmpty(results[0].Given) {
+		given = strings.TrimSpace(results[0].Given)
+	}
+	switch {
+	case results == nil:
+		q.Options = markOptions(opts, "", nil, false)
+	case retry:
+		q.Options = markOptions(opts, given, struck[0], len(results) > 0 && !results[0].Correct)
+	default:
+		q.Checked = true
+		q.Options = markOptions(opts, given, nil, false)
+		for i := range q.Options {
+			o := &q.Options[i]
+			o.Right = slices.ContainsFunc(b.Answers, func(a string) bool { return greek.NormalizeAnswer(a) == greek.NormalizeAnswer(o.Value) })
+		}
+	}
+	return q
 }
 
 func choiceOptions(taskID int64, i int, b greek.Blank) []string {

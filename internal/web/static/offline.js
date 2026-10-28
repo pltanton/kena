@@ -149,6 +149,7 @@
         var s = decode(pack.key, t.x);
         return {
           id: t.id,
+          kind: t.kind || "",
           text: t.text,
           rule: t.rule || "",
           explanation: s.e,
@@ -365,7 +366,33 @@
     return pr;
   }
 
+  function sameAnswer(a, b) {
+    return normalize(a) === normalize(b);
+  }
+
+  function newQuestionView(t, results, struck, retry) {
+    var q = {text: t.text, checked: false, options: null};
+    if (!t.blanks.length) return q;
+    var b = t.blanks[0];
+    var given = results && results.length && !blankEmpty(results[0].given) ? trimSpace(results[0].given) : "";
+    if (!results) {
+      q.options = markOptions(b.options, "", [], false);
+    } else if (retry) {
+      q.options = markOptions(b.options, given, (struck && struck[0]) || [], results.length > 0 && !results[0].correct);
+    } else {
+      q.checked = true;
+      q.options = markOptions(b.options, given, [], false);
+      if (q.options) {
+        q.options.forEach(function (o) {
+          o.right = b.answers.some(function (a) { return sameAnswer(a, o.value); });
+        });
+      }
+    }
+    return q;
+  }
+
   function newTaskView(t, results) {
+    if (t.kind === "choice") return {id: t.id, autofocus: false, segments: [], question: newQuestionView(t, results, null, false)};
     var parts = t.text.split(MARKER);
     var v = {id: t.id, autofocus: false, segments: []};
     parts.forEach(function (part, i) {
@@ -401,6 +428,7 @@
   }
 
   function retryTaskView(t, results, struck) {
+    if (t.kind === "choice") return {id: t.id, autofocus: false, segments: [], question: newQuestionView(t, results, struck, true)};
     var v = newTaskView(t, null);
     v.segments.forEach(function (s) {
       if (!s.blank || s.index - 1 >= results.length) return;
@@ -553,6 +581,28 @@
     var s = strings(deck);
     var t = s.t, tf = s.tf, tn = s.tn;
 
+    function taskBody(task) {
+      var q = task.question;
+      if (!q) return '<p class="sentence" lang="el">' + sentence(task) + "</p>";
+      var h = '<div class="question" lang="el"><p class="question-text">' + esc(q.text) + "</p>";
+      var opts = q.options || [];
+      if (q.checked) {
+        h += '<ul class="options">';
+        opts.forEach(function (o) {
+          h += '<li class="option' + (o.right ? " ok" : o.picked ? " bad" : "") + '">' + esc(o.value) + "</li>";
+        });
+        return h + "</ul></div>";
+      }
+      h += '<div class="options" role="radiogroup" aria-label="' + esc(t("task.options")) + '">';
+      opts.forEach(function (o) {
+        h += '<label class="option' + (o.struck ? " struck" : "") + '"><input type="radio" name="c1" value="' + esc(o.value) + '"' + (o.struck ? " disabled" : "") + "><span>" + esc(o.value) + "</span></label>";
+      });
+      opts.forEach(function (o) {
+        if (o.struck) h += '<input type="hidden" name="x1" value="' + esc(o.value) + '">';
+      });
+      return h + "</div></div>";
+    }
+
     function sentence(task) {
       return task.segments.map(function (g) {
         if (!g.blank) return esc(g.text);
@@ -665,12 +715,12 @@
           if (v.streak >= 2) h += '<span class="streak"> · ' + esc(tn("count.in_a_row", v.streak)) + "</span>";
           h += "</p>";
         }
-        h += '\n<p class="sentence" lang="el">' + sentence(v.task) + "</p>\n" + (v.correct ? why(v.notes) : notesBody(v.notes));
+        h += "\n" + taskBody(v.task) + "\n" + (v.correct ? why(v.notes) : notesBody(v.notes));
         return h + '\n<button type="button" data-next hx-get="' + esc(v.nextURL) + '" hx-target="#card" hx-swap="innerHTML show:none">' + esc(t("play.next")) + "</button>\n</div>";
       }
       var action = "/t/" + v.task.id + "/check";
       return h + '<form class="card" action="' + action + '" method="post" hx-post="' + action + '" hx-target="#card" hx-swap="innerHTML show:none">\n' +
-        infoButton(v.info) + "\n" + hidden(v.params) + '\n<p class="sentence" lang="el">' + sentence(v.task) + "</p>\n" + checkActions(v) + "\n</form>";
+        infoButton(v.info) + "\n" + hidden(v.params) + "\n" + taskBody(v.task) + "\n" + checkActions(v) + "\n</form>";
     }
 
     function done(d) {

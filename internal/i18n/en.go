@@ -137,6 +137,7 @@ var en = catalog{
 		"edit.format_explanation":         "Lines starting with <code>&gt;</code>: the explanation, only for what is specific to this task.",
 		"edit.format_hint":                "<code>| hint</code> after the answers: shown next to the blank.",
 		"edit.format_lede":                "One task per paragraph, an empty line between tasks. Write each blank in braces. A task may span several lines, e.g. one dialogue turn per line.",
+		"edit.format_question":            "A question card: the question, then one line per option, <code>[x]</code> right and <code>[ ]</code> wrong.",
 		"edit.format_rule":                `<code>@key</code> under a task's sentence: that task's rule. Rules themselves (theory, tables) live on the <a href="%s">Rules page</a>.`,
 		"edit.format_rule_new":            "<code>@key</code> under a task's sentence: that task's rule. Rules themselves (theory, tables) live on the Rules page, once the deck exists.",
 		"edit.not_saved":                  "Nothing was saved.",
@@ -349,7 +350,8 @@ var en = catalog{
 		"star.starred":      "Starred",
 		"star.unstar_named": "Unstar %s",
 
-		"task.blank": "Blank %d",
+		"task.options": "Options",
+		"task.blank":   "Blank %d",
 
 		"theme.auto":        "Auto",
 		"theme.dark":        "Dark",

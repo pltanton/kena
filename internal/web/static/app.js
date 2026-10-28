@@ -110,11 +110,12 @@
     return !/\S/.test(input.value);
   }
   function picked(box) {
-    return Array.prototype.some.call(box.querySelectorAll(".gap select:not([disabled])"), function (s) { return s.value !== ""; });
+    return !!box.querySelector('.options input[type="radio"]:checked:not([disabled])') ||
+      Array.prototype.some.call(box.querySelectorAll(".gap select:not([disabled])"), function (s) { return s.value !== ""; });
   }
   document.addEventListener("submit", function (e) {
     var inputs = blanks(e.target);
-    if (!inputs.length && !e.target.querySelector(".gap select")) return;
+    if (!inputs.length && !e.target.querySelector(".gap select, .options")) return;
     if (!(e.submitter && e.submitter.name === "giveup") && inputs.every(function (i) { return i.readOnly || blank(i); }) && !picked(e.target)) {
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -133,13 +134,18 @@
       var el = inputs[(from + k) % inputs.length];
       if (!el.readOnly && blank(el)) target = el;
     }
-    return target || box.querySelector('input[name="a"]:not([readonly])') || box.querySelector(".gap select:not([disabled])");
+    return target || box.querySelector('input[name="a"]:not([readonly])') || box.querySelector(".gap select:not([disabled]), .options input:not([disabled])");
   };
   document.addEventListener("change", function (e) {
-    var sel = e.target;
-    if (sel.tagName !== "SELECT" || !sel.closest(".gap") || !sel.form || sel.value === "") return;
-    if (blanks(sel.form).length || sel.form.querySelectorAll(".gap select").length !== 1) return;
-    sel.form.requestSubmit();
+    var el = e.target;
+    if (!el.form || el.value === "") return;
+    if (el.type === "radio" && el.closest(".options")) {
+      el.form.requestSubmit();
+      return;
+    }
+    if (el.tagName !== "SELECT" || !el.closest(".gap")) return;
+    if (blanks(el.form).length || el.form.querySelectorAll(".gap select").length !== 1) return;
+    el.form.requestSubmit();
   });
   document.body.addEventListener("htmx:afterSettle", function () {
     if (!checkedItem) return;
