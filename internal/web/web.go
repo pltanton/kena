@@ -72,6 +72,7 @@ func Handler(st *store.Store, publicURL string, opts ...Option) http.Handler {
 		panic(err)
 	}
 	files := http.StripPrefix("/static/", http.FileServerFS(static))
+	dark := darkManifest(static)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", h.index)
@@ -148,6 +149,10 @@ func Handler(st *store.Store, publicURL string, opts ...Option) http.Handler {
 			w.Header().Set("Content-Type", "font/woff2")
 		case strings.HasSuffix(r.URL.Path, ".webmanifest"):
 			w.Header().Set("Content-Type", "application/manifest+json")
+			if r.URL.Path == "/static/"+manifestPath && r.URL.Query().Get("scheme") == "dark" {
+				w.Write(dark)
+				return
+			}
 		}
 		files.ServeHTTP(w, r)
 	})

@@ -35,6 +35,22 @@
     var el = target();
     if (el) el.focus({preventScroll: true});
   }
+  // The policy goes back to auto, or a later tap on the input would not open the keyboard.
+  function showKeyboard(el) {
+    var vk = navigator.virtualKeyboard;
+    var ua = navigator.userActivation;
+    if (!vk || !ua || !ua.hasBeenActive || !el.matches('input[name="a"]:not([readonly])')) return;
+    el.setAttribute("virtualkeyboardpolicy", "manual");
+    vk.show();
+    setTimeout(function () { el.removeAttribute("virtualkeyboardpolicy"); }, 100);
+  }
+  main.addEventListener("click", function (e) {
+    if (e.target.closest("a, button, input, select, textarea, label, summary, [data-nav]")) return;
+    var el = card.querySelector('input[name="a"]:not([readonly])');
+    if (!el) return;
+    el.focus({preventScroll: true});
+    showKeyboard(el);
+  });
   function holdFocus(e) {
     if (e.target.closest("input:not([readonly]), textarea, select:not([disabled])")) return;
     e.preventDefault();
@@ -160,7 +176,10 @@
     if (e.detail.target !== card) return;
     var next = card.querySelector("button[data-next]");
     var el = window.kenaBlank(card) || (next && (typing ? keeper : next)) || card.querySelector(".done a");
-    if (el) el.focus({preventScroll: true});
+    if (el) {
+      el.focus({preventScroll: true});
+      showKeyboard(el);
+    }
     main.scrollTop = 0;
     var p = pending;
     sync();

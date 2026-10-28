@@ -2,7 +2,7 @@
 <html lang="{{lang}}" data-theme="{{.Theme}}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{block "title" .Data}}kena{{end}}</title>
 {{template "head_links" .}}
 </head>
@@ -106,7 +106,7 @@
 {{define "head_links"}}<link rel="icon" href="/static/brand/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/static/brand/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/static/brand/icon-180.png">
-<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="manifest" href="/static/manifest.webmanifest{{if eq .Theme "dark"}}?scheme=dark{{end}}">
 {{- if eq .Theme "light"}}
 <meta name="theme-color" content="#f4efe4">
 {{- else if eq .Theme "dark"}}

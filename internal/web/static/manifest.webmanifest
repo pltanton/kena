@@ -8,6 +8,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "launch_handler": {"client_mode": "navigate-existing"},
   "background_color": "#f4efe4",
   "theme_color": "#f4efe4",
   "categories": ["education"],

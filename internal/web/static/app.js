@@ -39,8 +39,20 @@
 
   var colors = {light: "#f4efe4", dark: "#181b20"};
   var cycle = {auto: "light", light: "dark", dark: "auto"};
+  var darkScheme = matchMedia("(prefers-color-scheme: dark)");
+  function syncManifest() {
+    var link = document.querySelector('link[rel="manifest"]');
+    var theme = document.documentElement.dataset.theme;
+    if (!link) return;
+    var dark = theme === "dark" || theme === "auto" && darkScheme.matches;
+    var href = "/static/manifest.webmanifest" + (dark ? "?scheme=dark" : "");
+    if (link.getAttribute("href") !== href) link.setAttribute("href", href);
+  }
+  syncManifest();
+  darkScheme.addEventListener("change", syncManifest);
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
+    syncManifest();
     document.querySelectorAll(".theme-switch button[name=theme]").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.value === theme));
     });
