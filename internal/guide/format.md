@@ -35,7 +35,7 @@ description: JSON format of tasks and of create_set / add_tasks arguments, hint 
   `answers[0]` and these, in a fixed shuffled order, instead of a text field;
   other `answers` still count. See `item-rules`, rule 12.
 - `kind` (optional): `gap` (default) or `choice` — a question card: `text` is
-  the question without `___`, one blank with the right option in `answers`
+  the question (a `___` in it is drawn as an empty gap), one blank with the right option in `answers`
   and 1–5 wrong ones in `choices`, no hint. See `item-rules`, rule 13.
 - `rule` (optional): the key of a deck rule this item practises (see Deck
   rules below). Shown with the explanation.
@@ -226,8 +226,7 @@ task index):
 - number of `___` differs from the number of blanks;
 - empty text, or a blank with no answers;
 - an empty line inside the text, or a text line starting with `>`, `@` or `=`;
-- a `choice` task with `___` in its text, not exactly one blank, no `choices`
-  or a hint; a text line starting with `[`;
+- a `choice` task with not exactly one blank, no `choices` or a hint; a text line starting with `[`;
 - more than 5 `choices`, an empty one, or one that equals an accepted answer
   or another choice (compared as the check compares); `~` in an answer, hint
   or choice;

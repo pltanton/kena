@@ -14,7 +14,7 @@ type BlankIn struct {
 }
 
 type TaskIn struct {
-	Kind        string    `json:"kind,omitempty" jsonschema:"gap (default): a sentence with ___ blanks; choice: a question card, text = the question without ___, one blank with answers (the right option) and choices (1-5 wrong options) and no hint"`
+	Kind        string    `json:"kind,omitempty" jsonschema:"gap (default): a sentence with ___ blanks; choice: a question card, text = the question (a ___ in it is drawn as an empty gap, never write ... for a gap), one blank with answers (the right option) and choices (1-5 wrong options) and no hint"`
 	Text        string    `json:"text" jsonschema:"sentence with one ___ (three underscores) per blank; may contain line breaks (\\n), e.g. one dialogue turn per line"`
 	Blanks      []BlankIn `json:"blanks" jsonschema:"one per ___, in order; answers = every accepted form, accents exact"`
 	Explanation string    `json:"explanation,omitempty" jsonschema:"optional; one short sentence for this item only, shown after a wrong attempt: what makes this form (stem, augment, irregular form, ending) and the cue that picks this tense or case. General grammar shared by many items goes into a deck rule instead"`

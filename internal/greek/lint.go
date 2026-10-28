@@ -255,9 +255,6 @@ func choiceIssues(blankField string, b Blank) []Issue {
 
 func questionIssues(t TaskInput) []Issue {
 	var issues []Issue
-	if strings.Contains(t.Text, Marker) {
-		issues = append(issues, Issue{Error, "text", fmt.Sprintf("a %s task is a question without %s; its options go in blanks[0]", ChoiceTask, Marker)})
-	}
 	if len(t.Blanks) != 1 {
 		return append(issues, Issue{Error, "blanks", fmt.Sprintf("a %s task has exactly one blank holding its options, got %d", ChoiceTask, len(t.Blanks))})
 	}

@@ -371,7 +371,7 @@
   }
 
   function newQuestionView(t, results, struck, retry) {
-    var q = {text: t.text, checked: false, options: null};
+    var q = {parts: t.text.split(MARKER), checked: false, options: null};
     if (!t.blanks.length) return q;
     var b = t.blanks[0];
     var given = results && results.length && !blankEmpty(results[0].given) ? trimSpace(results[0].given) : "";
@@ -584,7 +584,9 @@
     function taskBody(task) {
       var q = task.question;
       if (!q) return '<p class="sentence" lang="el">' + sentence(task) + "</p>";
-      var h = '<div class="question" lang="el"><p class="question-text">' + esc(q.text) + "</p>";
+      var h = '<div class="question" lang="el"><p class="question-text">' + q.parts.map(function (p, i) {
+        return (i ? '<span class="gap-mark" role="img" aria-label="' + esc(tf("task.blank", i)) + '"></span>' : "") + esc(p);
+      }).join("") + "</p>";
       var opts = q.options || [];
       if (q.checked) {
         h += '<ul class="options">';

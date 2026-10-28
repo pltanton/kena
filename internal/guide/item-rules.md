@@ -241,7 +241,7 @@ Good: `Χθες ___ στο σινεμά.` hint `πάω`, answers `πήγα`, cho
 ## 13. Question cards
 
 A task with `kind: "choice"` is a question card instead of a sentence: `text`
-is the question (no `___`), and its one blank holds the right option in
+is the question, and its one blank holds the right option in
 `answers` and 1–5 wrong ones in `choices`; no hint. The learner picks from a
 list under the question. Use it for what a gap can't ask: naming a tense or a
 case, picking the right translation, which form fits a described situation.
@@ -255,6 +255,11 @@ A deck can mix question cards and gap tasks.
 
 Good: `Ποιος χρόνος είναι το «έγραψα»;` answers `Αόριστος`, choices
 `Ενεστώτας`, `Παρατατικός`.
+
+A question may show a sentence with a gap: write the gap as `___` (never `...`
+or `…`); it is drawn as an empty line and stays empty after the answer.
+`Χθες ___ στο σινεμά. Ποιος τύπος ταιριάζει;` answers `πήγα`, choices
+`πηγαίνω`, `θα πάω`.
 
 ## 14. Public rules: grammar shared by every deck
 

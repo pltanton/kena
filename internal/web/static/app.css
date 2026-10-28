@@ -1281,6 +1281,15 @@ button.danger:hover {
   white-space: pre-line;
 }
 
+.gap-mark {
+  display: inline-block;
+  width: 4.5em;
+  height: 1em;
+  margin: 0 0.2em;
+  vertical-align: baseline;
+  border-bottom: 2px solid var(--gold-line);
+}
+
 .options {
   display: flex;
   flex-direction: column;

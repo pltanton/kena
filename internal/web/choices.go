@@ -20,13 +20,13 @@ type choiceOption struct {
 }
 
 type questionView struct {
-	Text    string
+	Parts   []string
 	Checked bool
 	Options []choiceOption
 }
 
 func newQuestionView(t store.Task, results []greek.BlankResult, struck map[int][]string, retry bool) *questionView {
-	q := &questionView{Text: t.Text}
+	q := &questionView{Parts: strings.Split(t.Text, greek.Marker)}
 	if len(t.Blanks) == 0 {
 		return q
 	}

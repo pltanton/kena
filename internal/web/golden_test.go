@@ -46,7 +46,7 @@ var (
 		{Text: "Αυτοί ___ αύριο.", Blanks: []greek.Blank{{Answers: []string{"θα έρθουν"}, Hint: "έρχομαι"}}, Rule: "ellenika/mellon"},
 		{Text: "Εμείς ___ τώρα.", Blanks: []greek.Blank{{Answers: []string{"τρώμε"}}}, Rule: "gen"},
 		{Text: "Η Άννα ___ σήμερα.", Blanks: []greek.Blank{{Answers: []string{"διαβάζει"}, Choices: []string{"διάβαζε", "θα διαβάσει & <ξανά>"}}}},
-		{Kind: greek.ChoiceTask, Text: "Ποιος χρόνος είναι το «έγραψα»;", Blanks: []greek.Blank{{Answers: []string{"Αόριστος"}, Choices: []string{"Ενεστώτας", "Παρατατικός & <x>"}}}, Explanation: "Ολοκληρωμένη πράξη.", Rule: "pres"},
+		{Kind: greek.ChoiceTask, Text: "Χθες ___ ένα γράμμα & <x>. Ποιος χρόνος είναι το «έγραψα»;", Blanks: []greek.Blank{{Answers: []string{"Αόριστος"}, Choices: []string{"Ενεστώτας", "Παρατατικός & <x>"}}}, Explanation: "Ολοκληρωμένη πράξη.", Rule: "pres"},
 	}
 	goldenRules = []greek.Rule{
 		{Key: "pres", Title: "Ενεστώτας", Body: "Κλίση:\n\n| | ενικός |\n|---|---|\n| β΄ | γράφεις |"},

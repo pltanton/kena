@@ -59,14 +59,13 @@ func TestQuestionLint(t *testing.T) {
 		}
 		return strings.Join(out, "\n")
 	}
-	if e := errs(q("Ποιος χρόνος είναι το «έγραψα»;", ok)); e != "" {
+	if e := errs(q("Χθες ___ στο σινεμά. Ποιος χρόνος ταιριάζει;", ok)); e != "" {
 		t.Fatalf("valid question: %s", e)
 	}
 	cases := []struct {
 		task TaskInput
 		want string
 	}{
-		{q("Ποιος χρόνος είναι το ___;", ok), "without ___"},
 		{q("Ποιος χρόνος;"), "exactly one blank"},
 		{q("Ποιος χρόνος;", Blank{Answers: []string{"Αόριστος"}}), "1 to 5 wrong options"},
 		{q("Ποιος χρόνος;", Blank{Answers: []string{"Αόριστος"}, Hint: "x", Choices: []string{"Ενεστώτας"}}), "no hint"},

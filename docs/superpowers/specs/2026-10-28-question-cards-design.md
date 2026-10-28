@@ -13,7 +13,7 @@ starting with a question and a list of options ("Which tense is «έγραψα»
 - `tasks.kind text NOT NULL DEFAULT 'gap' CHECK (kind IN ('gap', 'choice'))`
   (migration 013). In Go `greek.TaskInput.Kind` and `store.Task.Kind` are `""`
   for gap and `"choice"` (`greek.ChoiceTask`); the store maps `""` ↔ `'gap'`.
-- A choice task is a question card: `text` is the question without `___`, and
+- A choice task is a question card: `text` is the question, and
   its single blank holds the right option(s) in `answers` and 1–5 wrong ones in
   `choices`; no hint. Checking, attempts, partial checks, retries, struck
   options (`x1`), `/sync` and the offline engine are the choice-blank machinery
@@ -23,7 +23,7 @@ starting with a question and a list of options ("Which tense is «έγραψα»
 
 ## Lint
 
-Unknown kind; `___` in a question; not exactly one blank; no choices; a hint.
+Unknown kind; not exactly one blank; no choices; a hint.
 Text lines may no longer start with `[` (the editor's option marker).
 
 ## Editor
@@ -38,13 +38,15 @@ Text lines may no longer start with `[` (the editor's option marker).
 ```
 
 Option lines follow the question; `[x]` (or `[X]`) right, `[ ]` wrong. Errors:
-an option without a question, text after options, `{blanks}` in a question,
+an option without a question, text after options, `{blanks}` in a question
+(a plain `___` is fine),
 an empty option. `Format` and `Parse` round-trip; the fuzzer covers questions.
 
 ## Page
 
 `task_body` renders a gap task as before (`<p class="sentence">`) and a
-question as `<div class="question">`: the question, then full-width options
+question as `<div class="question">`: the question (each `___` drawn as an
+empty `gap-mark` line that stays empty after the answer), then full-width options
 (radio `c1` inside a label, visually hidden). A pick submits at once; a wrong
 pick is struck and disabled and carried as `x1`; after the answer or Give up a
 list shows the right option green and a wrong pick struck. Cards, the

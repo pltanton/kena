@@ -25,7 +25,7 @@ func TestQuestionOverMCP(t *testing.T) {
 	cs := e.connect(t, "alice")
 	q := map[string]any{"kind": "choice", "text": "Ποιος χρόνος είναι το «έγραψα»;", "blanks": []map[string]any{{"answers": []string{"Αόριστος"}, "choices": []string{"Ενεστώτας", "Παρατατικός"}}}}
 	bad := map[string]any{"kind": "choice", "text": "Ποιος χρόνος είναι το ___;", "blanks": []map[string]any{{"answers": []string{"Αόριστος"}}}}
-	fails(t, cs, "create_set", map[string]any{"title": "Q", "topic": "t", "level": "A2", "instructions": "Διαλέξτε.", "tasks": []any{bad}}, "task[0].text", "task[0].blanks[0].choices")
+	fails(t, cs, "create_set", map[string]any{"title": "Q", "topic": "t", "level": "A2", "instructions": "Διαλέξτε.", "tasks": []any{bad}}, "task[0].blanks[0].choices")
 	res := ok[WriteResult](t, cs, "create_set", map[string]any{"title": "Q", "topic": "t", "level": "A2", "instructions": "Διαλέξτε.",
 		"tasks": []any{q, task("Χθες ___ γράμμα.", "έγραψα")}})
 	d := ok[SetDetail](t, cs, "get_set", map[string]any{"set": res.Slug})
