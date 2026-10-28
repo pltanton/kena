@@ -47,7 +47,9 @@ an empty option. `Format` and `Parse` round-trip; the fuzzer covers questions.
 `task_body` renders a gap task as before (`<p class="sentence">`) and a
 question as `<div class="question">`: the question (each `___` drawn as an
 empty `gap-mark` line that stays empty after the answer), then full-width options
-(radio `c1` inside a label, visually hidden). A pick submits at once; a wrong
+(radio `c1` inside a label, visually hidden). A pick submits at once, so with
+JavaScript the Check button is hidden (`by-pick`; also on a task whose only
+blank is a choice blank) and only Give up stays; a wrong
 pick is struck and disabled and carried as `x1`; after the answer or Give up a
 list shows the right option green and a wrong pick struck. Cards, the
 worksheet, `/mistakes` and the offline engine share the markup.

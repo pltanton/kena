@@ -1583,6 +1583,14 @@ textarea.deck-source {
   flex: 1;
 }
 
+.js .check-actions .by-pick {
+  display: none;
+}
+
+.js .check-actions:has(.by-pick) {
+  justify-content: flex-end;
+}
+
 .items .check-actions button:first-child {
   flex: 0 1 auto;
 }

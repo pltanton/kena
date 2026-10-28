@@ -505,6 +505,7 @@
       v.notes = {explanation: t.explanation, rule: ruleFor(deck, t.rule)};
       v.nextURL = nextURL(deck.slug, t.id, p);
     }
+    v.task.picks = t.kind === "choice" || (t.blanks.length === 1 && !!t.blanks[0].options);
     return v;
   }
 
@@ -655,7 +656,7 @@
       if (v.nudge) h = '<p class="nudge" role="status">' + esc(t(v.nudge)) + "</p>";
       else if (v.soFar) h = '<p class="visually-hidden" role="status">' + esc(t("play.right_so_far")) + "</p>";
       else if (v.retry) h = '<p class="visually-hidden" role="status">' + esc(t("play.not_quite")) + "</p>";
-      return h + '\n<div class="check-actions"><button type="submit">' + esc(t("play.check")) + '</button><button type="submit" name="giveup" value="1" class="quiet">' + esc(t("play.give_up")) + "</button></div>";
+      return h + '\n<div class="check-actions"><button type="submit"' + (v.task.picks ? ' class="by-pick"' : "") + ">" + esc(t("play.check")) + '</button><button type="submit" name="giveup" value="1" class="quiet">' + esc(t("play.give_up")) + "</button></div>";
     }
 
     function notesBody(n) {

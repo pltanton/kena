@@ -1,4 +1,5 @@
 (function () {
+  document.documentElement.classList.add("js");
   var strings = document.body.dataset;
   var flash = document.getElementById("flash");
   var toast = document.getElementById("toast");

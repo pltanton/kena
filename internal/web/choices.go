@@ -123,3 +123,7 @@ func markOptions(opts []string, picked string, struck []string, wrong bool) []ch
 	}
 	return out
 }
+
+func answeredByPick(t store.Task) bool {
+	return t.Kind == greek.ChoiceTask || len(t.Blanks) == 1 && len(t.Blanks[0].Choices) > 0
+}

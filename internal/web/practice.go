@@ -165,6 +165,7 @@ type taskView struct {
 	Autofocus bool
 	Segments  []segment
 	Question  *questionView
+	Picks     bool
 }
 
 func newTaskView(t store.Task, results []greek.BlankResult) taskView {
@@ -360,6 +361,7 @@ func newCardViewStruck(set store.Set, t store.Task, p params, results []greek.Bl
 		v.Notes = notes{Explanation: t.Explanation, Rule: ruleFor(set, t.Rule)}
 		v.NextURL, v.ItemURL = nextURL(set.Slug, t.ID, p), itemURL(t.ID, p)
 	}
+	v.Task.Picks = answeredByPick(t)
 	return v
 }
 

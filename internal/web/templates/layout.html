@@ -63,7 +63,7 @@
 {{- end}}{{end}}
 
 {{define "check_actions"}}{{with .Nudge}}<p class="nudge" role="status">{{t .}}</p>{{else}}{{if .SoFar}}<p class="visually-hidden" role="status">{{t "play.right_so_far"}}</p>{{else if .Retry}}<p class="visually-hidden" role="status">{{t "play.not_quite"}}</p>{{end}}{{end}}
-<div class="check-actions"><button type="submit">{{t "play.check"}}</button><button type="submit" name="giveup" value="1" class="quiet">{{t "play.give_up"}}</button></div>{{end}}
+<div class="check-actions"><button type="submit"{{if .Task.Picks}} class="by-pick"{{end}}>{{t "play.check"}}</button><button type="submit" name="giveup" value="1" class="quiet">{{t "play.give_up"}}</button></div>{{end}}
 
 {{define "why"}}{{if or .Explanation .Rule}}<details class="why"><summary>{{t "play.why"}}</summary>{{template "notes_body" .}}</details>{{end}}{{end}}
 
