@@ -32,6 +32,15 @@ type loginView struct {
 	Username string
 	Next     string
 	Error    string
+	SSO      string
+	SSOURL   string
+	PassOpen bool
+}
+
+func (h *handler) loginView(next, username, msg string) loginView {
+	v := loginView{Username: username, Next: next, Error: msg, SSO: h.ssoName(), SSOURL: ssoURL(next)}
+	v.PassOpen = v.SSO == "" || username != ""
+	return v
 }
 
 func (h *handler) loginPage(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +49,7 @@ func (h *handler) loginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
 	}
-	h.page(w, r, http.StatusOK, "login", loginView{Next: next})
+	h.page(w, r, http.StatusOK, "login", h.loginView(next, "", ""))
 }
 
 func (h *handler) login(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +59,7 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 	username, next := strings.TrimSpace(r.PostForm.Get("username")), safeNext(r.PostForm.Get("next"))
 	u, err := session.Login(w, r, h.st, username, r.PostForm.Get("passphrase"))
 	if errors.Is(err, store.ErrNotFound) {
-		h.page(w, r, http.StatusUnauthorized, "login", loginView{Username: username, Next: next, Error: tr(r, "login.wrong")})
+		h.page(w, r, http.StatusUnauthorized, "login", h.loginView(next, username, tr(r, "login.wrong")))
 		return
 	}
 	if err != nil {

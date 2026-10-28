@@ -1203,6 +1203,26 @@ button.danger:hover {
   color: var(--muted);
 }
 
+.button.sso {
+  display: flex;
+  width: 100%;
+}
+
+.login-pass {
+  margin-top: 1.25rem;
+}
+
+.login-pass > summary {
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.login-pass[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
 .picker {
   position: fixed;
   z-index: 70;

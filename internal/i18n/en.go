@@ -171,12 +171,17 @@ var en = catalog{
 
 		"lang.current": "Language: %s",
 
-		"login.lede":       "Log in to keep your progress on every device. Your username and passphrase come from whoever runs this kena.",
-		"login.passphrase": "Passphrase",
-		"login.submit":     "Log in",
-		"login.title":      "Log in",
-		"login.username":   "Username",
-		"login.wrong":      "Wrong username or passphrase.",
+		"login.lede":            "Log in to keep your progress on every device. Your username and passphrase come from whoever runs this kena.",
+		"login.passphrase":      "Passphrase",
+		"login.sso":             "Log in with %s",
+		"login.with_passphrase": "Log in with a passphrase",
+		"login.sso_failed":      "Logging in with %s failed. Try again, or log in with your passphrase.",
+		"login.sso_no_account":  "There is no kena account “%s” yet. Ask an admin to create one with this name, then log in again.",
+		"login.sso_linked":      "The kena account “%s” is linked to another sign-in. Ask an admin.",
+		"login.submit":          "Log in",
+		"login.title":           "Log in",
+		"login.username":        "Username",
+		"login.wrong":           "Wrong username or passphrase.",
 
 		"mistakes.ask":      "Ask your agent",
 		"mistakes.ask_lede": `It reads these mistakes, explains your weak spots and builds a practice deck. No agent yet? See <a href="/connect">Connect</a>.`,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -604,4 +605,29 @@ func TestTokenReviewCases(t *testing.T) {
 
 	refresh := e.tokens(t, exchangeForm(q.Get("code"), clientA, redirect, verifier))["refresh_token"].(string)
 	expectTokenError(t, e, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientB}}, "invalid_grant")
+}
+
+func TestAuthorizeOffersSSO(t *testing.T) {
+	e := newEnv(t)
+	redirect := "https://claude.ai/api/mcp/auth_callback"
+	clientID := e.register(t, redirect)
+	_, body := e.get(t, "/oauth/authorize", authParams(clientID, redirect, "v"))
+	if strings.Contains(body, "/login/sso") {
+		t.Fatalf("SSO offered while off:\n%s", body)
+	}
+	e.srv.SSOName = "Home ID"
+	_, body = e.get(t, "/oauth/authorize", authParams(clientID, redirect, "v"))
+	i := strings.Index(body, `href="/login/sso?next=`)
+	if i < 0 || !strings.Contains(body, "Log in with Home ID") || !strings.Contains(body, `<details class="login-pass">`) {
+		t.Fatalf("no SSO button:\n%s", body)
+	}
+	href := html.UnescapeString(body[i+len(`href="`) : i+strings.Index(body[i:], `">`)])
+	u, err := url.Parse(href)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := url.Parse(u.Query().Get("next"))
+	if err != nil || next.Path != "/oauth/authorize" || next.Query().Get("client_id") != clientID || next.Query().Get("redirect_uri") != redirect {
+		t.Fatalf("next = %q", u.Query().Get("next"))
+	}
 }

@@ -43,6 +43,7 @@ type handler struct {
 	st        *store.Store
 	publicURL string
 	tmpl      map[i18n.Lang]templates
+	sso       *sso
 }
 
 var pageNames = []string{"index", "browse", "set", "404", "login", "account", "mistakes", "edit", "delete", "connect", "reset", "qr_login", "play", "list", "admin", "admin_user", "admin_confirm", "rules", "offline", "public_rules", "public_rule"}
@@ -57,8 +58,11 @@ func parseTemplates(l i18n.Lang) templates {
 	return ts
 }
 
-func Handler(st *store.Store, publicURL string) http.Handler {
+func Handler(st *store.Store, publicURL string, opts ...Option) http.Handler {
 	h := &handler{st: st, publicURL: publicURL, tmpl: map[i18n.Lang]templates{}}
+	for _, o := range opts {
+		o(h)
+	}
 	for _, l := range i18n.Langs {
 		h.tmpl[l] = parseTemplates(l)
 	}
@@ -106,6 +110,8 @@ func Handler(st *store.Store, publicURL string) http.Handler {
 	mux.HandleFunc("GET /connect", h.connect)
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("POST /login", h.login)
+	mux.HandleFunc("GET "+ssoPath, h.ssoStart)
+	mux.HandleFunc("GET "+ssoCallback, h.ssoCallback)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /theme", h.setPref(themeCookie, "theme", validTheme))
 	mux.HandleFunc("POST /lang", h.setPref(i18n.CookieName, "lang", func(s string) bool { _, ok := i18n.Parse(s); return ok }))

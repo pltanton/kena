@@ -2,6 +2,11 @@
 {{define "main"}}<h1>{{t "login.title"}}</h1>
 <p class="muted">{{t "login.lede"}}</p>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+{{- if .SSO}}
+<p><a class="button sso" href="{{.SSOURL}}">{{tf "login.sso" .SSO}}</a></p>
+<details class="login-pass"{{if .PassOpen}} open{{end}}>
+<summary>{{t "login.with_passphrase"}}</summary>
+{{- end}}
 <form class="card stack" method="post" action="/login">
 <input type="hidden" name="next" value="{{.Next}}">
 <label for="username">{{t "login.username"}}</label>
@@ -10,4 +15,7 @@
 <div class="pass"><input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required{{if .Username}} autofocus{{end}}><button type="button" class="reveal" aria-controls="passphrase" aria-pressed="false" aria-label="{{t "pass.show_label"}}" hidden>{{t "pass.show"}}</button></div>
 <button type="submit">{{t "login.submit"}}</button>
 </form>
+{{- if .SSO}}
+</details>
+{{- end}}
 {{end}}

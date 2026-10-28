@@ -27,6 +27,33 @@ in {
       description = "Address kena listens on (KENA_LISTEN).";
     };
 
+    oidc = {
+      issuer = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "https://id.example.org/oauth2/openid/kena";
+        description = "OIDC issuer for single sign-on (KENA_OIDC_ISSUER); null keeps SSO off. The client secret comes as KENA_OIDC_CLIENT_SECRET through environmentFiles.";
+      };
+
+      clientId = lib.mkOption {
+        type = lib.types.str;
+        default = "kena";
+        description = "OIDC client id (KENA_OIDC_CLIENT_ID).";
+      };
+
+      name = lib.mkOption {
+        type = lib.types.str;
+        default = "SSO";
+        description = "Shown on the login button as \"Log in with <name>\" (KENA_OIDC_NAME).";
+      };
+    };
+
+    environmentFiles = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [];
+      description = "systemd EnvironmentFile entries, e.g. one holding KENA_OIDC_CLIENT_SECRET.";
+    };
+
     database = {
       createLocally = lib.mkOption {
         type = lib.types.bool;
@@ -66,14 +93,21 @@ in {
       after = ["network.target"] ++ lib.optional cfg.database.createLocally "postgresql.target";
       requires = lib.optional cfg.database.createLocally "postgresql.target";
 
-      environment = {
-        KENA_DATABASE_URL = cfg.database.url;
-        KENA_LISTEN = cfg.listen;
-        KENA_PUBLIC_URL = cfg.publicUrl;
-      };
+      environment =
+        {
+          KENA_DATABASE_URL = cfg.database.url;
+          KENA_LISTEN = cfg.listen;
+          KENA_PUBLIC_URL = cfg.publicUrl;
+        }
+        // lib.optionalAttrs (cfg.oidc.issuer != null) {
+          KENA_OIDC_ISSUER = cfg.oidc.issuer;
+          KENA_OIDC_CLIENT_ID = cfg.oidc.clientId;
+          KENA_OIDC_NAME = cfg.oidc.name;
+        };
 
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/kena serve";
+        EnvironmentFile = cfg.environmentFiles;
         User = "kena";
         Group = "kena";
         Restart = "on-failure";

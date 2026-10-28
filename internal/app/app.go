@@ -24,6 +24,9 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 		userAgent = "kena/" + cfg.Version
 	}
 	oauthSrv := &oauth.Server{Store: st, PublicURL: cfg.PublicURL, UserAgent: userAgent}
+	if cfg.OIDC.Issuer != "" {
+		oauthSrv.SSOName = cfg.OIDC.Name
+	}
 
 	mux := http.NewServeMux()
 	oauthSrv.Register(mux)
@@ -34,7 +37,7 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	mux.Handle("/mcp", mcpAuth(mcpserver.Handler(mcpserver.New(st, cfg.PublicURL))))
 	mux.Handle("/mcp/", http.RedirectHandler("/mcp", http.StatusPermanentRedirect))
 
-	mux.Handle("/", web.Handler(st, cfg.PublicURL))
+	mux.Handle("/", web.Handler(st, cfg.PublicURL, web.WithSSO(cfg.OIDC, nil)))
 
 	return http.MaxBytesHandler(withLogging(mux), maxBodyBytes)
 }

@@ -60,6 +60,7 @@ type Server struct {
 	PublicURL string
 	HTTP      *http.Client
 	UserAgent string
+	SSOName   string
 }
 
 func (s *Server) ResourceURL() string {
@@ -232,6 +233,8 @@ type authorizePage struct {
 	Params       []param
 	User         string
 	Username     string
+	SSOName      string
+	SSOURL       string
 }
 
 func (s *Server) lookupClient(ctx context.Context, clientID string) (store.OAuthClient, error) {
@@ -309,10 +312,16 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		page.ClientHost = hostOf(client.ClientID)
 	}
 	page.RedirectHost = hostOf(redirectURI)
+	back := url.Values{}
 	for _, name := range authorizeParams {
 		if v := get(name); v != "" {
 			page.Params = append(page.Params, param{name, v})
+			back.Set(name, v)
 		}
+	}
+	if s.SSOName != "" {
+		page.SSOName = s.SSOName
+		page.SSOURL = "/login/sso?" + url.Values{"next": {"/oauth/authorize?" + back.Encode()}}.Encode()
 	}
 
 	user, loggedIn, err := session.Current(r, s.Store)

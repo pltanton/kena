@@ -97,6 +97,16 @@ go run ./cmd/kena serve
 | `KENA_DATABASE_URL` | required         | pgx connection string                                  |
 | `KENA_PUBLIC_URL`   | required (serve) | external base URL; OAuth metadata and set links use it |
 | `KENA_LISTEN`       | `127.0.0.1:8080` |                                                        |
+| `KENA_OIDC_ISSUER`  | off              | OIDC issuer for single sign-on                         |
+| `KENA_OIDC_CLIENT_ID` | with the issuer | OIDC client id                                       |
+| `KENA_OIDC_CLIENT_SECRET` |            | OIDC client secret                                     |
+| `KENA_OIDC_NAME`    | `SSO`            | login button label: "Log in with NAME"                 |
+
+With an issuer set, `/login` and the OAuth connect page offer "Log in with
+NAME" (redirect URI `KENA_PUBLIC_URL/login/sso/callback`, code flow with PKCE).
+SSO links to an existing kena account whose username equals the IdP's
+`preferred_username` (before any `@`) and then follows the token's `sub`; it
+never creates accounts. Passphrase login stays as the fallback.
 
 Migrations run on `serve`, `migrate`, `user` and `token create`.
 

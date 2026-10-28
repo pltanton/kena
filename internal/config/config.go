@@ -13,6 +13,33 @@ type Config struct {
 	Listen      string
 	PublicURL   string
 	Version     string
+	OIDC        OIDC
+}
+
+type OIDC struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+	Name         string
+}
+
+func oidcFromEnv() (OIDC, error) {
+	o := OIDC{
+		Issuer:       strings.TrimSuffix(os.Getenv("KENA_OIDC_ISSUER"), "/"),
+		ClientID:     os.Getenv("KENA_OIDC_CLIENT_ID"),
+		ClientSecret: os.Getenv("KENA_OIDC_CLIENT_SECRET"),
+		Name:         cmp.Or(os.Getenv("KENA_OIDC_NAME"), "SSO"),
+	}
+	if o.Issuer == "" {
+		return OIDC{}, nil
+	}
+	if u, err := url.Parse(o.Issuer); err != nil || u.Scheme != "https" && u.Scheme != "http" || u.Host == "" {
+		return OIDC{}, fmt.Errorf("KENA_OIDC_ISSUER: must be an http(s) URL, got %q", o.Issuer)
+	}
+	if o.ClientID == "" {
+		return OIDC{}, fmt.Errorf("KENA_OIDC_CLIENT_ID is required with KENA_OIDC_ISSUER")
+	}
+	return o, nil
 }
 
 func validatePublicURL(raw string) error {
@@ -50,9 +77,14 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 
+	oidc, err := oidcFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		DatabaseURL: databaseURL,
 		Listen:      cmp.Or(os.Getenv("KENA_LISTEN"), "127.0.0.1:8080"),
 		PublicURL:   publicURL,
+		OIDC:        oidc,
 	}, nil
 }

@@ -38,3 +38,25 @@ func TestFromEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestFromEnvOIDC(t *testing.T) {
+	t.Setenv("KENA_DATABASE_URL", "postgres://x")
+	t.Setenv("KENA_PUBLIC_URL", "https://kena.example.org")
+	cfg, err := FromEnv()
+	if err != nil || cfg.OIDC.Issuer != "" {
+		t.Fatalf("no OIDC: %+v %v", cfg.OIDC, err)
+	}
+	t.Setenv("KENA_OIDC_ISSUER", "https://id.example.org/oauth2/openid/kena/")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "KENA_OIDC_CLIENT_ID") {
+		t.Fatalf("missing client id: %v", err)
+	}
+	t.Setenv("KENA_OIDC_CLIENT_ID", "kena")
+	cfg, err = FromEnv()
+	if err != nil || cfg.OIDC.Issuer != "https://id.example.org/oauth2/openid/kena" || cfg.OIDC.Name != "SSO" {
+		t.Fatalf("OIDC = %+v %v", cfg.OIDC, err)
+	}
+	t.Setenv("KENA_OIDC_ISSUER", "id.example.org")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "KENA_OIDC_ISSUER") {
+		t.Fatalf("bad issuer: %v", err)
+	}
+}

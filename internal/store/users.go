@@ -167,3 +167,26 @@ func (s *Store) UserByToken(ctx context.Context, secret string) (User, error) {
 	}
 	return u, nil
 }
+
+var ErrLinkedElsewhere = fmt.Errorf("the account is linked to another single sign-on identity: %w", ErrConflict)
+
+func (s *Store) UserBySubject(ctx context.Context, subject string) (User, error) {
+	return s.userQuery(ctx, "getting user by subject", `SELECT `+userColumns+` FROM users u WHERE u.oidc_subject = $1`, subject)
+}
+
+func (s *Store) LinkSubject(ctx context.Context, username, subject string) (User, error) {
+	var linked *string
+	err := s.pool.QueryRow(ctx, `SELECT oidc_subject FROM users WHERE username = $1`, username).Scan(&linked)
+	if err != nil {
+		return User{}, noRows(err, "getting user")
+	}
+	if linked != nil && *linked != subject {
+		return User{}, ErrLinkedElsewhere
+	}
+	u, err := s.userQuery(ctx, "linking subject", `
+		UPDATE users u SET oidc_subject = $2 WHERE u.username = $1 RETURNING `+userColumns, username, subject)
+	if isUniqueViolation(err) {
+		return User{}, ErrLinkedElsewhere
+	}
+	return u, err
+}
