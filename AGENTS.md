@@ -19,7 +19,8 @@ server, one Go binary, Postgres. User overview in README.md. Design:
 `docs/superpowers/specs/2026-10-18-public-rules-design.md`, choice blanks:
 `docs/superpowers/specs/2026-10-28-choice-blanks-design.md`, task kinds and question cards:
 `docs/superpowers/specs/2026-10-28-question-cards-design.md`, single sign-on:
-`docs/superpowers/specs/2026-10-28-sso-design.md`; client/OAuth research:
+`docs/superpowers/specs/2026-10-28-sso-design.md`, success sound:
+`docs/superpowers/specs/2026-10-28-success-sound-design.md`; client/OAuth research:
 `docs/research.md`.
 
 ## Commands
