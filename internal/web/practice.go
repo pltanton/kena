@@ -266,6 +266,13 @@ type progressBar struct {
 	Nav          *navView
 }
 
+func newBar(i, n, deck int, nav *navView, p params) progressBar {
+	if p.Filter == "unsolved" && deck > n {
+		i, n = i+deck-n, deck
+	}
+	return progressBar{Index: i, Total: n, Nav: nav}
+}
+
 func (b progressBar) Pct() int {
 	if b.Total == 0 {
 		return 0
@@ -627,17 +634,17 @@ type playPage struct {
 func freshCard(d setData, order []store.Task, t store.Task, i, n int, p params) *cardView {
 	p.I, p.N = i, n
 	v := newCardView(d.set, t, p, nil, false, false)
-	v.Bar = progressBar{Index: i, Total: n, Nav: newNav(d.set.Slug, t.ID, prevInOrder(order, p.Filter, d.last, t.ID), p)}
+	v.Bar = newBar(i, n, len(d.tasks), newNav(d.set.Slug, t.ID, prevInOrder(order, p.Filter, d.last, t.ID), p), p)
 	return v
 }
 
-func doneBar(slug string, todo []store.Task, p params, n int) progressBar {
+func doneBar(slug string, todo []store.Task, p params, n, deck int) progressBar {
 	p.N = n
 	var prev int64
 	if len(todo) > 0 {
 		prev = todo[len(todo)-1].ID
 	}
-	return progressBar{Index: n, Total: n, Nav: newNav(slug, 0, prev, p)}
+	return newBar(n, n, deck, newNav(slug, 0, prev, p), p)
 }
 
 func parseInt(what, s string) (int64, error) {
@@ -720,7 +727,7 @@ func newPlayPage(r *http.Request, d setData, p params, q url.Values) (playPage, 
 	if data.Card == nil && data.Done == nil {
 		if len(rest) == 0 {
 			data.Done = newDone(r, set.Slug, false, pr)
-			data.Bar = doneBar(set.Slug, todo, p, len(todo))
+			data.Bar = doneBar(set.Slug, todo, p, len(todo), len(d.tasks))
 		} else {
 			data.Card = freshCard(d, order, rest[0], indexOf(todo, rest[0].ID)+1, len(todo), p).inPage()
 		}
@@ -756,7 +763,7 @@ func (h *handler) next(w http.ResponseWriter, r *http.Request) {
 	todo := filtered(order, p.Filter, d.last)
 	if len(rest) == 0 {
 		done := newDone(r, d.set.Slug, false, progressOf(d.tasks, d.last))
-		bar := doneBar(d.set.Slug, todo, p, cmp.Or(p.N, len(todo)))
+		bar := doneBar(d.set.Slug, todo, p, cmp.Or(p.N, len(todo)), len(d.tasks))
 		done.Bar = &bar
 		h.fragment(w, r, "done", done)
 		return
@@ -776,7 +783,7 @@ func playState(d setData, order []store.Task, p params, id int64, n int) (*cardV
 	p.I, p.N = positionIn(order, p.Filter, d.last, id, n), n
 	la, tried := d.attempts[id]
 	v := lastView(d.set, order[pos], p, la, tried, la.Correct || la.GaveUp)
-	v.Bar = progressBar{Index: p.I, Total: n, Nav: newNav(d.set.Slug, id, prevInOrder(order, p.Filter, d.last, id), p)}
+	v.Bar = newBar(p.I, n, len(d.tasks), newNav(d.set.Slug, id, prevInOrder(order, p.Filter, d.last, id), p), p)
 	return v, nil
 }
 
@@ -888,7 +895,7 @@ func (h *handler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v.Streak = p.Streak
-	v.Bar = progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)}
+	v.Bar = newBar(p.I, p.N, set.TaskCount, newNav(set.Slug, task.ID, 0, p), p)
 	h.fragment(w, r, "card", v)
 }
 
@@ -906,7 +913,7 @@ func (h *handler) partial(w http.ResponseWriter, r *http.Request, set store.Set,
 			h.fragment(w, r, "list_item", v)
 			return
 		}
-		v.Bar = progressBar{Index: p.I, Total: p.N, Nav: newNav(set.Slug, task.ID, 0, p)}
+		v.Bar = newBar(p.I, p.N, set.TaskCount, newNav(set.Slug, task.ID, 0, p), p)
 		h.fragment(w, r, "card", v)
 		return
 	}

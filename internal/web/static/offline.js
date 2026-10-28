@@ -534,20 +534,28 @@
     return {loggedIn: deck.loggedIn, empty: empty, progress: pr, againURL: path + "/play", mistakesURL: path + "/play?filter=mistakes", deckURL: path, inPage: false, bar: null};
   }
 
+  function newBar(i, n, deck, nav, p) {
+    if (p.filter === "unsolved" && deck > n) {
+      i += deck - n;
+      n = deck;
+    }
+    return {index: i, total: n, nav: nav};
+  }
+
   function freshCard(deck, last, order, t, i, n, p) {
     p = copy(p);
     p.i = i;
     p.n = n;
     var v = newCardView(deck, t, p, null, false, false);
-    v.bar = {index: i, total: n, nav: newNav(deck.slug, t.id, prevInOrder(order, p.filter, last, t.id), p)};
+    v.bar = newBar(i, n, deck.tasks.length, newNav(deck.slug, t.id, prevInOrder(order, p.filter, last, t.id), p), p);
     return v;
   }
 
-  function doneBar(slug, todo, p, n) {
+  function doneBar(slug, todo, p, n, deck) {
     p = copy(p);
     p.n = n;
     var prev = todo.length ? todo[todo.length - 1].id : 0;
-    return {index: n, total: n, nav: newNav(slug, 0, prev, p)};
+    return newBar(n, n, deck, newNav(slug, 0, prev, p), p);
   }
 
   function playState(deck, state, last, order, p, id, n) {
@@ -558,7 +566,7 @@
     p.n = n;
     var la = has(state, id) ? state[id] : null;
     var v = lastView(deck, order[pos], p, la, !!la && (la.correct || la.gaveUp));
-    v.bar = {index: p.i, total: n, nav: newNav(deck.slug, id, prevInOrder(order, p.filter, last, id), p)};
+    v.bar = newBar(p.i, n, deck.tasks.length, newNav(deck.slug, id, prevInOrder(order, p.filter, last, id), p), p);
     return v;
   }
 
@@ -773,7 +781,7 @@
       var todo = filtered(order, p.filter, last);
       if (!rest.length) {
         var d = newDone(deck, false, progressOf(tasks, last));
-        d.bar = doneBar(deck.slug, todo, p, p.n || todo.length);
+        d.bar = doneBar(deck.slug, todo, p, p.n || todo.length, tasks.length);
         return render.done(d);
       }
       var i = p.n - rest.length + 1, n = p.n;
@@ -818,7 +826,7 @@
           p.tries++;
         }
         var pv = newCardView(deck, task, p, res.results, false, false, struck);
-        pv.bar = {index: p.i, total: p.n, nav: newNav(deck.slug, id, 0, p)};
+        pv.bar = newBar(p.i, p.n, tasks.length, newNav(deck.slug, id, 0, p), p);
         return {html: render.card(pv), attempt: null};
       }
       var giveUp = !res.all && form.get("giveup") === "1";
@@ -830,7 +838,7 @@
       else p.tries++;
       var v = newCardView(deck, task, p, res.results, reveal, res.all, struck);
       v.streak = p.streak;
-      v.bar = {index: p.i, total: p.n, nav: newNav(deck.slug, id, 0, p)};
+      v.bar = newBar(p.i, p.n, tasks.length, newNav(deck.slug, id, 0, p), p);
       return {html: render.card(v), attempt: {task: id, answers: answers, correct: res.all, gaveUp: giveUp}};
     }
 
@@ -881,7 +889,7 @@
       if (!data.card && !data.done) {
         if (!rest.length) {
           data.done = newDone(deck, false, pr);
-          data.bar = doneBar(slug, todo, p, todo.length);
+          data.bar = doneBar(slug, todo, p, todo.length, tasks.length);
         } else {
           data.card = inPage(freshCard(deck, last, order, rest[0], indexOf(todo, rest[0].id) + 1, todo.length, p));
         }

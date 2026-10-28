@@ -52,6 +52,9 @@ attempt). The worksheet keeps rendering wrong tasks as retries.
 order)`, clamped to `1..n`, `n` from the session (`n` param) or the current
   filter's size; for a card that still passes the filter this is what `/next`
   shows.
+- Under `unsolved` the bar counts the whole deck: position and total are shifted
+  by `deck size − n` (the cards solved before the session), so resuming after 20
+  of 100 shows 21/100, not 1/80. `mistakes` keeps its own `i/n`.
 
 ## Top bar
 

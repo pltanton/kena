@@ -139,3 +139,22 @@ func TestPlayCardIndexUnderFilter(t *testing.T) {
 	_, body = e.get(fmt.Sprintf("%s/play/card?id=%d&filter=unsolved&n=3", path, t0))
 	wantAll(t, "unsolved, solved first card", body, "Correct", "1/3")
 }
+
+func TestUnsolvedCountsWholeDeck(t *testing.T) {
+	e := setup(t)
+	path := "/s/" + e.set.Slug
+	t0, t1, t2 := e.tasks[0].ID, e.tasks[1].ID, e.tasks[2].ID
+	e.check(t0, url.Values{"a": {"γράφεις"}, "mode": {"cards"}}, true)
+
+	_, body := e.get(path + "/play?filter=unsolved")
+	wantAll(t, "resumed", body, "Αυτός", `<span class="count">2/3</span>`, `name="n" value="2"`)
+	_, body = e.check(t1, url.Values{"a": {"τρέχει"}, "mode": {"cards"}, "filter": {"unsolved"}, "i": {"1"}, "n": {"2"}}, true)
+	wantAll(t, "checked", body, `<span class="count">2/3</span>`)
+	_, body = e.get(fmt.Sprintf("%s/next?after=%d&filter=unsolved&n=2", path, t1))
+	wantAll(t, "next", body, `<span class="count">3/3</span>`)
+	_, body = e.get(fmt.Sprintf("%s/next?after=%d&filter=unsolved&n=2", path, t2))
+	wantAll(t, "done", body, `<span class="count">3/3</span>`)
+
+	_, body = e.get(path + "/play?filter=mistakes")
+	wantNone(t, "mistakes keep their own count", body, `/3</span>`)
+}
